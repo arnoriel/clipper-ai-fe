@@ -1,6 +1,6 @@
 // src/lib/storage.ts
-// All local storage interactions (project metadata in localStorage)
-// Video blobs are stored separately in IndexedDB via src/lib/videoDB.ts
+// Local storage for project metadata (localStorage)
+// Video blobs stored in IndexedDB via src/lib/videoDB.ts
 
 import type { ViralMoment, VideoAnalysisResult } from "./AI";
 
@@ -35,34 +35,23 @@ export interface ProjectClip {
   momentId: string;
   moment: ViralMoment;
   edits: ClipEdits;
-  generatedContent?: {
-    titles: string[];
-    captions: string[];
-    hashtags: string[];
-  };
   exportedUrl?: string;
 }
 
 export interface Project {
   id: string;
-  videoUrl: string;
-  videoId: string;
-  videoTitle: string;
-  videoThumbnail: string;
-  videoDuration: number;
+
+  // Source file info (replacing YouTube fields)
+  videoFileName: string;   // original file name e.g. "my-video.mp4"
+  videoFileSize: number;   // bytes
+  videoMimeType: string;   // e.g. "video/mp4"
+  videoDuration: number;   // seconds
 
   /**
-   * Ephemeral blob: URL (created from IndexedDB, valid for current tab session).
-   * NOT persisted in localStorage — reconstructed from IndexedDB on app load.
+   * Ephemeral blob URL (from IndexedDB, valid for current session only).
+   * NOT persisted in localStorage.
    */
   localVideoUrl?: string;
-
-  /**
-   * The filename used by the local server (e.g. "dQw4w9WgXcQ.mp4").
-   * Persisted in localStorage so the export endpoint can locate the file.
-   * Also serves as the IndexedDB lookup key alongside videoId.
-   */
-  localVideoFileName?: string;
 
   analysisResult: VideoAnalysisResult;
   selectedClips: ProjectClip[];
@@ -70,9 +59,9 @@ export interface Project {
   updatedAt: number;
 }
 
-const STORAGE_KEY = "ai_clipper_projects";
+const STORAGE_KEY = "ai_clipper_projects_v2";
 
-// ─── API Key — read from Vite env, never stored in localStorage ───────────────
+// ─── API Key ──────────────────────────────────────────────────────────────────
 export function getApiKey(): string {
   return import.meta.env.VITE_OPENROUTER_API_KEY ?? "";
 }
@@ -88,7 +77,6 @@ export function loadProjects(): Project[] {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const projects: Project[] = JSON.parse(raw);
-    // localVideoUrl is ephemeral — never restore it from localStorage
     return projects.map((p) => ({ ...p, localVideoUrl: undefined }));
   } catch {
     return [];
@@ -98,13 +86,9 @@ export function loadProjects(): Project[] {
 export function saveProject(project: Project) {
   const projects = loadProjects();
   const idx = projects.findIndex((p) => p.id === project.id);
-
-  // Strip the ephemeral objectURL before persisting
   const toSave: Project = { ...project, localVideoUrl: undefined };
-
   if (idx >= 0) projects[idx] = toSave;
   else projects.unshift(toSave);
-
   localStorage.setItem(STORAGE_KEY, JSON.stringify(projects.slice(0, 20)));
 }
 
@@ -120,18 +104,12 @@ export function getProject(id: string): Project | null {
 // ─── Default edits ────────────────────────────────────────────────────────────
 export function defaultEdits(): ClipEdits {
   return {
-    cropX: 0,
-    cropY: 0,
-    cropW: 1,
-    cropH: 1,
+    cropX: 0, cropY: 0, cropW: 1, cropH: 1,
     aspectRatio: "original",
     textOverlays: [],
-    brightness: 0,
-    contrast: 0,
-    saturation: 0,
+    brightness: 0, contrast: 0, saturation: 0,
     speed: 1,
-    trimStart: 0,
-    trimEnd: 0,
+    trimStart: 0, trimEnd: 0,
   };
 }
 

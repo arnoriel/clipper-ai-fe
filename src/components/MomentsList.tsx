@@ -2,7 +2,7 @@
 import { useState } from "react";
 import {
   Flame, Zap, Heart, Brain, AlertTriangle, Star, Drama,
-  CheckCircle2, Circle, Clock, TrendingUp, Play, Sparkles
+  CheckCircle2, Circle, Clock, TrendingUp, Play, Sparkles, Film
 } from "lucide-react";
 import type { ViralMoment, VideoAnalysisResult } from "../lib/AI";
 import { formatTime } from "../lib/AI";
@@ -12,20 +12,23 @@ interface Props {
   selectedIds: string[];
   onToggleSelect: (moment: ViralMoment) => void;
   onEditClip: (moment: ViralMoment) => void;
-  videoThumbnail: string;
+  videoFileName: string;
+  videoDuration: number;
 }
 
 const CATEGORY_CONFIG = {
-  funny:       { icon: Flame,        color: "text-orange-400",  bg: "bg-orange-400/10", border: "border-orange-400/20",  label: "Funny" },
-  emotional:   { icon: Heart,        color: "text-pink-400",    bg: "bg-pink-400/10",   border: "border-pink-400/20",    label: "Emotional" },
-  educational: { icon: Brain,        color: "text-blue-400",    bg: "bg-blue-400/10",   border: "border-blue-400/20",    label: "Educational" },
-  shocking:    { icon: AlertTriangle,color: "text-yellow-400",  bg: "bg-yellow-400/10", border: "border-yellow-400/20",  label: "Shocking" },
-  satisfying:  { icon: Star,         color: "text-emerald-400", bg: "bg-emerald-400/10",border: "border-emerald-400/20", label: "Satisfying" },
-  drama:       { icon: Drama,        color: "text-red-400",     bg: "bg-red-400/10",    border: "border-red-400/20",     label: "Drama" },
-  highlight:   { icon: Zap,          color: "text-violet-400",  bg: "bg-violet-400/10", border: "border-violet-400/20",  label: "Highlight" },
+  funny:       { icon: Flame,         color: "text-orange-400",  bg: "bg-orange-400/10", border: "border-orange-400/20",  label: "Funny" },
+  emotional:   { icon: Heart,         color: "text-pink-400",    bg: "bg-pink-400/10",   border: "border-pink-400/20",    label: "Emotional" },
+  educational: { icon: Brain,         color: "text-blue-400",    bg: "bg-blue-400/10",   border: "border-blue-400/20",    label: "Educational" },
+  shocking:    { icon: AlertTriangle, color: "text-yellow-400",  bg: "bg-yellow-400/10", border: "border-yellow-400/20",  label: "Shocking" },
+  satisfying:  { icon: Star,          color: "text-emerald-400", bg: "bg-emerald-400/10",border: "border-emerald-400/20", label: "Satisfying" },
+  drama:       { icon: Drama,         color: "text-red-400",     bg: "bg-red-400/10",    border: "border-red-400/20",     label: "Drama" },
+  highlight:   { icon: Zap,           color: "text-violet-400",  bg: "bg-violet-400/10", border: "border-violet-400/20",  label: "Highlight" },
 };
 
-export default function MomentsList({ result, selectedIds, onToggleSelect, onEditClip, videoThumbnail }: Props) {
+export default function MomentsList({
+  result, selectedIds, onToggleSelect, onEditClip, videoFileName, videoDuration
+}: Props) {
   const [, setHoveredId] = useState<string | null>(null);
 
   const viralBar = (score: number) => (
@@ -51,30 +54,39 @@ export default function MomentsList({ result, selectedIds, onToggleSelect, onEdi
       {/* Summary card */}
       <div className="bg-gradient-to-br from-violet-500/10 to-cyan-500/10 border border-white/10 rounded-2xl p-5">
         <div className="flex items-start gap-4">
-          <img src={videoThumbnail} alt="" className="w-20 h-14 object-cover rounded-lg shrink-0" />
+          {/* File icon instead of thumbnail */}
+          <div className="w-20 h-14 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+            <Film size={24} className="text-violet-400" />
+          </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-1">
               <Sparkles size={14} className="text-violet-400" />
               <span className="text-xs font-mono text-violet-400 uppercase tracking-wider">AI Analysis</span>
             </div>
+            <p className="text-xs text-zinc-500 truncate font-mono mb-1">{videoFileName}</p>
             <p className="text-sm text-zinc-300 leading-relaxed">{result.summary}</p>
           </div>
         </div>
 
-        <div className="mt-4 flex items-center gap-6 pt-4 border-t border-white/[0.06]">
+        <div className="mt-4 flex items-center gap-6 pt-4 border-t border-white/[0.06] flex-wrap">
+          <div className="flex items-center gap-2">
+            <Clock size={14} className="text-cyan-400" />
+            <span className="text-xs text-zinc-400">Durasi</span>
+            <span className="text-sm font-bold text-white font-mono">{formatTime(videoDuration)}</span>
+          </div>
           <div className="flex items-center gap-2">
             <TrendingUp size={14} className="text-cyan-400" />
-            <span className="text-xs text-zinc-400">Overall Viral Score</span>
+            <span className="text-xs text-zinc-400">Viral Score</span>
             <span className="text-sm font-bold text-white">{result.totalViralPotential}/10</span>
           </div>
           <div className="flex items-center gap-2">
             <Zap size={14} className="text-violet-400" />
-            <span className="text-xs text-zinc-400">Moments Found</span>
+            <span className="text-xs text-zinc-400">Momen</span>
             <span className="text-sm font-bold text-white">{result.moments.length}</span>
           </div>
           <div className="flex items-center gap-2">
             <CheckCircle2 size={14} className="text-green-400" />
-            <span className="text-xs text-zinc-400">Selected</span>
+            <span className="text-xs text-zinc-400">Dipilih</span>
             <span className="text-sm font-bold text-white">{selectedIds.length}</span>
           </div>
         </div>
@@ -134,7 +146,6 @@ export default function MomentsList({ result, selectedIds, onToggleSelect, onEdi
                     </p>
 
                     <div className="flex items-center gap-4 flex-wrap">
-                      {/* Time range */}
                       <div className="flex items-center gap-1.5 text-xs text-zinc-500">
                         <Clock size={11} />
                         <span className="font-mono">
@@ -142,8 +153,6 @@ export default function MomentsList({ result, selectedIds, onToggleSelect, onEdi
                         </span>
                         <span className="text-zinc-600">({duration}s)</span>
                       </div>
-
-                      {/* Viral score */}
                       {viralBar(moment.viralScore)}
                     </div>
                   </div>
@@ -167,7 +176,7 @@ export default function MomentsList({ result, selectedIds, onToggleSelect, onEdi
 
       {selectedIds.length > 0 && (
         <div className="text-center text-xs text-zinc-600 pb-2">
-          {selectedIds.length} clip{selectedIds.length > 1 ? "s" : ""} selected — click "Edit" to customize each clip
+          {selectedIds.length} clip{selectedIds.length > 1 ? "s" : ""} dipilih — klik "Edit" untuk mengkustomisasi tiap clip
         </div>
       )}
     </div>

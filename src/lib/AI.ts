@@ -1,5 +1,5 @@
 // src/lib/AI.ts
-// All AI interactions with OpenRouter using model: arcee-ai/trinity-large-preview:free
+// AI interactions with OpenRouter — analyze local video file (no YouTube)
 
 const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
 const MODEL = "arcee-ai/trinity-large-preview:free";
@@ -9,7 +9,7 @@ export interface ViralMoment {
   label: string;
   startTime: number; // seconds
   endTime: number;   // seconds
-  reason: string;    // why this moment is viral
+  reason: string;
   viralScore: number; // 1-10
   category: "funny" | "emotional" | "educational" | "shocking" | "satisfying" | "drama" | "highlight";
 }
@@ -18,6 +18,13 @@ export interface VideoAnalysisResult {
   moments: ViralMoment[];
   summary: string;
   totalViralPotential: number;
+}
+
+export interface VideoFileInfo {
+  fileName: string;
+  fileSize: number; // bytes
+  duration: number; // seconds (read from HTMLVideoElement)
+  mimeType: string;
 }
 
 export interface AIMessage {
@@ -70,111 +77,92 @@ function parseJSON<T>(text: string): T {
   }
 }
 
-// ─── Main: Detect viral moments ───────────────────────────────────────────────
-export async function detectViralMoments(
-  videoInfo: {
-    title: string;
-    description: string;
-    duration: number;
-    chapters: { title: string; start_time: number }[];
-    tags: string[];
-    transcript: string;
-  },
+// ─── Main: Detect viral moments from local video file ─────────────────────────
+export async function detectViralMomentsFromFile(
+  videoInfo: VideoFileInfo,
   apiKey: string,
   onProgress?: (msg: string) => void
 ): Promise<VideoAnalysisResult> {
-  onProgress?.("Menganalisis metadata video...");
+  onProgress?.("Mengirim metadata video ke AI...");
 
-  const chaptersText =
-    videoInfo.chapters.length > 0
-      ? videoInfo.chapters
-          .map((c) => `- ${c.title} pada ${formatTime(c.start_time)} (${c.start_time}s)`)
-          .join("\n")
-      : "Tidak ada chapter tersedia";
-
-  // Gunakan lebih banyak transcript untuk akurasi lebih tinggi
-  const transcriptSnippet = videoInfo.transcript
-    ? videoInfo.transcript.substring(0, 5000)
-    : "Tidak ada transcript tersedia";
-
-  onProgress?.("Mengirim ke AI untuk deteksi momen viral...");
+  const fileSizeMB = (videoInfo.fileSize / 1_048_576).toFixed(1);
 
   const systemPrompt = `Kamu adalah seorang analis konten viral profesional dan strategi media sosial berpengalaman yang SELALU merespons dalam Bahasa Indonesia.
 
 Keahlianmu:
-- Mengidentifikasi momen yang memiliki daya tarik emosional tinggi (tawa, haru, kagum, syok, inspirasi)
+- Mengidentifikasi segmen video yang memiliki daya tarik emosional tinggi
 - Memahami pola konten yang viral di TikTok, Instagram Reels, dan YouTube Shorts
-- Membaca transcript/subtitles untuk menemukan momen percakapan yang kuat
-- Menentukan timestamp yang presisi berdasarkan alur konten
+- Membagi video menjadi segmen-segmen berpotensi viral berdasarkan durasi total
+- Menentukan timestamp yang presisi dan masuk akal
 - Menilai potensi viral berdasarkan hook, retensi, dan shareability
 
 Prinsip analisismu:
-1. AKURASI TIMESTAMP: Gunakan transcript dan chapter untuk menentukan timestamp yang tepat
+1. DISTRIBUSI MERATA: Sebarkan momen ke seluruh durasi video secara proporsional
 2. DURASI OPTIMAL: Prioritaskan klip 20-60 detik (sweet spot untuk Reels/Shorts)
-3. HOOK KUAT: Setiap klip harus dimulai dengan momen yang langsung menarik perhatian dalam 3 detik pertama
-4. KELENGKAPAN NARASI: Klip harus punya awal, tengah, dan akhir yang jelas
-5. KEBERAGAMAN: Pilih momen dari bagian video yang berbeda-beda, jangan menumpuk di satu area
+3. HOOK KUAT: Setiap klip harus dimulai dengan momen yang langsung menarik perhatian
+4. KELENGKAPAN: Klip harus punya awal, tengah, dan akhir yang jelas
+5. VARIASI: Pilih berbagai kategori momen yang berbeda
 
-Selalu respons dalam Bahasa Indonesia yang natural dan informatif. Hanya keluarkan JSON yang valid.`;
+Selalu respons dalam Bahasa Indonesia yang natural. Hanya keluarkan JSON yang valid.`;
 
-  const userPrompt = `Analisis video YouTube ini secara mendalam dan identifikasi 5-8 momen viral terbaik yang cocok dijadikan klip pendek untuk media sosial (TikTok, Instagram Reels, YouTube Shorts).
+  const userPrompt = `Kamu menerima informasi tentang sebuah file video lokal yang akan dianalisis untuk ditemukan momen viral terbaik.
 
-═══ METADATA VIDEO ═══
-Judul: ${videoInfo.title}
-Durasi Total: ${videoInfo.duration} detik (${formatTime(videoInfo.duration)})
-Tags: ${videoInfo.tags.slice(0, 20).join(", ")}
+═══ INFORMASI FILE VIDEO ═══
+Nama file  : ${videoInfo.fileName}
+Ukuran     : ${fileSizeMB} MB
+Durasi     : ${videoInfo.duration} detik (${formatTime(videoInfo.duration)})
+Format     : ${videoInfo.mimeType}
 
-═══ DESKRIPSI ═══
-${videoInfo.description.substring(0, 1000)}
+═══ TUGAS ═══
+Berdasarkan durasi video (${videoInfo.duration} detik = ${formatTime(videoInfo.duration)}), identifikasi 5-8 segmen terbaik yang berpotensi viral sebagai klip pendek untuk media sosial.
 
-═══ CHAPTER / SEGMEN ═══
-${chaptersText}
+Karena kamu tidak bisa melihat isi video, gunakan logika distribusi durasi yang cerdas:
+- Bagi durasi total menjadi segmen-segmen yang masuk akal
+- Distribusikan momen secara merata dari awal hingga akhir video
+- Pastikan setiap momen memiliki durasi 15-90 detik
+- Jangan buat timestamp yang tumpang tindih
+- Mulai dari detik ke-0 atau awal video, dan akhiri sebelum atau tepat di durasi total
 
-═══ TRANSCRIPT (${videoInfo.transcript ? "tersedia" : "tidak tersedia"}) ═══
-${transcriptSnippet}
-
-═══ PANDUAN ANALISIS ═══
-Saat memilih momen viral, pertimbangkan faktor-faktor ini secara berurutan:
-
-1. HOOK SCORE (0-10): Seberapa kuat momen ini menarik perhatian di 3 detik pertama?
-2. EMOTIONAL PEAK: Apakah ada puncak emosi (tertawa, terkejut, haru, kagum)?
-3. STANDALONE VALUE: Apakah klip ini bisa dipahami tanpa konteks video penuh?
-4. SHAREABILITY: Apakah penonton akan menekan share setelah menontonnya?
-5. REWATCH VALUE: Apakah penonton akan menontonnya lebih dari sekali?
+Panduan distribusi untuk video ${videoInfo.duration} detik:
+- Bagian awal (0% - 20%): 0 - ${Math.round(videoInfo.duration * 0.2)}s → biasanya berisi intro/hook
+- Bagian awal-tengah (20% - 40%): ${Math.round(videoInfo.duration * 0.2)} - ${Math.round(videoInfo.duration * 0.4)}s
+- Bagian tengah (40% - 60%): ${Math.round(videoInfo.duration * 0.4)} - ${Math.round(videoInfo.duration * 0.6)}s
+- Bagian tengah-akhir (60% - 80%): ${Math.round(videoInfo.duration * 0.6)} - ${Math.round(videoInfo.duration * 0.8)}s
+- Bagian akhir (80% - 100%): ${Math.round(videoInfo.duration * 0.8)} - ${videoInfo.duration}s → biasanya berisi kesimpulan/CTA
 
 Kategori yang tersedia:
-- "funny": Momen lucu, humor, atau menggelikan
-- "emotional": Momen mengharukan, inspiratif, atau menyentuh hati
-- "educational": Fakta menarik, tutorial, atau insight berharga
-- "shocking": Revelasi mengejutkan, twist, atau konten yang membuat syok
-- "satisfying": Momen memuaskan, hasil kerja keras, atau kesimpulan yang epik
-- "drama": Konflik, ketegangan, atau situasi dramatis
-- "highlight": Momen puncak, pencapaian, atau adegan terbaik
+- "funny": Momen lucu, humor
+- "emotional": Momen mengharukan, inspiratif
+- "educational": Fakta menarik, tutorial, insight
+- "shocking": Revelasi mengejutkan, twist
+- "satisfying": Momen memuaskan, kesimpulan epik
+- "drama": Konflik, ketegangan
+- "highlight": Momen puncak, pencapaian
 
 PENTING:
 - startTime dan endTime HARUS dalam detik (bilangan bulat)
-- Durasi ideal tiap klip: 15-90 detik (MAKS 120 detik)
-- viralScore 1-10 berdasarkan potensi viral nyata
-- Timestamp TIDAK BOLEH melebihi durasi video (${videoInfo.duration} detik)
-- Distribusikan momen ke berbagai bagian video agar variatif
-- Jika ada transcript, gunakan isi percakapan untuk menentukan timestamp yang tepat
+- Durasi tiap klip: 15-90 detik maksimal
+- Timestamp TIDAK BOLEH melebihi ${videoInfo.duration} detik
+- Buat label yang menarik dan deskriptif dalam Bahasa Indonesia
 
-Kembalikan HANYA JSON valid dalam format ini:
+Kembalikan HANYA JSON valid:
 {
-  "summary": "Analisis 2-3 kalimat tentang potensi viral video ini dalam Bahasa Indonesia",
+  "summary": "Analisis singkat 2-3 kalimat tentang potensi video ini untuk konten viral dalam Bahasa Indonesia",
   "totalViralPotential": 7,
   "moments": [
     {
       "id": "moment_1",
-      "label": "Label singkat dan menarik untuk klip ini (maks 8 kata)",
-      "startTime": 45,
-      "endTime": 90,
-      "reason": "Penjelasan 2-3 kalimat mengapa momen ini berpotensi viral dalam Bahasa Indonesia, termasuk elemen apa yang membuatnya menarik",
-      "viralScore": 9,
-      "category": "funny"
+      "label": "Label menarik untuk klip (maks 8 kata)",
+      "startTime": 10,
+      "endTime": 55,
+      "reason": "Penjelasan 2 kalimat mengapa segmen ini berpotensi viral dalam Bahasa Indonesia",
+      "viralScore": 8,
+      "category": "highlight"
     }
   ]
 }`;
+
+  onProgress?.("AI sedang menganalisis dan membagi video menjadi momen viral...");
 
   const rawResponse = await callAI(
     [
@@ -189,13 +177,12 @@ Kembalikan HANYA JSON valid dalam format ini:
 
   const parsed = parseJSON<VideoAnalysisResult>(rawResponse);
 
-  // Validasi dan perbaiki timestamp
   const moments: ViralMoment[] = (parsed.moments || [])
     .filter((m) => {
-      const validStart = m.startTime >= 0;
-      const validEnd   = m.endTime <= videoInfo.duration;
-      const validOrder = m.startTime < m.endTime;
-      const minDuration = (m.endTime - m.startTime) >= 10; // minimal 10 detik
+      const validStart  = m.startTime >= 0;
+      const validEnd    = m.endTime <= videoInfo.duration;
+      const validOrder  = m.startTime < m.endTime;
+      const minDuration = (m.endTime - m.startTime) >= 10;
       return validStart && validEnd && validOrder && minDuration;
     })
     .map((m, i) => ({
@@ -205,7 +192,6 @@ Kembalikan HANYA JSON valid dalam format ini:
       startTime:  Math.round(m.startTime),
       endTime:    Math.min(Math.round(m.endTime), videoInfo.duration),
     }))
-    // Urutkan berdasarkan viralScore tertinggi
     .sort((a, b) => b.viralScore - a.viralScore);
 
   return {
@@ -215,15 +201,15 @@ Kembalikan HANYA JSON valid dalam format ini:
   };
 }
 
-// ─── Generate clip title & caption suggestions ────────────────────────────────
+// ─── Generate clip title & caption ───────────────────────────────────────────
 export async function generateClipContent(
   moment: ViralMoment,
-  videoTitle: string,
+  videoFileName: string,
   apiKey: string
 ): Promise<{ titles: string[]; captions: string[]; hashtags: string[] }> {
   const prompt = `Kamu adalah content creator media sosial yang kreatif. Buat konten yang menarik untuk klip ini dalam Bahasa Indonesia.
 
-Video Asli: "${videoTitle}"
+File Video: "${videoFileName}"
 Klip: "${moment.label}" (${formatTime(moment.startTime)} - ${formatTime(moment.endTime)})
 Kategori: ${moment.category}
 Mengapa viral: ${moment.reason}
@@ -233,12 +219,7 @@ Kembalikan HANYA JSON valid:
   "titles": ["Judul opsi 1", "Judul opsi 2", "Judul opsi 3"],
   "captions": ["Caption opsi 1 (dengan emoji yang relevan)", "Caption opsi 2 (lebih singkat)"],
   "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3", "#hashtag4", "#hashtag5"]
-}
-
-Panduan:
-- Judul harus memancing rasa ingin tahu (clickbait positif)
-- Caption harus engaging dan mendorong interaksi
-- Hashtag campuran antara Indonesia dan internasional yang relevan`;
+}`;
 
   const raw = await callAI(
     [{ role: "user", content: prompt }],
@@ -247,53 +228,6 @@ Panduan:
   );
 
   return parseJSON(raw);
-}
-
-// ─── Suggest edit actions for a clip ─────────────────────────────────────────
-export async function suggestEdits(
-  moment: ViralMoment,
-  apiKey: string
-): Promise<{ suggestion: string; textOverlay?: string; aspectRatio?: string }> {
-  const prompt = `Kamu adalah editor video profesional. Sarankan edit terbaik untuk klip viral ini dalam Bahasa Indonesia.
-
-Klip: "${moment.label}"
-Kategori: ${moment.category}
-Durasi: ${moment.endTime - moment.startTime} detik
-Alasan viral: ${moment.reason}
-
-Kembalikan HANYA JSON valid:
-{
-  "suggestion": "Saran editing singkat dalam 1-2 kalimat Bahasa Indonesia",
-  "textOverlay": "Teks bold yang disarankan untuk overlay di video (atau null jika tidak perlu)",
-  "aspectRatio": "9:16"
-}
-aspectRatio harus salah satu dari: "9:16", "16:9", "1:1", "4:3"
-Untuk konten TikTok/Reels selalu gunakan "9:16".`;
-
-  const raw = await callAI(
-    [{ role: "user", content: prompt }],
-    apiKey,
-    { maxTokens: 300, temperature: 0.5 }
-  );
-
-  return parseJSON(raw);
-}
-
-// ─── Chat with AI about the video ────────────────────────────────────────────
-export async function chatAboutVideo(
-  messages: AIMessage[],
-  videoContext: string,
-  apiKey: string
-): Promise<string> {
-  const system: AIMessage = {
-    role: "system",
-    content: `Kamu adalah asisten AI untuk editing video yang selalu berkomunikasi dalam Bahasa Indonesia.
-Kamu membantu pengguna memahami dan mengedit klip video mereka.
-Konteks video: ${videoContext}
-Berikan respons yang ringkas, membantu, dan kreatif dalam Bahasa Indonesia.`,
-  };
-
-  return callAI([system, ...messages], apiKey, { maxTokens: 500, temperature: 0.6 });
 }
 
 // ─── Utility ──────────────────────────────────────────────────────────────────
