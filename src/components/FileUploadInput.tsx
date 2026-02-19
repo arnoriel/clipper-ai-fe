@@ -34,7 +34,6 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
   const [fileError, setFileError]   = useState("");
   const [loadingDuration, setLoadingDuration] = useState(false);
   const inputRef  = useRef<HTMLInputElement>(null);
-  const videoRef  = useRef<HTMLVideoElement>(null);
 
   const apiKeyOk = isApiKeyConfigured();
 
