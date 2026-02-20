@@ -16,6 +16,16 @@ export interface TextOverlay {
   bold: boolean;
 }
 
+export interface SubtitleWord {
+  id: string;
+  word: string;                // actual word text (e.g., "halo", "dunia")
+  startTime: number;           // seconds from clip start (e.g., 1.234)
+  endTime: number;             // seconds from clip start (e.g., 1.567)
+  isKeyword: boolean;          // true if AI detected as important keyword
+  emoji: string | null;        // emoji character if AI assigned (e.g., "🔥", "😂")
+  color: string;               // hex color: "#FFFFFF" for normal, "#FFD700" for keywords
+}
+
 export interface ClipEdits {
   cropX: number;
   cropY: number;
@@ -23,6 +33,7 @@ export interface ClipEdits {
   cropH: number;
   aspectRatio: "9:16" | "16:9" | "1:1" | "4:3" | "original";
   textOverlays: TextOverlay[];
+  subtitles: SubtitleWord[];   // auto-generated per-word subtitles
   brightness: number;   // -1 to 1
   contrast: number;     // -1 to 1
   saturation: number;   // -1 to 1
@@ -107,6 +118,7 @@ export function defaultEdits(): ClipEdits {
     cropX: 0, cropY: 0, cropW: 1, cropH: 1,
     aspectRatio: "original",
     textOverlays: [],
+    subtitles: [],
     brightness: 0, contrast: 0, saturation: 0,
     speed: 1,
     trimStart: 0, trimEnd: 0,

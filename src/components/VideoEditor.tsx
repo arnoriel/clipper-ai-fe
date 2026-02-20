@@ -4,11 +4,11 @@
 import { useState, useRef, useEffect } from "react";
 import {
   X, Play, Pause, SkipBack, SkipForward, Type, Crop,
-  Sliders, Zap, Download, Loader2, Plus, Trash2, Clock, RefreshCw,
+  Sliders, Zap, Download, Loader2, Plus, Trash2, Clock, RefreshCw, Captions,
 } from "lucide-react";
 import type { ViralMoment } from "../lib/AI";
 import { formatTime } from "../lib/AI";
-import type { ClipEdits, TextOverlay } from "../lib/storage";
+import type { ClipEdits, TextOverlay, SubtitleWord } from "../lib/storage";
 import { generateId } from "../lib/storage";
 
 interface Props {
@@ -21,7 +21,7 @@ interface Props {
   isExporting: boolean;
 }
 
-type Tab = "trim" | "crop" | "text" | "color" | "speed";
+type Tab = "trim" | "crop" | "text" | "subtitle" | "color" | "speed";
 
 const ASPECT_RATIOS: { label: string; value: ClipEdits["aspectRatio"]; desc: string }[] = [
   { label: "Original",      value: "original", desc: "Keep source dimensions" },
@@ -107,6 +107,26 @@ export default function VideoEditor({
     updateEdits({ textOverlays: edits.textOverlays.filter((t) => t.id !== id) });
   }
 
+  // Subtitle management functions
+  function updateSubtitleWord(id: string, changes: Partial<SubtitleWord>) {
+    updateEdits({
+      subtitles: edits.subtitles.map((s) => s.id === id ? { ...s, ...changes } : s),
+    });
+  }
+
+  function deleteSubtitleWord(id: string) {
+    updateEdits({ subtitles: edits.subtitles.filter((s) => s.id !== id) });
+  }
+
+  function toggleKeywordHighlight(id: string) {
+    const word = edits.subtitles.find((s) => s.id === id);
+    if (!word) return;
+    updateSubtitleWord(id, {
+      isKeyword: !word.isKeyword,
+      color: !word.isKeyword ? "#FFD700" : "#FFFFFF"
+    });
+  }
+
   const progressPct = clipDuration > 0 ? ((currentTime - clipStart) / clipDuration) * 100 : 0;
   const isCropped = edits.aspectRatio !== "original";
   const [arW, arH] = isCropped ? edits.aspectRatio.split(":").map(Number) : [16, 9];
@@ -174,6 +194,33 @@ export default function VideoEditor({
                       </div>
                     ))}
 
+                    {/* Subtitle overlays (per-word, synced with video time) */}
+                    {edits.subtitles
+                      .filter(s => {
+                        const relativeTime = currentTime - clipStart;
+                        return relativeTime >= s.startTime && relativeTime <= s.endTime;
+                      })
+                      .map(s => (
+                        <div
+                          key={s.id}
+                          className="absolute pointer-events-none"
+                          style={{
+                            left: "50%",
+                            bottom: "15%",
+                            transform: "translateX(-50%)",
+                            fontSize: isCropped ? "24px" : "48px",
+                            fontFamily: "'Open Sans', sans-serif",
+                            fontWeight: "bold",
+                            color: s.color,
+                            textShadow: "2px 2px 4px rgba(0,0,0,0.9), -2px -2px 4px rgba(0,0,0,0.9), 2px -2px 4px rgba(0,0,0,0.9), -2px 2px 4px rgba(0,0,0,0.9)",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {s.word}{s.emoji ? ` ${s.emoji}` : ""}
+                        </div>
+                      ))
+                    }
+
                     {isCropped && (
                       <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 text-cyan-400 text-[10px] font-mono border border-cyan-500/30 pointer-events-none">
                         {edits.aspectRatio}
@@ -231,11 +278,12 @@ export default function VideoEditor({
             {/* Tabs */}
             <div className="flex overflow-x-auto border-b border-white/[0.06] bg-black/20 shrink-0">
               {([
-                { id: "trim",  icon: Clock,   label: "Trim"  },
-                { id: "crop",  icon: Crop,    label: "Crop"  },
-                { id: "text",  icon: Type,    label: "Text"  },
-                { id: "color", icon: Sliders, label: "Color" },
-                { id: "speed", icon: Zap,     label: "Speed" },
+                { id: "trim",     icon: Clock,    label: "Trim"  },
+                { id: "crop",     icon: Crop,     label: "Crop"  },
+                { id: "text",     icon: Type,     label: "Text"  },
+                { id: "subtitle", icon: Captions, label: "Subtitle" },
+                { id: "color",    icon: Sliders,  label: "Color" },
+                { id: "speed",    icon: Zap,      label: "Speed" },
               ] as const).map(({ id, icon: Icon, label }) => (
                 <button
                   key={id}
@@ -358,6 +406,125 @@ export default function VideoEditor({
                       </div>
                     ))}
                   </div>
+                </>
+              )}
+
+              {activeTab === "subtitle" && (
+                <>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                      Auto-Generated Subtitles
+                    </h3>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20">
+                      {edits.subtitles.length} words
+                    </span>
+                  </div>
+
+                  {edits.subtitles.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Captions size={32} className="mx-auto mb-2 text-zinc-700" />
+                      <p className="text-xs text-zinc-600">Tidak ada subtitle yang di-generate</p>
+                      <p className="text-[10px] text-zinc-700 mt-1">Video mungkin tidak memiliki audio vokal</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+                      {edits.subtitles.map((sub) => {
+                        const relativeTime = currentTime - clipStart;
+                        const isActive = relativeTime >= sub.startTime && relativeTime <= sub.endTime;
+
+                        return (
+                          <div
+                            key={sub.id}
+                            className={`rounded-xl p-3 border transition-all ${
+                              isActive
+                                ? "bg-violet-500/20 border-violet-500/40 shadow-lg"
+                                : "bg-white/[0.03] border-white/[0.06]"
+                            }`}
+                          >
+                            <div className="flex items-start gap-2 mb-2">
+                              <input
+                                type="text"
+                                value={sub.word}
+                                onChange={(e) => updateSubtitleWord(sub.id, { word: e.target.value })}
+                                className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-violet-500/40"
+                              />
+                              <button
+                                onClick={() => deleteSubtitleWord(sub.id)}
+                                className="text-zinc-600 hover:text-red-400 transition-colors p-1"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 mb-2">
+                              <div>
+                                <label className="block text-[10px] text-zinc-600 mb-1">Start (s)</label>
+                                <input
+                                  type="number"
+                                  step={0.1}
+                                  value={sub.startTime.toFixed(3)}
+                                  onChange={(e) => updateSubtitleWord(sub.id, { startTime: parseFloat(e.target.value) })}
+                                  className="w-full bg-white/[0.04] border border-white/[0.08] rounded px-2 py-1 text-[10px] text-white font-mono focus:outline-none focus:border-violet-500/40"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-zinc-600 mb-1">End (s)</label>
+                                <input
+                                  type="number"
+                                  step={0.1}
+                                  value={sub.endTime.toFixed(3)}
+                                  onChange={(e) => updateSubtitleWord(sub.id, { endTime: parseFloat(e.target.value) })}
+                                  className="w-full bg-white/[0.04] border border-white/[0.08] rounded px-2 py-1 text-[10px] text-white font-mono focus:outline-none focus:border-violet-500/40"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <button
+                                onClick={() => toggleKeywordHighlight(sub.id)}
+                                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium transition-colors border ${
+                                  sub.isKeyword
+                                    ? "bg-yellow-500/20 border-yellow-500/40 text-yellow-400"
+                                    : "bg-white/[0.03] border-white/[0.06] text-zinc-500"
+                                }`}
+                              >
+                                ⭐ Keyword
+                              </button>
+
+                              <input
+                                type="text"
+                                placeholder="Emoji"
+                                value={sub.emoji || ""}
+                                onChange={(e) => updateSubtitleWord(sub.id, { emoji: e.target.value || null })}
+                                className="w-12 bg-white/[0.04] border border-white/[0.08] rounded px-1 py-1 text-xs text-center focus:outline-none focus:border-violet-500/40"
+                              />
+
+                              <input
+                                type="color"
+                                value={sub.color}
+                                onChange={(e) => updateSubtitleWord(sub.id, { color: e.target.value })}
+                                className="w-8 h-6 rounded cursor-pointer bg-transparent border border-white/10"
+                                title="Color"
+                              />
+
+                              {isActive && (
+                                <span className="ml-auto text-[10px] text-violet-400 font-mono">▶ Playing</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {edits.subtitles.length > 0 && (
+                    <div className="mt-3 bg-cyan-500/5 border border-cyan-500/20 rounded-xl p-3">
+                      <p className="text-[10px] text-cyan-400 font-medium mb-1">Subtitle Styling</p>
+                      <p className="text-[10px] text-zinc-500 leading-relaxed">
+                        Font: Open Sans Bold • Outline: Black 3px • Keywords in yellow (⭐) • Emoji dapat diedit
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
 

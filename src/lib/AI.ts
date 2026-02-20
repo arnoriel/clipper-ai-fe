@@ -1,6 +1,10 @@
 // src/lib/AI.ts
 // AI interactions with OpenRouter — analyze local video file (no YouTube)
 
+import type { SubtitleWord } from "./storage";
+import { generateId } from "./storage";
+import { extractAudioSegment, estimateWordTimings } from "../utils/audioExtraction";
+
 const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
 const MODEL = "arcee-ai/trinity-large-preview:free";
 
@@ -199,6 +203,200 @@ Kembalikan HANYA JSON valid:
     summary:             parsed.summary || "Analisis selesai.",
     totalViralPotential: parsed.totalViralPotential || 5,
   };
+}
+
+// ─── Generate subtitles from video audio ──────────────────────────────────────
+export async function generateSubtitlesForClip(
+  videoBlob: Blob,
+  clipStartTime: number,
+  clipEndTime: number,
+  apiKey: string,
+  onProgress?: (msg: string) => void
+): Promise<SubtitleWord[]> {
+  try {
+    onProgress?.("Mengekstrak audio dari klip...");
+
+    // Extract audio segment for this clip
+    const audioBlob = await extractAudioSegment(videoBlob, clipStartTime, clipEndTime);
+
+    onProgress?.("Melakukan speech-to-text...");
+
+    // Transcribe using Web Speech API
+    const transcript = await transcribeAudio(audioBlob, clipStartTime, clipEndTime);
+
+    if (!transcript || transcript.words.length === 0) {
+      // No speech detected
+      return [];
+    }
+
+    onProgress?.("Mendeteksi kata kunci dan emoji...");
+
+    // Detect keywords and emojis using AI
+    const { keywords, emojiMap } = await detectKeywordsAndEmojis(
+      transcript.words.map(w => w.word).join(" "),
+      apiKey
+    );
+
+    // Build SubtitleWord array with keyword highlighting and emojis
+    const subtitles: SubtitleWord[] = transcript.words.map((wordData) => {
+      const isKeyword = keywords.includes(wordData.word.toLowerCase());
+
+      return {
+        id: generateId(),
+        word: wordData.word,
+        startTime: wordData.startTime,
+        endTime: wordData.endTime,
+        isKeyword,
+        emoji: emojiMap[wordData.word.toLowerCase()] || null,
+        color: isKeyword ? "#FFD700" : "#FFFFFF"
+      };
+    });
+
+    return subtitles;
+
+  } catch (err) {
+    console.warn("Subtitle generation failed:", err);
+    // Return empty array on failure (non-blocking)
+    return [];
+  }
+}
+
+// ─── Transcribe audio using Web Speech API ────────────────────────────────────
+async function transcribeAudio(
+  audioBlob: Blob,
+  clipStartTime: number,
+  clipEndTime: number
+): Promise<{ words: Array<{ word: string; startTime: number; endTime: number }> }> {
+  return new Promise((resolve, reject) => {
+    // Check if Web Speech API is available
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      reject(new Error("Browser tidak mendukung speech recognition. Gunakan Chrome/Edge."));
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = "id-ID"; // Indonesian language
+
+    const allWords: Array<{ word: string; startTime: number; endTime: number }> = [];
+
+    // Create audio element to play the blob
+    const audio = new Audio(URL.createObjectURL(audioBlob));
+
+    recognition.onresult = (event: any) => {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          const transcript = event.results[i][0].transcript;
+          const words = transcript.trim().split(/\s+/);
+
+          // Estimate word timings based on current audio time
+          const currentTime = audio.currentTime;
+          const estimatedDuration = (clipEndTime - clipStartTime) / words.length;
+
+          words.forEach((word, idx) => {
+            if (word.length > 0) {
+              allWords.push({
+                word: word.replace(/[.,!?;:]/g, ''), // Remove punctuation
+                startTime: currentTime + (idx * estimatedDuration),
+                endTime: currentTime + ((idx + 1) * estimatedDuration)
+              });
+            }
+          });
+        }
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      URL.revokeObjectURL(audio.src);
+      reject(new Error(`Speech recognition error: ${event.error}`));
+    };
+
+    recognition.onend = () => {
+      URL.revokeObjectURL(audio.src);
+
+      // If no words detected, try fallback estimation
+      if (allWords.length === 0) {
+        resolve({ words: [] });
+      } else {
+        resolve({ words: allWords });
+      }
+    };
+
+    // Start recognition when audio starts playing
+    audio.onplay = () => {
+      recognition.start();
+    };
+
+    audio.onended = () => {
+      recognition.stop();
+    };
+
+    // Play audio to trigger recognition
+    audio.play().catch((err) => {
+      reject(new Error(`Failed to play audio: ${err.message}`));
+    });
+  });
+}
+
+// ─── Detect keywords and assign emojis using AI ───────────────────────────────
+async function detectKeywordsAndEmojis(
+  transcript: string,
+  apiKey: string
+): Promise<{ keywords: string[]; emojiMap: Record<string, string> }> {
+  try {
+    const prompt = `Analisis transkrip video berikut dalam Bahasa Indonesia dan identifikasi 3-5 kata kunci penting yang akan menarik perhatian di video viral.
+
+Untuk setiap kata kunci, pilih emoji yang sesuai konteks.
+
+Transkrip: "${transcript}"
+
+Kembalikan HANYA JSON valid:
+{
+  "keywords": ["kata1", "kata2", "kata3"],
+  "emojiMap": {
+    "kata1": "🔥",
+    "kata2": "😂",
+    "kata3": "😱"
+  }
+}
+
+Pedoman emoji:
+- 🔥 untuk kata yang menunjukkan kehebatan, api, trending
+- 😂 untuk kata lucu, humor
+- 😱 untuk kejutan, shocking
+- 💯 untuk sempurna, 100%
+- ✨ untuk spesial, magic
+- 💪 untuk kekuatan, motivasi
+- ❤️ untuk cinta, emosi
+- 🎯 untuk target, fokus
+- 💰 untuk uang, bisnis
+- 🚀 untuk pertumbuhan, sukses
+
+Gunakan emoji yang relevan dengan konteks kata dalam kalimat.`;
+
+    const raw = await callAI(
+      [{ role: "user", content: prompt }],
+      apiKey,
+      { maxTokens: 500, temperature: 0.5 }
+    );
+
+    const result = parseJSON<{ keywords: string[]; emojiMap: Record<string, string> }>(raw);
+
+    return {
+      keywords: (result.keywords || []).map(k => k.toLowerCase()),
+      emojiMap: Object.fromEntries(
+        Object.entries(result.emojiMap || {}).map(([k, v]) => [k.toLowerCase(), v])
+      )
+    };
+
+  } catch (err) {
+    console.warn("Keyword detection failed, proceeding without highlights:", err);
+    // Return empty on failure (non-blocking)
+    return { keywords: [], emojiMap: {} };
+  }
 }
 
 // ─── Generate clip title & caption ───────────────────────────────────────────

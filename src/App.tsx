@@ -8,7 +8,7 @@ import FileUploadInput from "./components/FileUploadInput";
 import MomentsList  from "./components/MomentsList";
 import VideoEditor  from "./components/VideoEditor";
 import ExportPanel  from "./components/ExportPanel";
-import { detectViralMomentsFromFile, formatTime, type ViralMoment } from "./lib/AI";
+import { detectViralMomentsFromFile, generateSubtitlesForClip, formatTime, type ViralMoment } from "./lib/AI";
 import {
   saveProject, defaultEdits, generateId, getApiKey,
   type Project, type ProjectClip, type ClipEdits,
@@ -139,6 +139,38 @@ export default function App() {
         (msg) => setProgressMsg(msg)
       );
 
+      // 4. Generate subtitles for each detected moment
+      setProgressMsg("Menghasilkan subtitle otomatis untuk setiap klip...");
+      const subtitlesMap: Record<string, any[]> = {};
+
+      for (let i = 0; i < result.moments.length; i++) {
+        const moment = result.moments[i];
+        setProgressMsg(`Menghasilkan subtitle untuk klip ${i + 1} dari ${result.moments.length}...`);
+
+        try {
+          const subtitles = await generateSubtitlesForClip(
+            file,
+            moment.startTime,
+            moment.endTime,
+            apiKey,
+            (msg) => setProgressMsg(`Klip ${i + 1}/${result.moments.length}: ${msg}`)
+          );
+          subtitlesMap[moment.id] = subtitles;
+        } catch (err) {
+          console.warn(`Subtitle generation failed for moment ${moment.id}:`, err);
+          subtitlesMap[moment.id] = []; // Empty subtitles on failure
+        }
+      }
+
+      // 5. Initialize clipEdits with generated subtitles
+      const initialEdits: Record<string, ClipEdits> = {};
+      for (const moment of result.moments) {
+        initialEdits[moment.id] = {
+          ...defaultEdits(),
+          subtitles: subtitlesMap[moment.id] || []
+        };
+      }
+
       const proj: Project = {
         id:            projectId,
         videoFileName: file.name,
@@ -155,7 +187,7 @@ export default function App() {
       saveProject(proj);
       setProject(proj);
       setSelectedClipIds([]);
-      setClipEdits({});
+      setClipEdits(initialEdits); // Use initialized edits with subtitles
       setExportedUrls({});
       setActivePanel("moments");
       setStep("moments");
