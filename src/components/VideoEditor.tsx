@@ -1,11 +1,11 @@
-// src/components/VideoEditor.tsx
-// No changes needed — already works generically with moment/edits data
-// (same file as before, just ensuring it's in the output)
-import { useState, useRef, useEffect } from "react";
+// /Users/haimac/Project/clipper-ai-fe/src/components/VideoEditor.tsx
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
-  X, Play, Pause, SkipBack, SkipForward, Type, Crop,
-  Sliders, Zap, Download, Loader2, Plus, Trash2, Clock, RefreshCw,
+  X, Play, Pause, Type, Crop,
+  Sliders, Download, Loader2, Plus, Trash2, Clock, 
+  Layers
 } from "lucide-react";
+import { Rnd } from "react-rnd";
 import type { ViralMoment } from "../lib/AI";
 import { formatTime } from "../lib/AI";
 import type { ClipEdits, TextOverlay } from "../lib/storage";
@@ -31,29 +31,74 @@ const ASPECT_RATIOS: { label: string; value: ClipEdits["aspectRatio"]; desc: str
   { label: "4:3 Classic",   value: "4:3",      desc: "Classic TV ratio" },
 ];
 
-const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+const PX_PER_SECOND = 40; 
+const TIMELINE_LEFT_OFFSET = 160; // Lebar kolom label layer di kiri
 
 export default function VideoEditor({
   moment, edits, videoSrc, onUpdateEdits, onExport, onClose, isExporting,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [isPlaying, setIsPlaying]     = useState(false);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const timelineTrackRef = useRef<HTMLDivElement>(null);
+  
+  const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [activeTab, setActiveTab]     = useState<Tab>("trim");
-  const [newText, setNewText]         = useState("");
+  const [activeTab, setActiveTab] = useState<Tab>("text");
+  const [newText, setNewText] = useState("");
+  const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
 
-  const clipStart    = moment.startTime + edits.trimStart;
-  const clipEnd      = moment.endTime   + edits.trimEnd;
-  const clipDuration = clipEnd - clipStart;
+  const clipStart = moment.startTime + edits.trimStart;
+  const clipEnd = moment.endTime + edits.trimEnd;
+  const clipDuration = Math.max(0.1, clipEnd - clipStart);
 
+  // --- LOGIC: TOGGLE PLAY/PAUSE ---
+  const togglePlay = useCallback(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (isPlaying) {
+      v.pause();
+      setIsPlaying(false);
+    } else {
+      if (v.currentTime >= clipEnd) v.currentTime = clipStart;
+      v.play();
+      setIsPlaying(true);
+    }
+  }, [isPlaying, clipStart, clipEnd]);
+
+  // --- LOGIC: KEYBOARD SHORTCUT (SPACEBAR) ---
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Jangan jalankan shortcut jika user sedang mengetik di input/textarea
+      if (
+        document.activeElement instanceof HTMLInputElement || 
+        document.activeElement instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      if (e.code === "Space") {
+        e.preventDefault();
+        togglePlay();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [togglePlay]);
+
+  // --- LOGIC: SYNC VIDEO TIME ---
   useEffect(() => {
     const v = videoRef.current;
     if (!v || !videoSrc) return;
+    
     v.currentTime = clipStart;
-    setCurrentTime(clipStart);
+    setCurrentTime(0);
 
     const onTime = () => {
-      setCurrentTime(v.currentTime);
+      if (isDraggingPlayhead) return; // Jangan update state jika sedang di-drag manual
+      const relative = v.currentTime - clipStart;
+      setCurrentTime(relative);
+      
       if (v.currentTime >= clipEnd) {
         v.pause();
         v.currentTime = clipStart;
@@ -63,25 +108,41 @@ export default function VideoEditor({
 
     v.addEventListener("timeupdate", onTime);
     return () => v.removeEventListener("timeupdate", onTime);
-  }, [videoSrc, clipStart, clipEnd]);
+  }, [videoSrc, clipStart, clipEnd, isDraggingPlayhead]);
 
-  function togglePlay() {
+  // --- LOGIC: SEEKING ---
+  function seekRelative(time: number) {
     const v = videoRef.current;
     if (!v) return;
-    if (isPlaying) {
-      v.pause(); setIsPlaying(false);
-    } else {
-      if (v.currentTime >= clipEnd) v.currentTime = clipStart;
-      v.play(); setIsPlaying(true);
-    }
+    const boundedTime = Math.min(Math.max(time, 0), clipDuration);
+    const newTime = clipStart + boundedTime;
+    v.currentTime = newTime;
+    setCurrentTime(boundedTime);
   }
 
-  function seek(delta: number) {
-    const v = videoRef.current;
-    if (!v) return;
-    v.currentTime = Math.min(Math.max(v.currentTime + delta, clipStart), clipEnd);
-  }
+  // --- LOGIC: DRAGGABLE PLAYHEAD ---
+  const handlePlayheadMove = useCallback((clientX: number) => {
+    if (!timelineTrackRef.current) return;
+    const rect = timelineTrackRef.current.getBoundingClientRect();
+    const x = clientX - rect.left - TIMELINE_LEFT_OFFSET;
+    seekRelative(x / PX_PER_SECOND);
+  }, [clipDuration]);
 
+  useEffect(() => {
+    if (!isDraggingPlayhead) return;
+
+    const onMouseMove = (e: MouseEvent) => handlePlayheadMove(e.clientX);
+    const onMouseUp = () => setIsDraggingPlayhead(false);
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [isDraggingPlayhead, handlePlayheadMove]);
+
+  // --- LOGIC: EDITS ---
   function updateEdits(partial: Partial<ClipEdits>) {
     onUpdateEdits({ ...edits, ...partial });
   }
@@ -89,9 +150,14 @@ export default function VideoEditor({
   function addTextOverlay() {
     if (!newText.trim()) return;
     const overlay: TextOverlay = {
-      id: generateId(), text: newText.trim(),
-      x: 0.5, y: 0.85, fontSize: 36,
-      color: "#FFFFFF", startSec: null, endSec: null, bold: true,
+      id: generateId(), 
+      text: newText.trim(),
+      x: 0.35, y: 0.5,
+      fontSize: 32,
+      color: "#FFFFFF", 
+      startSec: 0, 
+      endSec: clipDuration > 5 ? 5 : clipDuration, 
+      bold: true,
     };
     updateEdits({ textOverlays: [...edits.textOverlays, overlay] });
     setNewText("");
@@ -107,63 +173,87 @@ export default function VideoEditor({
     updateEdits({ textOverlays: edits.textOverlays.filter((t) => t.id !== id) });
   }
 
-  const progressPct = clipDuration > 0 ? ((currentTime - clipStart) / clipDuration) * 100 : 0;
   const isCropped = edits.aspectRatio !== "original";
   const [arW, arH] = isCropped ? edits.aspectRatio.split(":").map(Number) : [16, 9];
   const cssAspectRatio = `${arW} / ${arH}`;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[#111118] border border-white/10 rounded-3xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col shadow-2xl">
+    <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-4">
+      <div className="bg-[#0c0c10] border border-white/10 rounded-[32px] w-full max-w-6xl h-[92vh] overflow-hidden flex flex-col shadow-2xl">
 
-        {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-white/[0.06]">
-          <div>
-            <h2 className="text-base font-bold text-white">{moment.label}</h2>
-            <p className="text-xs text-zinc-500 mt-0.5 font-mono">
-              {formatTime(clipStart)} → {formatTime(clipEnd)} · {Math.round(clipDuration)}s
-            </p>
+        {/* HEADER */}
+        <div className="flex items-center justify-between p-5 border-b border-white/[0.05] bg-white/[0.02]">
+          <div className="flex items-center gap-4">
+            <div className="bg-violet-500/20 p-2 rounded-xl">
+              <Layers size={18} className="text-violet-400" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-white tracking-wide uppercase">{moment.label}</h2>
+              <p className="text-[10px] text-zinc-500 font-mono mt-0.5">
+                CLIP: {formatTime(clipStart)} - {formatTime(clipEnd)} ({Math.round(clipDuration)}s)
+              </p>
+            </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/10 text-zinc-400 hover:text-white transition-colors">
+          <button onClick={onClose} className="p-2.5 rounded-full hover:bg-white/10 text-zinc-400 hover:text-white transition-all">
             <X size={20} />
           </button>
         </div>
 
         <div className="flex flex-1 overflow-hidden">
+          
+          {/* MAIN AREA */}
+          <div className="flex-1 flex flex-col bg-black/40 min-w-0">
+            
+            {/* 1. Preview Area */}
+            <div className="flex-1 relative flex items-center justify-center p-6 overflow-hidden">
+              <div
+                ref={previewContainerRef}
+                className="relative shadow-2xl overflow-hidden bg-black"
+                style={
+                  isCropped
+                    ? { aspectRatio: cssAspectRatio, maxHeight: "100%", maxWidth: "100%" }
+                    : { width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }
+                }
+              >
+                <video
+                  ref={videoRef}
+                  src={videoSrc}
+                  className={isCropped ? "w-full h-full" : "max-h-full max-w-full"}
+                  style={{
+                    objectFit: isCropped ? "cover" : "contain",
+                    filter: `brightness(${1 + edits.brightness}) contrast(${1 + edits.contrast}) saturate(${1 + edits.saturation})`,
+                  }}
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={() => setIsPlaying(false)}
+                />
 
-          {/* Video Preview */}
-          <div className="flex-1 flex flex-col bg-black min-w-0">
-            <div className="flex-1 relative flex items-center justify-center bg-black overflow-hidden">
-              {videoSrc ? (
-                <div className="relative w-full h-full flex items-center justify-center">
-                  <div
-                    className="relative overflow-hidden"
-                    style={
-                      isCropped
-                        ? { aspectRatio: cssAspectRatio, maxHeight: "100%", maxWidth: "100%", boxShadow: "0 0 0 9999px rgba(0,0,0,0.55)" }
-                        : { width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }
-                    }
-                  >
-                    <video
-                      ref={videoRef}
-                      src={videoSrc}
-                      className={isCropped ? "w-full h-full" : "max-h-full max-w-full"}
-                      style={{
-                        objectFit: isCropped ? "cover" : "contain",
-                        filter: `brightness(${1 + edits.brightness}) contrast(${1 + edits.contrast}) saturate(${1 + edits.saturation})`,
+                {edits.textOverlays.map((t) => {
+                  const isVisible = currentTime >= (t.startSec || 0) && currentTime <= (t.endSec || clipDuration);
+                  if (!isVisible) return null;
+
+                  return (
+                    <Rnd
+                      key={t.id}
+                      bounds="parent"
+                      enableResizing={false}
+                      position={{ 
+                        x: t.x * (previewContainerRef.current?.offsetWidth || 0), 
+                        y: t.y * (previewContainerRef.current?.offsetHeight || 0) 
                       }}
-                      onPlay={() => setIsPlaying(true)}
-                      onPause={() => setIsPlaying(false)}
-                    />
-
-                    {edits.textOverlays.map((t) => (
+                      onDragStop={(_, data) => {
+                        const parent = previewContainerRef.current;
+                        if (parent) {
+                          updateTextOverlay(t.id, { 
+                            x: data.x / parent.offsetWidth, 
+                            y: data.y / parent.offsetHeight 
+                          });
+                        }
+                      }}
+                    >
                       <div
-                        key={t.id}
-                        className="absolute pointer-events-none"
+                        className="cursor-move select-none p-2 border-2 border-transparent hover:border-violet-500/50 hover:bg-violet-500/10 transition-all group"
                         style={{
-                          left: `${t.x * 100}%`, top: `${t.y * 100}%`,
-                          transform: "translate(-50%, -50%)",
-                          fontSize: isCropped ? `${t.fontSize * 0.5}px` : `${t.fontSize}px`,
+                          fontSize: isCropped ? `${t.fontSize * 0.6}px` : `${t.fontSize}px`,
                           color: t.color,
                           fontWeight: t.bold ? "bold" : "normal",
                           textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
@@ -172,78 +262,123 @@ export default function VideoEditor({
                       >
                         {t.text}
                       </div>
-                    ))}
-
-                    {isCropped && (
-                      <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 text-cyan-400 text-[10px] font-mono border border-cyan-500/30 pointer-events-none">
-                        {edits.aspectRatio}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center text-zinc-600 p-8">
-                  <p className="text-sm">Video tidak tersedia.</p>
-                  <p className="text-xs mt-1">Coba muat ulang halaman.</p>
-                </div>
-              )}
+                    </Rnd>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Playback Controls */}
-            <div className="p-4 bg-black/60 border-t border-white/[0.05] shrink-0">
-              <div
-                className="h-1.5 bg-white/10 rounded-full mb-4 cursor-pointer relative overflow-hidden"
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const pct  = (e.clientX - rect.left) / rect.width;
-                  const t    = clipStart + pct * clipDuration;
-                  if (videoRef.current) videoRef.current.currentTime = t;
+            {/* 2. Timeline Area */}
+            <div className="h-72 bg-[#0a0a0e] border-t border-white/10 flex flex-col">
+              {/* Timeline Ruler / Scrubber Area */}
+              <div 
+                className="h-10 border-b border-white/[0.05] bg-white/[0.01] relative cursor-ew-resize select-none"
+                onMouseDown={(e) => {
+                  setIsDraggingPlayhead(true);
+                  handlePlayheadMove(e.clientX);
                 }}
               >
-                <div
-                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-violet-500 to-cyan-500 rounded-full transition-all"
-                  style={{ width: `${progressPct}%` }}
-                />
+                <div className="absolute inset-0 flex items-center px-4 gap-4 pointer-events-none">
+                  <button className="p-1.5 bg-white/10 rounded-md text-white">
+                    {isPlaying ? <Pause size={12} fill="white" /> : <Play size={12} fill="white" />}
+                  </button>
+                  <div className="text-[10px] font-mono text-violet-400">
+                    {formatTime(currentTime)} / {formatTime(clipDuration)}
+                  </div>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <button onClick={() => seek(-5)} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-zinc-400 hover:text-white">
-                    <SkipBack size={16} />
-                  </button>
-                  <button onClick={togglePlay} className="p-3 bg-white rounded-xl hover:bg-white/90 transition-colors text-black">
-                    {isPlaying ? <Pause size={18} /> : <Play size={18} fill="black" />}
-                  </button>
-                  <button onClick={() => seek(5)} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-zinc-400 hover:text-white">
-                    <SkipForward size={16} />
-                  </button>
+              {/* Scrollable Tracks Area */}
+              <div className="flex-1 overflow-x-auto overflow-y-auto relative custom-scrollbar scroll-smooth" ref={timelineTrackRef}>
+                
+                {/* Playhead (Garis Merah Dinamis) */}
+                <div 
+                  className="absolute top-0 bottom-0 w-px bg-red-500 z-50 pointer-events-none shadow-[0_0_10px_rgba(239,68,68,0.6)]"
+                  style={{ 
+                    left: `${TIMELINE_LEFT_OFFSET + (currentTime * PX_PER_SECOND)}px`,
+                    height: '100%' // Memanjang penuh ke bawah area scroll
+                  }}
+                >
+                  <div className="w-3 h-3 bg-red-500 rounded-full -ml-1.5 shadow-lg" />
                 </div>
-                <span className="text-xs font-mono text-zinc-500">
-                  {formatTime(Math.max(0, currentTime - clipStart))} / {formatTime(clipDuration)}
-                </span>
+
+                <div className="min-w-max min-h-full">
+                  {edits.textOverlays.map((t, idx) => (
+                    <div key={t.id} className="flex h-12 border-b border-white/[0.03] group relative">
+                      {/* Label Layer (Kiri) */}
+                      <div className="w-40 sticky left-0 bg-[#0a0a0e] z-40 border-r border-white/10 px-4 flex items-center justify-between shadow-xl">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <Type size={12} className="text-zinc-500 shrink-0" />
+                          <span className="text-[10px] text-zinc-400 font-medium truncate">Teks {idx + 1}</span>
+                        </div>
+                        <button onClick={() => removeTextOverlay(t.id)} className="text-zinc-700 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+
+                      {/* Track Area (Kanan) */}
+                      <div 
+                        className="relative h-full flex items-center bg-white/[0.01]" 
+                        style={{ width: (clipDuration * PX_PER_SECOND) + 100 }}
+                        onClick={(e) => {
+                          if (e.target === e.currentTarget) {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            seekRelative((e.clientX - rect.left) / PX_PER_SECOND);
+                          }
+                        }}
+                      >
+                        <Rnd
+                          dragAxis="x"
+                          bounds="parent"
+                          enableResizing={{ left: true, right: true }}
+                          position={{ x: (t.startSec || 0) * PX_PER_SECOND, y: 8 }}
+                          size={{ width: ((t.endSec || clipDuration) - (t.startSec || 0)) * PX_PER_SECOND, height: 32 }}
+                          onDragStop={(_, d) => {
+                            const newStart = d.x / PX_PER_SECOND;
+                            const dur = (t.endSec || clipDuration) - (t.startSec || 0);
+                            updateTextOverlay(t.id, { startSec: newStart, endSec: newStart + dur });
+                          }}
+                          onResizeStop={(_, __, ref, ___, pos) => {
+                            updateTextOverlay(t.id, { 
+                              startSec: pos.x / PX_PER_SECOND, 
+                              endSec: (pos.x + ref.offsetWidth) / PX_PER_SECOND 
+                            });
+                          }}
+                          className="z-10"
+                        >
+                          <div className="w-full h-full bg-violet-500/30 border border-violet-400/50 rounded-md flex items-center px-3 cursor-move hover:bg-violet-500/40 transition-colors overflow-hidden">
+                            <span className="text-[9px] text-white font-bold truncate select-none">{t.text}</span>
+                          </div>
+                        </Rnd>
+                      </div>
+                    </div>
+                  ))}
+
+                  {edits.textOverlays.length === 0 && (
+                    <div className="flex flex-col items-center justify-center h-40 opacity-20">
+                      <Layers size={32} className="mb-2" />
+                      <p className="text-xs">Tarik playhead atau klik panel Text untuk menambah caption</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Edit Panel */}
-          <div className="w-72 border-l border-white/[0.06] flex flex-col overflow-hidden shrink-0">
-
-            {/* Tabs */}
-            <div className="flex overflow-x-auto border-b border-white/[0.06] bg-black/20 shrink-0">
+          {/* SIDEBAR */}
+          <div className="w-80 border-l border-white/10 flex flex-col bg-[#0c0c10] shrink-0">
+            <div className="flex border-b border-white/[0.05]">
               {([
+                { id: "text",  icon: Type,    label: "Text"  },
                 { id: "trim",  icon: Clock,   label: "Trim"  },
                 { id: "crop",  icon: Crop,    label: "Crop"  },
-                { id: "text",  icon: Type,    label: "Text"  },
                 { id: "color", icon: Sliders, label: "Color" },
-                { id: "speed", icon: Zap,     label: "Speed" },
               ] as const).map(({ id, icon: Icon, label }) => (
                 <button
                   key={id}
-                  onClick={() => setActiveTab(id as Tab)}
-                  className={`flex-1 flex flex-col items-center gap-1 py-3 px-2 text-[10px] font-medium transition-colors border-b-2 ${
-                    activeTab === id
-                      ? "text-violet-400 border-violet-500"
-                      : "text-zinc-600 border-transparent hover:text-zinc-400"
+                  onClick={() => setActiveTab(id)}
+                  className={`flex-1 flex flex-col items-center gap-1.5 py-4 text-[10px] font-bold uppercase tracking-widest transition-all ${
+                    activeTab === id ? "text-violet-400 bg-violet-400/5 shadow-[inset_0_-2px_0_0_#a78bfa]" : "text-zinc-600 hover:text-zinc-400"
                   }`}
                 >
                   <Icon size={14} />
@@ -252,157 +387,100 @@ export default function VideoEditor({
               ))}
             </div>
 
-            {/* Tab content */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-5">
-
-              {activeTab === "trim" && (
-                <>
-                  <SliderField
-                    label="Trim Start" value={edits.trimStart}
-                    min={0} max={Math.max(0, Math.floor((moment.endTime - moment.startTime) * 0.8))}
-                    step={1} format={(v) => `+${v}s`}
-                    onChange={(v) => updateEdits({ trimStart: v })}
-                  />
-                  <SliderField
-                    label="Trim End" value={edits.trimEnd}
-                    min={-Math.max(0, Math.floor((moment.endTime - moment.startTime) * 0.8))} max={0}
-                    step={1} format={(v) => `${v}s`}
-                    onChange={(v) => updateEdits({ trimEnd: v })}
-                  />
-                  <div className="bg-white/[0.03] rounded-xl p-3 text-xs text-zinc-500 space-y-1.5">
-                    <div className="flex justify-between"><span>New Start</span><span className="font-mono text-white">{formatTime(clipStart)}</span></div>
-                    <div className="flex justify-between"><span>New End</span><span className="font-mono text-white">{formatTime(clipEnd)}</span></div>
-                    <div className="flex justify-between border-t border-white/[0.06] pt-1.5"><span>Duration</span><span className="font-mono text-cyan-400">{Math.round(clipDuration)}s</span></div>
-                  </div>
-                </>
-              )}
-
-              {activeTab === "crop" && (
-                <>
-                  <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <label className="text-xs text-zinc-400 font-medium">Aspect Ratio</label>
-                      <span className="text-[10px] text-zinc-600">· center crop</span>
-                    </div>
-                    <div className="space-y-1.5">
-                      {ASPECT_RATIOS.map((ar) => (
-                        <button
-                          key={ar.value}
-                          onClick={() => updateEdits({ aspectRatio: ar.value })}
-                          className={`w-full px-3 py-2.5 rounded-xl text-xs font-medium text-left transition-all flex items-center justify-between ${
-                            edits.aspectRatio === ar.value
-                              ? "bg-violet-600/20 border border-violet-500/40 text-violet-300"
-                              : "bg-white/[0.03] border border-white/[0.06] text-zinc-400 hover:text-white hover:border-white/10"
-                          }`}
-                        >
-                          <span>{ar.label}</span>
-                          <span className={`text-[10px] ${edits.aspectRatio === ar.value ? "text-violet-400/70" : "text-zinc-600"}`}>{ar.desc}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="bg-cyan-500/5 border border-cyan-500/20 rounded-xl p-3">
-                    <p className="text-[10px] text-cyan-400 font-medium mb-1">How it works</p>
-                    <p className="text-[10px] text-zinc-500 leading-relaxed">Crops dari <strong className="text-zinc-400">tengah</strong> frame — tanpa stretching. Preview terupdate langsung.</p>
-                  </div>
-                </>
-              )}
-
+            <div className="flex-1 overflow-y-auto p-5 space-y-6 custom-scrollbar">
               {activeTab === "text" && (
-                <>
-                  <div className="flex gap-2">
+                <div className="space-y-5">
+                  <div className="relative">
                     <input
-                      value={newText} onChange={(e) => setNewText(e.target.value)}
+                      value={newText} 
+                      onChange={(e) => setNewText(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && addTextOverlay()}
-                      placeholder="Add text overlay..."
-                      className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/40"
+                      placeholder="Tambahkan caption baru..."
+                      className="w-full bg-white/[0.04] border border-white/10 rounded-2xl px-4 py-3.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/50"
                     />
-                    <button onClick={addTextOverlay} className="p-2 bg-violet-600/20 border border-violet-500/30 rounded-xl text-violet-400 hover:bg-violet-600/30 transition-colors">
+                    <button 
+                      onClick={addTextOverlay}
+                      className="absolute right-2 top-2 p-2 bg-violet-600 text-white rounded-xl hover:bg-violet-500 transition-colors shadow-lg"
+                    >
                       <Plus size={14} />
                     </button>
                   </div>
+
                   <div className="space-y-3">
-                    {edits.textOverlays.length === 0 && (
-                      <p className="text-xs text-zinc-600 text-center py-4">No text overlays yet</p>
-                    )}
+                    <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">Edit Layers</h3>
                     {edits.textOverlays.map((t) => (
-                      <div key={t.id} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3 space-y-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-white font-medium truncate flex-1">{t.text}</span>
-                          <button onClick={() => removeTextOverlay(t.id)} className="ml-2 text-zinc-600 hover:text-red-400 transition-colors"><Trash2 size={12} /></button>
+                      <div key={t.id} className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 space-y-4">
+                        <div className="flex items-center justify-between gap-2">
+                          {/* INPUT UNTUK EDIT TEXT */}
+                          <input 
+                            className="bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white font-medium focus:outline-none focus:border-violet-500/50 w-full"
+                            value={t.text}
+                            onChange={(e) => updateTextOverlay(t.id, { text: e.target.value })}
+                          />
+                          <button onClick={() => removeTextOverlay(t.id)} className="text-zinc-600 hover:text-red-400 transition-colors shrink-0">
+                            <Trash2 size={14} />
+                          </button>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-[10px] text-zinc-600 mb-1">Size</label>
-                            <input type="range" min={16} max={80} value={t.fontSize} onChange={(e) => updateTextOverlay(t.id, { fontSize: +e.target.value })} className="w-full accent-violet-500" />
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-[10px] text-zinc-500">Font Size</label>
+                            <input type="range" min={12} max={100} value={t.fontSize} onChange={(e) => updateTextOverlay(t.id, { fontSize: +e.target.value })} className="w-full accent-violet-500" />
                           </div>
-                          <div>
-                            <label className="block text-[10px] text-zinc-600 mb-1">Color</label>
-                            <input type="color" value={t.color} onChange={(e) => updateTextOverlay(t.id, { color: e.target.value })} className="w-full h-8 rounded cursor-pointer bg-transparent border border-white/10" />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-[10px] text-zinc-600 mb-1">X ({Math.round(t.x * 100)}%)</label>
-                            <input type="range" min={0} max={1} step={0.01} value={t.x} onChange={(e) => updateTextOverlay(t.id, { x: +e.target.value })} className="w-full accent-violet-500" />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] text-zinc-600 mb-1">Y ({Math.round(t.y * 100)}%)</label>
-                            <input type="range" min={0} max={1} step={0.01} value={t.y} onChange={(e) => updateTextOverlay(t.id, { y: +e.target.value })} className="w-full accent-violet-500" />
+                          <div className="space-y-2">
+                            <label className="text-[10px] text-zinc-500">Warna</label>
+                            <input type="color" value={t.color} onChange={(e) => updateTextOverlay(t.id, { color: e.target.value })} className="w-full h-8 rounded-md bg-transparent border-none cursor-pointer" />
                           </div>
                         </div>
-                        <button
-                          onClick={() => updateTextOverlay(t.id, { bold: !t.bold })}
-                          className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors border ${t.bold ? "bg-violet-600/20 border-violet-500/40 text-violet-300" : "bg-white/[0.03] border-white/[0.06] text-zinc-500"}`}
-                        >Bold</button>
                       </div>
                     ))}
                   </div>
-                </>
+                </div>
+              )}
+
+              {activeTab === "trim" && (
+                <div className="space-y-6">
+                  <SliderField label="Trim Awal" value={edits.trimStart} min={0} max={Math.floor(clipDuration * 0.8)} step={0.5} format={(v) => `+${v}s`} onChange={(v) => updateEdits({ trimStart: v })} />
+                  <SliderField label="Trim Akhir" value={edits.trimEnd} min={-Math.floor(clipDuration * 0.8)} max={0} step={0.5} format={(v) => `${v}s`} onChange={(v) => updateEdits({ trimEnd: v })} />
+                </div>
+              )}
+
+              {activeTab === "crop" && (
+                <div className="space-y-2">
+                  {ASPECT_RATIOS.map((ar) => (
+                    <button
+                      key={ar.value}
+                      onClick={() => updateEdits({ aspectRatio: ar.value })}
+                      className={`w-full px-4 py-3.5 rounded-2xl text-[11px] font-bold text-left transition-all border ${
+                        edits.aspectRatio === ar.value
+                          ? "bg-violet-600/20 border-violet-500/40 text-violet-300"
+                          : "bg-white/[0.02] border-white/5 text-zinc-500 hover:text-zinc-300 hover:border-white/10"
+                      }`}
+                    >
+                      {ar.label}
+                    </button>
+                  ))}
+                </div>
               )}
 
               {activeTab === "color" && (
-                <>
-                  <SliderField label="Brightness" value={edits.brightness} min={-1} max={1} step={0.05} format={(v) => (v > 0 ? `+${(v * 100).toFixed(0)}%` : `${(v * 100).toFixed(0)}%`)} onChange={(v) => updateEdits({ brightness: v })} />
-                  <SliderField label="Contrast"   value={edits.contrast}   min={-1} max={1} step={0.05} format={(v) => (v > 0 ? `+${(v * 100).toFixed(0)}%` : `${(v * 100).toFixed(0)}%`)} onChange={(v) => updateEdits({ contrast: v })} />
-                  <SliderField label="Saturation" value={edits.saturation} min={-1} max={1} step={0.05} format={(v) => (v > 0 ? `+${(v * 100).toFixed(0)}%` : `${(v * 100).toFixed(0)}%`)} onChange={(v) => updateEdits({ saturation: v })} />
-                  <button onClick={() => updateEdits({ brightness: 0, contrast: 0, saturation: 0 })} className="w-full py-2 rounded-xl text-xs text-zinc-500 hover:text-white border border-white/[0.06] hover:border-white/10 transition-colors flex items-center justify-center gap-2">
-                    <RefreshCw size={12} /> Reset Colors
+                <div className="space-y-6">
+                  <SliderField label="Brightness" value={edits.brightness} min={-0.5} max={0.5} step={0.05} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => updateEdits({ brightness: v })} />
+                  <SliderField label="Contrast"   value={edits.contrast}   min={-0.5} max={0.5} step={0.05} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => updateEdits({ contrast: v })} />
+                  <button onClick={() => updateEdits({ brightness: 0, contrast: 0, saturation: 0 })} className="w-full py-3 rounded-xl text-[10px] font-bold text-zinc-500 border border-white/5 hover:bg-white/5 transition-all">
+                    RESET WARNA
                   </button>
-                </>
-              )}
-
-              {activeTab === "speed" && (
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-3">Playback Speed</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {SPEED_OPTIONS.map((s) => (
-                      <button
-                        key={s} onClick={() => updateEdits({ speed: s })}
-                        className={`py-2.5 rounded-xl text-xs font-bold transition-colors ${edits.speed === s ? "bg-violet-600/30 border border-violet-500/50 text-violet-300" : "bg-white/[0.03] border border-white/[0.06] text-zinc-500 hover:text-white"}`}
-                      >{s}×</button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-zinc-600 mt-3 leading-relaxed">
-                    {edits.speed < 1 && "🐢 Slow motion effect"}
-                    {edits.speed === 1 && "▶ Normal speed"}
-                    {edits.speed > 1 && "⚡ Timelapse / fast-forward"}
-                  </p>
-                  <div className="mt-3 bg-white/[0.02] rounded-xl p-3 text-[10px] text-zinc-600 leading-relaxed">
-                    Audio pitch dipertahankan secara otomatis (atempo filter).
-                  </div>
                 </div>
               )}
             </div>
 
-            {/* Export button */}
-            <div className="p-4 border-t border-white/[0.06] shrink-0">
+            <div className="p-5 border-t border-white/10 bg-white/[0.01]">
               <button
                 onClick={() => onExport(moment, edits)}
                 disabled={isExporting || !videoSrc}
-                className="w-full py-3.5 rounded-2xl font-bold text-sm bg-gradient-to-r from-violet-600 to-cyan-600 text-white hover:from-violet-500 hover:to-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-violet-500/20"
+                className="w-full py-4 rounded-2xl font-black text-xs tracking-widest bg-gradient-to-r from-violet-600 to-cyan-600 text-white hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:scale-100 transition-all flex items-center justify-center gap-3 shadow-xl shadow-violet-900/20"
               >
-                {isExporting ? <><Loader2 size={16} className="animate-spin" /> Exporting...</> : <><Download size={16} /> Export Clip</>}
+                {isExporting ? <><Loader2 size={16} className="animate-spin" /> EXPORTING...</> : <><Download size={16} /> EXPORT CLIP</>}
               </button>
             </div>
           </div>
@@ -417,12 +495,16 @@ function SliderField({ label, value, min, max, step, format, onChange }: {
   format: (v: number) => string; onChange: (v: number) => void;
 }) {
   return (
-    <div>
-      <div className="flex justify-between mb-2">
-        <label className="text-xs text-zinc-400">{label}</label>
-        <span className="text-xs font-mono text-violet-400">{format(value)}</span>
+    <div className="space-y-3">
+      <div className="flex justify-between items-end">
+        <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">{label}</label>
+        <span className="text-xs font-mono text-violet-400 bg-violet-400/10 px-2 py-0.5 rounded">{format(value)}</span>
       </div>
-      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(parseFloat(e.target.value))} className="w-full accent-violet-500" />
+      <input 
+        type="range" min={min} max={max} step={step} value={value} 
+        onChange={(e) => onChange(parseFloat(e.target.value))} 
+        className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-violet-500" 
+      />
     </div>
   );
 }
