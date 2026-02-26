@@ -1,3 +1,4 @@
+/* /Users/haimac/Project/clipper-ai-fe/src/index.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -14,12 +15,12 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
-  background: #0a0a0f;
-  color: #ffffff;
+  background: #FFFFFF;
+  color: #000000;
   min-height: 100vh;
   overflow-x: hidden;
 }
@@ -30,14 +31,14 @@ body {
   height: 4px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #f1f1f1;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: #1ABC71;
   border-radius: 2px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: #16a085;
 }
 
 /* Monospace font for timestamps */
@@ -50,7 +51,7 @@ input[type="range"] {
   height: 4px;
   border-radius: 2px;
   appearance: none;
-  background: rgba(255,255,255,0.1);
+  background: #e0e0e0;
   outline: none;
   cursor: pointer;
 }
@@ -59,9 +60,9 @@ input[type="range"]::-webkit-slider-thumb {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #7c3aed;
+  background: #1ABC71;
   cursor: pointer;
-  box-shadow: 0 0 6px rgba(124, 58, 237, 0.5);
+  box-shadow: 0 0 6px rgba(26, 188, 113, 0.5);
   transition: transform 0.1s ease;
 }
 input[type="range"]::-webkit-slider-thumb:hover {
@@ -94,7 +95,7 @@ button, a, input, [class*="transition"] {
 
 /* Focus visible */
 :focus-visible {
-  outline: 2px solid rgba(124, 58, 237, 0.6);
+  outline: 2px solid rgba(26, 188, 113, 0.6);
   outline-offset: 2px;
   border-radius: 4px;
 }

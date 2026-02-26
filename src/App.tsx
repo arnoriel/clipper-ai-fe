@@ -1,3 +1,4 @@
+// /Users/haimac/Project/clipper-ai-fe/src/App.tsx
 // src/App.tsx
 import { useState, useEffect, useRef } from "react";
 import {
@@ -28,8 +29,8 @@ type Step = "input" | "analyzing" | "moments";
 
 function ProgressToast({ message }: { message: string }) {
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 bg-[#1a1a2e] border border-violet-500/30 rounded-2xl shadow-xl shadow-violet-500/10 text-sm text-zinc-300 whitespace-nowrap">
-      <Loader2 size={14} className="animate-spin text-violet-400 shrink-0" />
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 bg-white border border-[#1ABC71]/30 rounded-2xl shadow-xl shadow-[#1ABC71]/10 text-sm text-gray-700 whitespace-nowrap">
+      <Loader2 size={14} className="animate-spin text-[#1ABC71] shrink-0" />
       {message}
     </div>
   );
@@ -268,11 +269,11 @@ export default function App() {
 
   // ─── Render: Main workspace ───────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white flex flex-col">
-      <div className="h-px bg-gradient-to-r from-transparent via-violet-500 to-transparent" />
+    <div className="min-h-screen bg-white text-black flex flex-col">
+      <div className="h-px bg-gradient-to-r from-transparent via-[#1ABC71] to-transparent" />
 
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-white/[0.05] shrink-0">
+      <header className="flex items-center justify-between px-6 py-4 border-b border-gray-200 shrink-0">
         <div className="flex items-center gap-4">
           <button
             onClick={() => {
@@ -283,33 +284,33 @@ export default function App() {
               setExportedUrls({});
               setError("");
             }}
-            className="p-2 rounded-xl hover:bg-white/[0.05] text-zinc-500 hover:text-white transition-colors"
+            className="p-2 rounded-xl hover:bg-gray-100 text-gray-500 hover:text-black transition-colors"
             title="Kembali ke home"
           >
             <ArrowLeft size={18} />
           </button>
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center">
+            <div className="w-6 h-6 rounded-lg bg-[#1ABC71] flex items-center justify-center">
               <Zap size={12} className="text-white fill-white" />
             </div>
             <span className="text-sm font-bold" style={{ fontFamily: "'Syne', sans-serif" }}>
-              AI Clipper
+              AI Viral Clipper
             </span>
           </div>
         </div>
 
         <div className="flex-1 max-w-md mx-8 hidden md:block min-w-0">
-          <div className="flex items-center gap-2 text-xs text-zinc-600 truncate">
-            <Film size={12} className="text-violet-400 shrink-0" />
+          <div className="flex items-center gap-2 text-xs text-gray-500 truncate">
+            <Film size={12} className="text-[#1ABC71] shrink-0" />
             <span className="truncate">{project.videoFileName}</span>
-            <span className="shrink-0 text-zinc-700 font-mono">
+            <span className="shrink-0 text-gray-400 font-mono">
               · {formatTime(project.videoDuration)}
             </span>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-xs text-green-400">
+          <div className="flex items-center gap-1.5 text-xs text-[#1ABC71]">
             <CheckCircle2 size={12} />
             <span className="hidden sm:inline">Video siap</span>
           </div>
@@ -317,7 +318,7 @@ export default function App() {
           {selectedClipIds.length > 0 && (
             <button
               onClick={() => setActivePanel("export")}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-cyan-600 text-xs font-semibold hover:from-violet-500 hover:to-cyan-500 transition-all shadow-lg shadow-violet-500/20"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1ABC71] text-xs font-semibold hover:bg-[#16a085] transition-all shadow-lg shadow-[#1ABC71]/20 text-white"
             >
               <Film size={12} />
               Export {selectedClipIds.length} Clip{selectedClipIds.length > 1 ? "s" : ""}
@@ -329,10 +330,10 @@ export default function App() {
 
       {/* Error banner */}
       {error && (
-        <div className="mx-6 mt-4 flex items-center gap-3 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-xs">
+        <div className="mx-6 mt-4 flex items-center gap-3 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs">
           <AlertCircle size={14} className="shrink-0" />
           <span className="flex-1">{error}</span>
-          <button onClick={() => setError("")} className="text-red-400 hover:text-white ml-2">✕</button>
+          <button onClick={() => setError("")} className="text-red-400 hover:text-red-600 ml-2">✕</button>
         </div>
       )}
 
@@ -340,23 +341,23 @@ export default function App() {
       <div className="flex-1 flex overflow-hidden">
 
         {/* Left sidebar */}
-        <aside className="w-72 border-r border-white/[0.05] overflow-y-auto p-5 hidden lg:flex flex-col shrink-0">
+        <aside className="w-72 border-r border-gray-200 overflow-y-auto p-5 hidden lg:flex flex-col shrink-0 bg-gray-50">
           {/* Video info card */}
-          <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-4 mb-4">
+          <div className="rounded-xl bg-white border border-gray-200 p-4 mb-4 shadow-sm">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-lg bg-violet-500/15 border border-violet-500/20 flex items-center justify-center shrink-0">
-                <Film size={18} className="text-violet-400" />
+              <div className="w-10 h-10 rounded-lg bg-[#1ABC71]/10 border border-[#1ABC71]/20 flex items-center justify-center shrink-0">
+                <Film size={18} className="text-[#1ABC71]" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-white truncate">{project.videoFileName}</p>
-                <p className="text-[10px] text-zinc-500 font-mono mt-0.5">
+                <p className="text-xs font-semibold text-black truncate">{project.videoFileName}</p>
+                <p className="text-[10px] text-gray-500 font-mono mt-0.5">
                   {formatTime(project.videoDuration)} · {(project.videoFileSize / 1_048_576).toFixed(0)}MB
                 </p>
               </div>
             </div>
           </div>
 
-          <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">
+          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
             {project.analysisResult.moments.length} momen terdeteksi
           </h2>
 
@@ -374,29 +375,29 @@ export default function App() {
               <div key={i} className="flex items-center gap-2.5 text-xs">
                 <div className={`w-5 h-5 rounded-full flex items-center justify-center border text-[10px] font-bold shrink-0 ${
                   s.done
-                    ? "bg-violet-500/20 border-violet-500/40 text-violet-400"
-                    : "bg-white/[0.03] border-white/10 text-zinc-600"
+                    ? "bg-[#1ABC71]/20 border-[#1ABC71]/40 text-[#1ABC71]"
+                    : "bg-gray-100 border-gray-300 text-gray-400"
                 }`}>
                   {s.done ? "✓" : i + 1}
                 </div>
-                <span className={s.done ? "text-zinc-300" : "text-zinc-600"}>{s.label}</span>
+                <span className={s.done ? "text-gray-700" : "text-gray-400"}>{s.label}</span>
               </div>
             ))}
           </div>
 
-          <div className="mt-auto pt-5 border-t border-white/[0.05]">
-            <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-2 font-mono">AI Summary</p>
-            <p className="text-xs text-zinc-500 leading-relaxed">{project.analysisResult.summary}</p>
+          <div className="mt-auto pt-5 border-t border-gray-200">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 font-mono">AI Summary</p>
+            <p className="text-xs text-gray-600 leading-relaxed">{project.analysisResult.summary}</p>
           </div>
         </aside>
 
         {/* Main panel */}
-        <main className="flex-1 overflow-y-auto min-w-0">
-          <div className="sticky top-0 z-10 flex items-center gap-1 px-6 py-3 bg-[#0a0a0f]/90 backdrop-blur border-b border-white/[0.04]">
+        <main className="flex-1 overflow-y-auto min-w-0 bg-white">
+          <div className="sticky top-0 z-10 flex items-center gap-1 px-6 py-3 bg-white/90 backdrop-blur border-b border-gray-100">
             <button
               onClick={() => setActivePanel("moments")}
               className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 ${
-                activePanel === "moments" ? "bg-white/10 text-white" : "text-zinc-500 hover:text-zinc-300"
+                activePanel === "moments" ? "bg-[#1ABC71] text-white" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
               }`}
             >
               <Sparkles size={12} />
@@ -405,7 +406,7 @@ export default function App() {
             <button
               onClick={() => setActivePanel("export")}
               className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 ${
-                activePanel === "export" ? "bg-white/10 text-white" : "text-zinc-500 hover:text-zinc-300"
+                activePanel === "export" ? "bg-[#1ABC71] text-white" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
               }`}
             >
               <Film size={12} />

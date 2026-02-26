@@ -1,3 +1,4 @@
+// /Users/haimac/Project/clipper-ai-fe/src/components/VideoEditor.tsx
 // src/components/VideoEditor.tsx
 // No changes needed — already works generically with moment/edits data
 // (same file as before, just ensuring it's in the output)
@@ -91,7 +92,7 @@ export default function VideoEditor({
     const overlay: TextOverlay = {
       id: generateId(), text: newText.trim(),
       x: 0.5, y: 0.85, fontSize: 36,
-      color: "#FFFFFF", startSec: null, endSec: null, bold: true,
+      color: "#000000", startSec: null, endSec: null, bold: true,
     };
     updateEdits({ textOverlays: [...edits.textOverlays, overlay] });
     setNewText("");
@@ -113,18 +114,18 @@ export default function VideoEditor({
   const cssAspectRatio = `${arW} / ${arH}`;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[#111118] border border-white/10 rounded-3xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col shadow-2xl">
+    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white border border-gray-200 rounded-3xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col shadow-2xl">
 
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-white/[0.06]">
+        <div className="flex items-center justify-between p-5 border-b border-gray-200">
           <div>
-            <h2 className="text-base font-bold text-white">{moment.label}</h2>
-            <p className="text-xs text-zinc-500 mt-0.5 font-mono">
+            <h2 className="text-base font-bold text-black">{moment.label}</h2>
+            <p className="text-xs text-gray-500 mt-0.5 font-mono">
               {formatTime(clipStart)} → {formatTime(clipEnd)} · {Math.round(clipDuration)}s
             </p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/10 text-zinc-400 hover:text-white transition-colors">
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100 text-gray-500 hover:text-black transition-colors">
             <X size={20} />
           </button>
         </div>
@@ -132,7 +133,7 @@ export default function VideoEditor({
         <div className="flex flex-1 overflow-hidden">
 
           {/* Video Preview */}
-          <div className="flex-1 flex flex-col bg-black min-w-0">
+          <div className="flex-1 flex flex-col bg-gray-100 min-w-0">
             <div className="flex-1 relative flex items-center justify-center bg-black overflow-hidden">
               {videoSrc ? (
                 <div className="relative w-full h-full flex items-center justify-center">
@@ -166,7 +167,7 @@ export default function VideoEditor({
                           fontSize: isCropped ? `${t.fontSize * 0.5}px` : `${t.fontSize}px`,
                           color: t.color,
                           fontWeight: t.bold ? "bold" : "normal",
-                          textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
+                          textShadow: "2px 2px 4px rgba(255,255,255,0.8)",
                           whiteSpace: "nowrap",
                         }}
                       >
@@ -175,14 +176,14 @@ export default function VideoEditor({
                     ))}
 
                     {isCropped && (
-                      <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 text-cyan-400 text-[10px] font-mono border border-cyan-500/30 pointer-events-none">
+                      <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 text-[#1ABC71] text-[10px] font-mono border border-[#1ABC71]/30 pointer-events-none">
                         {edits.aspectRatio}
                       </div>
                     )}
                   </div>
                 </div>
               ) : (
-                <div className="text-center text-zinc-600 p-8">
+                <div className="text-center text-gray-400 p-8">
                   <p className="text-sm">Video tidak tersedia.</p>
                   <p className="text-xs mt-1">Coba muat ulang halaman.</p>
                 </div>
@@ -190,9 +191,9 @@ export default function VideoEditor({
             </div>
 
             {/* Playback Controls */}
-            <div className="p-4 bg-black/60 border-t border-white/[0.05] shrink-0">
+            <div className="p-4 bg-white border-t border-gray-200 shrink-0">
               <div
-                className="h-1.5 bg-white/10 rounded-full mb-4 cursor-pointer relative overflow-hidden"
+                className="h-1.5 bg-gray-200 rounded-full mb-4 cursor-pointer relative overflow-hidden"
                 onClick={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
                   const pct  = (e.clientX - rect.left) / rect.width;
@@ -201,24 +202,24 @@ export default function VideoEditor({
                 }}
               >
                 <div
-                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-violet-500 to-cyan-500 rounded-full transition-all"
+                  className="absolute inset-y-0 left-0 bg-[#1ABC71] rounded-full transition-all"
                   style={{ width: `${progressPct}%` }}
                 />
               </div>
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <button onClick={() => seek(-5)} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-zinc-400 hover:text-white">
+                  <button onClick={() => seek(-5)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 hover:text-black">
                     <SkipBack size={16} />
                   </button>
-                  <button onClick={togglePlay} className="p-3 bg-white rounded-xl hover:bg-white/90 transition-colors text-black">
-                    {isPlaying ? <Pause size={18} /> : <Play size={18} fill="black" />}
+                  <button onClick={togglePlay} className="p-3 bg-[#1ABC71] rounded-xl hover:bg-[#16a085] transition-colors text-white">
+                    {isPlaying ? <Pause size={18} /> : <Play size={18} fill="white" />}
                   </button>
-                  <button onClick={() => seek(5)} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-zinc-400 hover:text-white">
+                  <button onClick={() => seek(5)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 hover:text-black">
                     <SkipForward size={16} />
                   </button>
                 </div>
-                <span className="text-xs font-mono text-zinc-500">
+                <span className="text-xs font-mono text-gray-500">
                   {formatTime(Math.max(0, currentTime - clipStart))} / {formatTime(clipDuration)}
                 </span>
               </div>
@@ -226,10 +227,10 @@ export default function VideoEditor({
           </div>
 
           {/* Edit Panel */}
-          <div className="w-72 border-l border-white/[0.06] flex flex-col overflow-hidden shrink-0">
+          <div className="w-72 border-l border-gray-200 flex flex-col overflow-hidden shrink-0 bg-white">
 
             {/* Tabs */}
-            <div className="flex overflow-x-auto border-b border-white/[0.06] bg-black/20 shrink-0">
+            <div className="flex overflow-x-auto border-b border-gray-200 bg-gray-50 shrink-0">
               {([
                 { id: "trim",  icon: Clock,   label: "Trim"  },
                 { id: "crop",  icon: Crop,    label: "Crop"  },
@@ -242,8 +243,8 @@ export default function VideoEditor({
                   onClick={() => setActiveTab(id as Tab)}
                   className={`flex-1 flex flex-col items-center gap-1 py-3 px-2 text-[10px] font-medium transition-colors border-b-2 ${
                     activeTab === id
-                      ? "text-violet-400 border-violet-500"
-                      : "text-zinc-600 border-transparent hover:text-zinc-400"
+                      ? "text-[#1ABC71] border-[#1ABC71]"
+                      : "text-gray-500 border-transparent hover:text-gray-700"
                   }`}
                 >
                   <Icon size={14} />
@@ -269,10 +270,10 @@ export default function VideoEditor({
                     step={1} format={(v) => `${v}s`}
                     onChange={(v) => updateEdits({ trimEnd: v })}
                   />
-                  <div className="bg-white/[0.03] rounded-xl p-3 text-xs text-zinc-500 space-y-1.5">
-                    <div className="flex justify-between"><span>New Start</span><span className="font-mono text-white">{formatTime(clipStart)}</span></div>
-                    <div className="flex justify-between"><span>New End</span><span className="font-mono text-white">{formatTime(clipEnd)}</span></div>
-                    <div className="flex justify-between border-t border-white/[0.06] pt-1.5"><span>Duration</span><span className="font-mono text-cyan-400">{Math.round(clipDuration)}s</span></div>
+                  <div className="bg-gray-50 rounded-xl p-3 text-xs text-gray-600 space-y-1.5 border border-gray-200">
+                    <div className="flex justify-between"><span>New Start</span><span className="font-mono text-black">{formatTime(clipStart)}</span></div>
+                    <div className="flex justify-between"><span>New End</span><span className="font-mono text-black">{formatTime(clipEnd)}</span></div>
+                    <div className="flex justify-between border-t border-gray-200 pt-1.5"><span>Duration</span><span className="font-mono text-[#1ABC71]">{Math.round(clipDuration)}s</span></div>
                   </div>
                 </>
               )}
@@ -281,8 +282,8 @@ export default function VideoEditor({
                 <>
                   <div>
                     <div className="flex items-center gap-2 mb-3">
-                      <label className="text-xs text-zinc-400 font-medium">Aspect Ratio</label>
-                      <span className="text-[10px] text-zinc-600">· center crop</span>
+                      <label className="text-xs text-gray-600 font-medium">Aspect Ratio</label>
+                      <span className="text-[10px] text-gray-400">· center crop</span>
                     </div>
                     <div className="space-y-1.5">
                       {ASPECT_RATIOS.map((ar) => (
@@ -291,19 +292,19 @@ export default function VideoEditor({
                           onClick={() => updateEdits({ aspectRatio: ar.value })}
                           className={`w-full px-3 py-2.5 rounded-xl text-xs font-medium text-left transition-all flex items-center justify-between ${
                             edits.aspectRatio === ar.value
-                              ? "bg-violet-600/20 border border-violet-500/40 text-violet-300"
-                              : "bg-white/[0.03] border border-white/[0.06] text-zinc-400 hover:text-white hover:border-white/10"
+                              ? "bg-[#1ABC71]/20 border border-[#1ABC71]/40 text-[#1ABC71]"
+                              : "bg-gray-50 border border-gray-200 text-gray-600 hover:text-black hover:border-gray-300"
                           }`}
                         >
                           <span>{ar.label}</span>
-                          <span className={`text-[10px] ${edits.aspectRatio === ar.value ? "text-violet-400/70" : "text-zinc-600"}`}>{ar.desc}</span>
+                          <span className={`text-[10px] ${edits.aspectRatio === ar.value ? "text-[#1ABC71]/70" : "text-gray-400"}`}>{ar.desc}</span>
                         </button>
                       ))}
                     </div>
                   </div>
-                  <div className="bg-cyan-500/5 border border-cyan-500/20 rounded-xl p-3">
-                    <p className="text-[10px] text-cyan-400 font-medium mb-1">How it works</p>
-                    <p className="text-[10px] text-zinc-500 leading-relaxed">Crops dari <strong className="text-zinc-400">tengah</strong> frame — tanpa stretching. Preview terupdate langsung.</p>
+                  <div className="bg-[#1ABC71]/5 border border-[#1ABC71]/20 rounded-xl p-3">
+                    <p className="text-[10px] text-[#1ABC71] font-medium mb-1">How it works</p>
+                    <p className="text-[10px] text-gray-600 leading-relaxed">Crops dari <strong className="text-gray-700">tengah</strong> frame — tanpa stretching. Preview terupdate langsung.</p>
                   </div>
                 </>
               )}
@@ -315,45 +316,45 @@ export default function VideoEditor({
                       value={newText} onChange={(e) => setNewText(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && addTextOverlay()}
                       placeholder="Add text overlay..."
-                      className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-violet-500/40"
+                      className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-black placeholder-gray-400 focus:outline-none focus:border-[#1ABC71]/40"
                     />
-                    <button onClick={addTextOverlay} className="p-2 bg-violet-600/20 border border-violet-500/30 rounded-xl text-violet-400 hover:bg-violet-600/30 transition-colors">
+                    <button onClick={addTextOverlay} className="p-2 bg-[#1ABC71]/20 border border-[#1ABC71]/30 rounded-xl text-[#1ABC71] hover:bg-[#1ABC71]/30 transition-colors">
                       <Plus size={14} />
                     </button>
                   </div>
                   <div className="space-y-3">
                     {edits.textOverlays.length === 0 && (
-                      <p className="text-xs text-zinc-600 text-center py-4">No text overlays yet</p>
+                      <p className="text-xs text-gray-400 text-center py-4">No text overlays yet</p>
                     )}
                     {edits.textOverlays.map((t) => (
-                      <div key={t.id} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3 space-y-2.5">
+                      <div key={t.id} className="bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-white font-medium truncate flex-1">{t.text}</span>
-                          <button onClick={() => removeTextOverlay(t.id)} className="ml-2 text-zinc-600 hover:text-red-400 transition-colors"><Trash2 size={12} /></button>
+                          <span className="text-xs text-black font-medium truncate flex-1">{t.text}</span>
+                          <button onClick={() => removeTextOverlay(t.id)} className="ml-2 text-gray-400 hover:text-red-500 transition-colors"><Trash2 size={12} /></button>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="block text-[10px] text-zinc-600 mb-1">Size</label>
-                            <input type="range" min={16} max={80} value={t.fontSize} onChange={(e) => updateTextOverlay(t.id, { fontSize: +e.target.value })} className="w-full accent-violet-500" />
+                            <label className="block text-[10px] text-gray-500 mb-1">Size</label>
+                            <input type="range" min={16} max={80} value={t.fontSize} onChange={(e) => updateTextOverlay(t.id, { fontSize: +e.target.value })} className="w-full accent-[#1ABC71]" />
                           </div>
                           <div>
-                            <label className="block text-[10px] text-zinc-600 mb-1">Color</label>
-                            <input type="color" value={t.color} onChange={(e) => updateTextOverlay(t.id, { color: e.target.value })} className="w-full h-8 rounded cursor-pointer bg-transparent border border-white/10" />
+                            <label className="block text-[10px] text-gray-500 mb-1">Color</label>
+                            <input type="color" value={t.color} onChange={(e) => updateTextOverlay(t.id, { color: e.target.value })} className="w-full h-8 rounded cursor-pointer bg-transparent border border-gray-200" />
                           </div>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="block text-[10px] text-zinc-600 mb-1">X ({Math.round(t.x * 100)}%)</label>
-                            <input type="range" min={0} max={1} step={0.01} value={t.x} onChange={(e) => updateTextOverlay(t.id, { x: +e.target.value })} className="w-full accent-violet-500" />
+                            <label className="block text-[10px] text-gray-500 mb-1">X ({Math.round(t.x * 100)}%)</label>
+                            <input type="range" min={0} max={1} step={0.01} value={t.x} onChange={(e) => updateTextOverlay(t.id, { x: +e.target.value })} className="w-full accent-[#1ABC71]" />
                           </div>
                           <div>
-                            <label className="block text-[10px] text-zinc-600 mb-1">Y ({Math.round(t.y * 100)}%)</label>
-                            <input type="range" min={0} max={1} step={0.01} value={t.y} onChange={(e) => updateTextOverlay(t.id, { y: +e.target.value })} className="w-full accent-violet-500" />
+                            <label className="block text-[10px] text-gray-500 mb-1">Y ({Math.round(t.y * 100)}%)</label>
+                            <input type="range" min={0} max={1} step={0.01} value={t.y} onChange={(e) => updateTextOverlay(t.id, { y: +e.target.value })} className="w-full accent-[#1ABC71]" />
                           </div>
                         </div>
                         <button
                           onClick={() => updateTextOverlay(t.id, { bold: !t.bold })}
-                          className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors border ${t.bold ? "bg-violet-600/20 border-violet-500/40 text-violet-300" : "bg-white/[0.03] border-white/[0.06] text-zinc-500"}`}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors border ${t.bold ? "bg-[#1ABC71]/20 border-[#1ABC71]/40 text-[#1ABC71]" : "bg-gray-50 border-gray-200 text-gray-500"}`}
                         >Bold</button>
                       </div>
                     ))}
@@ -366,7 +367,7 @@ export default function VideoEditor({
                   <SliderField label="Brightness" value={edits.brightness} min={-1} max={1} step={0.05} format={(v) => (v > 0 ? `+${(v * 100).toFixed(0)}%` : `${(v * 100).toFixed(0)}%`)} onChange={(v) => updateEdits({ brightness: v })} />
                   <SliderField label="Contrast"   value={edits.contrast}   min={-1} max={1} step={0.05} format={(v) => (v > 0 ? `+${(v * 100).toFixed(0)}%` : `${(v * 100).toFixed(0)}%`)} onChange={(v) => updateEdits({ contrast: v })} />
                   <SliderField label="Saturation" value={edits.saturation} min={-1} max={1} step={0.05} format={(v) => (v > 0 ? `+${(v * 100).toFixed(0)}%` : `${(v * 100).toFixed(0)}%`)} onChange={(v) => updateEdits({ saturation: v })} />
-                  <button onClick={() => updateEdits({ brightness: 0, contrast: 0, saturation: 0 })} className="w-full py-2 rounded-xl text-xs text-zinc-500 hover:text-white border border-white/[0.06] hover:border-white/10 transition-colors flex items-center justify-center gap-2">
+                  <button onClick={() => updateEdits({ brightness: 0, contrast: 0, saturation: 0 })} className="w-full py-2 rounded-xl text-xs text-gray-500 hover:text-black border border-gray-200 hover:border-gray-300 transition-colors flex items-center justify-center gap-2">
                     <RefreshCw size={12} /> Reset Colors
                   </button>
                 </>
@@ -374,21 +375,21 @@ export default function VideoEditor({
 
               {activeTab === "speed" && (
                 <div>
-                  <label className="block text-xs text-zinc-400 mb-3">Playback Speed</label>
+                  <label className="block text-xs text-gray-600 mb-3">Playback Speed</label>
                   <div className="grid grid-cols-3 gap-2">
                     {SPEED_OPTIONS.map((s) => (
                       <button
                         key={s} onClick={() => updateEdits({ speed: s })}
-                        className={`py-2.5 rounded-xl text-xs font-bold transition-colors ${edits.speed === s ? "bg-violet-600/30 border border-violet-500/50 text-violet-300" : "bg-white/[0.03] border border-white/[0.06] text-zinc-500 hover:text-white"}`}
+                        className={`py-2.5 rounded-xl text-xs font-bold transition-colors ${edits.speed === s ? "bg-[#1ABC71]/30 border border-[#1ABC71]/50 text-[#1ABC71]" : "bg-gray-50 border border-gray-200 text-gray-500 hover:text-black"}`}
                       >{s}×</button>
                     ))}
                   </div>
-                  <p className="text-xs text-zinc-600 mt-3 leading-relaxed">
+                  <p className="text-xs text-gray-500 mt-3 leading-relaxed">
                     {edits.speed < 1 && "🐢 Slow motion effect"}
                     {edits.speed === 1 && "▶ Normal speed"}
                     {edits.speed > 1 && "⚡ Timelapse / fast-forward"}
                   </p>
-                  <div className="mt-3 bg-white/[0.02] rounded-xl p-3 text-[10px] text-zinc-600 leading-relaxed">
+                  <div className="mt-3 bg-gray-50 rounded-xl p-3 text-[10px] text-gray-500 leading-relaxed border border-gray-200">
                     Audio pitch dipertahankan secara otomatis (atempo filter).
                   </div>
                 </div>
@@ -396,11 +397,11 @@ export default function VideoEditor({
             </div>
 
             {/* Export button */}
-            <div className="p-4 border-t border-white/[0.06] shrink-0">
+            <div className="p-4 border-t border-gray-200 shrink-0">
               <button
                 onClick={() => onExport(moment, edits)}
                 disabled={isExporting || !videoSrc}
-                className="w-full py-3.5 rounded-2xl font-bold text-sm bg-gradient-to-r from-violet-600 to-cyan-600 text-white hover:from-violet-500 hover:to-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-violet-500/20"
+                className="w-full py-3.5 rounded-2xl font-bold text-sm bg-[#1ABC71] text-white hover:bg-[#16a085] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#1ABC71]/20"
               >
                 {isExporting ? <><Loader2 size={16} className="animate-spin" /> Exporting...</> : <><Download size={16} /> Export Clip</>}
               </button>
@@ -419,10 +420,10 @@ function SliderField({ label, value, min, max, step, format, onChange }: {
   return (
     <div>
       <div className="flex justify-between mb-2">
-        <label className="text-xs text-zinc-400">{label}</label>
-        <span className="text-xs font-mono text-violet-400">{format(value)}</span>
+        <label className="text-xs text-gray-600">{label}</label>
+        <span className="text-xs font-mono text-[#1ABC71]">{format(value)}</span>
       </div>
-      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(parseFloat(e.target.value))} className="w-full accent-violet-500" />
+      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(parseFloat(e.target.value))} className="w-full accent-[#1ABC71]" />
     </div>
   );
 }

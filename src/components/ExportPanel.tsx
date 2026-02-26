@@ -1,3 +1,4 @@
+// /Users/haimac/Project/clipper-ai-fe/src/components/ExportPanel.tsx
 // src/components/ExportPanel.tsx
 import { Download, CheckCircle2, Loader2, Film, Trash2, Zap } from "lucide-react";
 import type { ProjectClip } from "../lib/storage";
@@ -25,7 +26,7 @@ export default function ExportPanel({
 }: Props) {
   if (clips.length === 0) {
     return (
-      <div className="text-center py-16 text-zinc-600">
+      <div className="text-center py-16 text-gray-400">
         <Film size={40} className="mx-auto mb-3 opacity-30" />
         <p className="text-sm">No clips selected yet.</p>
         <p className="text-xs mt-1">Go back and select some viral moments.</p>
@@ -48,11 +49,11 @@ export default function ExportPanel({
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-zinc-300">
+        <h3 className="text-sm font-semibold text-gray-700">
           {clips.length} Clip{clips.length > 1 ? "s" : ""} Ready
         </h3>
         {exportedCount > 0 && (
-          <span className="flex items-center gap-1.5 text-xs text-green-400">
+          <span className="flex items-center gap-1.5 text-xs text-[#1ABC71]">
             <CheckCircle2 size={12} />
             {exportedCount} exported
           </span>
@@ -70,25 +71,25 @@ export default function ExportPanel({
         return (
           <div
             key={clip.momentId}
-            className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-4 space-y-3"
+            className="bg-gray-50 border border-gray-200 rounded-2xl p-4 space-y-3"
           >
             {/* Clip info row */}
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
-                <Film size={14} className="text-violet-400" />
+              <div className="w-8 h-8 rounded-lg bg-[#1ABC71]/10 border border-[#1ABC71]/20 flex items-center justify-center shrink-0">
+                <Film size={14} className="text-[#1ABC71]" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">
+                <p className="text-sm font-medium text-black truncate">
                   {clip.moment.label}
                 </p>
-                <p className="text-xs text-zinc-500 font-mono mt-0.5">
+                <p className="text-xs text-gray-500 font-mono mt-0.5">
                   {formatTime(effectiveStart)} → {formatTime(effectiveEnd)}
-                  <span className="ml-2 text-zinc-600">({Math.round(duration)}s)</span>
+                  <span className="ml-2 text-gray-400">({Math.round(duration)}s)</span>
                 </p>
               </div>
               <button
                 onClick={() => onRemoveClip(clip.momentId)}
-                className="text-zinc-700 hover:text-red-400 transition-colors p-1 shrink-0"
+                className="text-gray-400 hover:text-red-500 transition-colors p-1 shrink-0"
                 title="Remove clip"
               >
                 <Trash2 size={14} />
@@ -98,27 +99,27 @@ export default function ExportPanel({
             {/* Edits applied badges */}
             <div className="flex flex-wrap gap-1.5">
               {clip.edits.aspectRatio !== "original" && (
-                <span className="px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 text-[10px] border border-cyan-500/20">
+                <span className="px-2 py-0.5 rounded-md bg-[#1ABC71]/10 text-[#1ABC71] text-[10px] border border-[#1ABC71]/20">
                   {AR_LABELS[clip.edits.aspectRatio] ?? clip.edits.aspectRatio}
                 </span>
               )}
               {clip.edits.speed !== 1 && (
-                <span className="px-2 py-0.5 rounded-md bg-orange-500/10 text-orange-400 text-[10px] border border-orange-500/20">
+                <span className="px-2 py-0.5 rounded-md bg-orange-50 text-orange-500 text-[10px] border border-orange-200">
                   {clip.edits.speed}× speed
                 </span>
               )}
               {clip.edits.textOverlays.length > 0 && (
-                <span className="px-2 py-0.5 rounded-md bg-violet-500/10 text-violet-400 text-[10px] border border-violet-500/20">
+                <span className="px-2 py-0.5 rounded-md bg-[#1ABC71]/10 text-[#1ABC71] text-[10px] border border-[#1ABC71]/20">
                   {clip.edits.textOverlays.length} text{clip.edits.textOverlays.length > 1 ? "s" : ""}
                 </span>
               )}
               {(clip.edits.brightness !== 0 || clip.edits.contrast !== 0 || clip.edits.saturation !== 0) && (
-                <span className="px-2 py-0.5 rounded-md bg-yellow-500/10 text-yellow-400 text-[10px] border border-yellow-500/20">
+                <span className="px-2 py-0.5 rounded-md bg-yellow-50 text-yellow-600 text-[10px] border border-yellow-200">
                   color adjusted
                 </span>
               )}
               {(clip.edits.trimStart !== 0 || clip.edits.trimEnd !== 0) && (
-                <span className="px-2 py-0.5 rounded-md bg-pink-500/10 text-pink-400 text-[10px] border border-pink-500/20">
+                <span className="px-2 py-0.5 rounded-md bg-pink-50 text-pink-500 text-[10px] border border-pink-200">
                   trimmed
                 </span>
               )}
@@ -128,7 +129,7 @@ export default function ExportPanel({
             <div className="flex gap-2 pt-1">
               <button
                 onClick={() => onEditClip(clip)}
-                className="flex-1 py-2 rounded-xl text-xs border border-white/[0.08] text-zinc-400 hover:text-white hover:border-white/20 transition-colors"
+                className="flex-1 py-2 rounded-xl text-xs border border-gray-200 text-gray-600 hover:text-black hover:border-gray-300 transition-colors"
               >
                 Edit
               </button>
@@ -141,7 +142,7 @@ export default function ExportPanel({
                       `${clip.moment.label.replace(/\s+/g, "_")}.mp4`
                     )
                   }
-                  className="flex-1 py-2 rounded-xl text-xs bg-green-600/20 border border-green-500/30 text-green-400 hover:bg-green-600/30 transition-colors flex items-center justify-center gap-1.5"
+                  className="flex-1 py-2 rounded-xl text-xs bg-[#1ABC71]/20 border border-[#1ABC71]/30 text-[#1ABC71] hover:bg-[#1ABC71]/30 transition-colors flex items-center justify-center gap-1.5"
                 >
                   <Download size={12} />
                   Download
@@ -150,7 +151,7 @@ export default function ExportPanel({
                 <button
                   onClick={() => onExportClip(clip)}
                   disabled={isExporting}
-                  className="flex-1 py-2 rounded-xl text-xs bg-violet-600/20 border border-violet-500/30 text-violet-300 hover:bg-violet-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1.5"
+                  className="flex-1 py-2 rounded-xl text-xs bg-[#1ABC71] text-white hover:bg-[#16a085] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1.5"
                 >
                   {isExporting ? (
                     <>
@@ -169,7 +170,7 @@ export default function ExportPanel({
 
             {/* Exported success message */}
             {exportedUrl && (
-              <div className="flex items-center gap-2 text-xs text-green-400/70 bg-green-500/5 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-2 text-xs text-[#1ABC71]/70 bg-[#1ABC71]/5 rounded-lg px-3 py-2">
                 <CheckCircle2 size={12} className="shrink-0" />
                 <span>Exported — click Download to save to your device</span>
               </div>
@@ -180,7 +181,7 @@ export default function ExportPanel({
 
       {/* Batch hint */}
       {clips.length > 1 && exportedCount < clips.length && (
-        <p className="text-center text-[10px] text-zinc-700 pb-2">
+        <p className="text-center text-[10px] text-gray-400 pb-2">
           Export each clip individually, then download
         </p>
       )}
