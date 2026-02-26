@@ -1,0 +1,457 @@
+// /Users/haimac/Project/clipper-ai-fe/src/App.tsx
+// src/App.tsx
+import { useState, useEffect, useRef } from "react";
+import {
+  Zap, Film, ChevronRight, Loader2,
+  CheckCircle2, AlertCircle, Sparkles, ArrowLeft,
+} from "lucide-react";
+import FileUploadInput from "../components/FileUploadInput";
+import MomentsList  from "../components/MomentsList";
+import VideoEditor  from "../components/VideoEditor";
+import ExportPanel  from "../components/ExportPanel";
+import { detectViralMomentsFromFile, formatTime, type ViralMoment } from "../lib/AI";
+import {
+  saveProject, defaultEdits, generateId, getApiKey,
+  type Project, type ProjectClip, type ClipEdits,
+} from "../lib/storage";
+import {
+  storeSourceVideo,
+  getSourceVideoUrl,
+  getSourceVideoBlob,
+  uploadAndStoreExportedClip,
+  listStoredExportIds,
+  getExportedClip,
+} from "../lib/videoDB";
+
+const API_BASE = import.meta.env.VITE_API_BASE;
+
+type Step = "input" | "analyzing" | "moments";
+
+function ProgressToast({ message }: { message: string }) {
+  return (
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 bg-white border border-[#1ABC71]/30 rounded-2xl shadow-xl shadow-[#1ABC71]/10 text-sm text-gray-700 whitespace-nowrap">
+      <Loader2 size={14} className="animate-spin text-[#1ABC71] shrink-0" />
+      {message}
+    </div>
+  );
+}
+
+export default function App() {
+  const [step, setStep]                   = useState<Step>("input");
+  const [project, setProject]             = useState<Project | null>(null);
+  const [selectedClipIds, setSelectedClipIds] = useState<string[]>([]);
+  const [editingMoment, setEditingMoment] = useState<ViralMoment | null>(null);
+  const [clipEdits, setClipEdits]         = useState<Record<string, ClipEdits>>({});
+  const [exportedUrls, setExportedUrls]   = useState<Record<string, string>>({});
+
+  const [isLoading, setIsLoading]         = useState(false);
+  const [isExporting, setIsExporting]     = useState(false);
+  const [exportingId, setExportingId]     = useState<string | null>(null);
+  const [progressMsg, setProgressMsg]     = useState("");
+  const [error, setError]                 = useState("");
+  const [activePanel, setActivePanel]     = useState<"moments" | "export">("moments");
+
+  const videoObjectUrlRef = useRef<string | null>(null);
+
+  // ─── Pulihkan objectURL dari IndexedDB saat project dimuat ───────────────
+  useEffect(() => {
+    if (!project?.id || project.localVideoUrl) return;
+    (async () => {
+      const url = await getSourceVideoUrl(project.id);
+      if (url) {
+        if (videoObjectUrlRef.current) URL.revokeObjectURL(videoObjectUrlRef.current);
+        videoObjectUrlRef.current = url;
+        setProject((p) => p ? { ...p, localVideoUrl: url } : p);
+      }
+    })();
+  }, [project?.id]);
+
+  // ─── Pulihkan exported clip objectURLs dari IndexedDB ─────────────────────
+  useEffect(() => {
+    if (!project) return;
+    (async () => {
+      const storedIds = await listStoredExportIds();
+      if (storedIds.length === 0) return;
+      const momentIds = project.analysisResult.moments.map((m) => m.id);
+      const relevant  = storedIds.filter((id) => momentIds.includes(id));
+      if (relevant.length === 0) return;
+
+      const entries = await Promise.all(
+        relevant.map(async (momentId) => {
+          const result = await getExportedClip(momentId);
+          return result ? ([momentId, result.url] as [string, string]) : null;
+        })
+      );
+
+      const restored: Record<string, string> = {};
+      for (const entry of entries) {
+        if (entry) restored[entry[0]] = entry[1];
+      }
+      if (Object.keys(restored).length > 0) {
+        setExportedUrls((prev) => ({ ...restored, ...prev }));
+      }
+    })();
+  }, [project?.id]);
+
+  // ─── Revoke objectURLs saat unmount ───────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      if (videoObjectUrlRef.current) URL.revokeObjectURL(videoObjectUrlRef.current);
+      Object.values(exportedUrls).forEach((url) => {
+        if (url.startsWith("blob:")) URL.revokeObjectURL(url);
+      });
+    };
+  }, []);
+
+  // ─── STEP 1: Upload file + analisis AI ────────────────────────────────────
+  async function handleAnalyze(file: File, duration: number) {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      setError("API key tidak ditemukan. Tambahkan VITE_OPENROUTER_API_KEY ke .env.local");
+      return;
+    }
+
+    setIsLoading(true);
+    setError("");
+    setProgressMsg("Menyimpan video ke browser…");
+    setStep("analyzing");
+
+    try {
+      // 1. Generate project ID dulu
+      const projectId = generateId();
+
+      // 2. Simpan blob video ke IndexedDB
+      await storeSourceVideo(projectId, file.name, file.type, file);
+      const objectUrl = URL.createObjectURL(file);
+      if (videoObjectUrlRef.current) URL.revokeObjectURL(videoObjectUrlRef.current);
+      videoObjectUrlRef.current = objectUrl;
+
+      // 3. Analisis AI berdasarkan metadata file
+      const videoInfo = {
+        fileName: file.name,
+        fileSize: file.size,
+        duration,
+        mimeType: file.type || "video/mp4",
+      };
+
+      const result = await detectViralMomentsFromFile(
+        videoInfo,
+        apiKey,
+        (msg) => setProgressMsg(msg)
+      );
+
+      const proj: Project = {
+        id:            projectId,
+        videoFileName: file.name,
+        videoFileSize: file.size,
+        videoMimeType: file.type || "video/mp4",
+        videoDuration: duration,
+        localVideoUrl: objectUrl,
+        analysisResult: result,
+        selectedClips:  [],
+        createdAt:      Date.now(),
+        updatedAt:      Date.now(),
+      };
+
+      saveProject(proj);
+      setProject(proj);
+      setSelectedClipIds([]);
+      setClipEdits({});
+      setExportedUrls({});
+      setActivePanel("moments");
+      setStep("moments");
+    } catch (err: any) {
+      setError(err.message || "Terjadi kesalahan");
+      setStep("input");
+    } finally {
+      setIsLoading(false);
+      setProgressMsg("");
+    }
+  }
+
+  // ─── Toggle pilihan clip ──────────────────────────────────────────────────
+  function handleToggleSelect(moment: ViralMoment) {
+    const isSelected = selectedClipIds.includes(moment.id);
+    setSelectedClipIds((prev) =>
+      isSelected ? prev.filter((id) => id !== moment.id) : [...prev, moment.id]
+    );
+    if (!isSelected && !clipEdits[moment.id]) {
+      setClipEdits((prev) => ({ ...prev, [moment.id]: defaultEdits() }));
+    }
+  }
+
+  // ─── Buka editor ─────────────────────────────────────────────────────────
+  function handleEditMoment(moment: ViralMoment) {
+    if (!clipEdits[moment.id]) {
+      setClipEdits((prev) => ({ ...prev, [moment.id]: defaultEdits() }));
+    }
+    setEditingMoment(moment);
+  }
+
+  function handleUpdateEdits(edits: ClipEdits) {
+    if (!editingMoment) return;
+    setClipEdits((prev) => ({ ...prev, [editingMoment.id]: edits }));
+  }
+
+  // ─── Export clip → IndexedDB ──────────────────────────────────────────────
+  async function handleExportClip(moment: ViralMoment, edits: ClipEdits) {
+    if (!project?.id) {
+      setError("Tidak ada project aktif.");
+      return;
+    }
+
+    const videoBlob = await getSourceVideoBlob(project.id);
+    if (!videoBlob) {
+      setError("Video tidak ditemukan di IndexedDB. Coba muat ulang halaman.");
+      return;
+    }
+
+    setIsExporting(true);
+    setExportingId(moment.id);
+    setProgressMsg("Mengupload ke server untuk diproses…");
+
+    try {
+      const clip = {
+        startTime: moment.startTime + edits.trimStart,
+        endTime:   moment.endTime   + edits.trimEnd,
+        label:     moment.label,
+      };
+
+      const editsForServer = {
+        ...edits,
+        textOverlays: edits.textOverlays.map(
+          ({ text, x, y, fontSize, color, startSec, endSec }) => ({
+            text, x, y, fontSize, color, startSec, endSec,
+          })
+        ),
+      };
+
+      setProgressMsg("Server memproses clip, harap tunggu…");
+
+      const objectUrl = await uploadAndStoreExportedClip(
+        `${API_BASE}/api/export-clip`,
+        videoBlob,
+        moment.id,
+        clip,
+        editsForServer
+      );
+
+      setExportedUrls((prev) => ({ ...prev, [moment.id]: objectUrl }));
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsExporting(false);
+      setExportingId(null);
+      setProgressMsg("");
+    }
+  }
+
+  // ─── Derived clips untuk ExportPanel ─────────────────────────────────────
+  const selectedClips: ProjectClip[] = selectedClipIds
+    .map((id) => {
+      const moment = project?.analysisResult.moments.find((m) => m.id === id);
+      if (!moment) return null;
+      return { momentId: id, moment, edits: clipEdits[id] || defaultEdits() };
+    })
+    .filter(Boolean) as ProjectClip[];
+
+  // ─── Render: Input / Analyzing ────────────────────────────────────────────
+  if (step === "input" || step === "analyzing") {
+    return (
+      <>
+        <FileUploadInput onAnalyze={handleAnalyze} isLoading={isLoading} error={error} />
+        {progressMsg && <ProgressToast message={progressMsg} />}
+      </>
+    );
+  }
+
+  if (!project) return null;
+
+  // ─── Render: Main workspace ───────────────────────────────────────────────
+  return (
+    <div className="min-h-screen bg-white text-black flex flex-col">
+      <div className="h-px bg-gradient-to-r from-transparent via-[#1ABC71] to-transparent" />
+
+      {/* Header */}
+      <header className="flex items-center justify-between px-6 py-4 border-b border-gray-200 shrink-0">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => {
+              setStep("input");
+              setProject(null);
+              setSelectedClipIds([]);
+              setClipEdits({});
+              setExportedUrls({});
+              setError("");
+            }}
+            className="p-2 rounded-xl hover:bg-gray-100 text-gray-500 hover:text-black transition-colors"
+            title="Kembali ke home"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-[#1ABC71] flex items-center justify-center">
+              <Zap size={12} className="text-white fill-white" />
+            </div>
+            <span className="text-sm font-bold" style={{ fontFamily: "'Syne', sans-serif" }}>
+              AI Viral Clipper
+            </span>
+          </div>
+        </div>
+
+        <div className="flex-1 max-w-md mx-8 hidden md:block min-w-0">
+          <div className="flex items-center gap-2 text-xs text-gray-500 truncate">
+            <Film size={12} className="text-[#1ABC71] shrink-0" />
+            <span className="truncate">{project.videoFileName}</span>
+            <span className="shrink-0 text-gray-400 font-mono">
+              · {formatTime(project.videoDuration)}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-xs text-[#1ABC71]">
+            <CheckCircle2 size={12} />
+            <span className="hidden sm:inline">Video siap</span>
+          </div>
+
+          {selectedClipIds.length > 0 && (
+            <button
+              onClick={() => setActivePanel("export")}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1ABC71] text-xs font-semibold hover:bg-[#16a085] transition-all shadow-lg shadow-[#1ABC71]/20 text-white"
+            >
+              <Film size={12} />
+              Export {selectedClipIds.length} Clip{selectedClipIds.length > 1 ? "s" : ""}
+              <ChevronRight size={12} />
+            </button>
+          )}
+        </div>
+      </header>
+
+      {/* Error banner */}
+      {error && (
+        <div className="mx-6 mt-4 flex items-center gap-3 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs">
+          <AlertCircle size={14} className="shrink-0" />
+          <span className="flex-1">{error}</span>
+          <button onClick={() => setError("")} className="text-red-400 hover:text-red-600 ml-2">✕</button>
+        </div>
+      )}
+
+      {/* Main layout */}
+      <div className="flex-1 flex overflow-hidden">
+
+        {/* Left sidebar */}
+        <aside className="w-72 border-r border-gray-200 overflow-y-auto p-5 hidden lg:flex flex-col shrink-0 bg-gray-50">
+          {/* Video info card */}
+          <div className="rounded-xl bg-white border border-gray-200 p-4 mb-4 shadow-sm">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-lg bg-[#1ABC71]/10 border border-[#1ABC71]/20 flex items-center justify-center shrink-0">
+                <Film size={18} className="text-[#1ABC71]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-black truncate">{project.videoFileName}</p>
+                <p className="text-[10px] text-gray-500 font-mono mt-0.5">
+                  {formatTime(project.videoDuration)} · {(project.videoFileSize / 1_048_576).toFixed(0)}MB
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+            {project.analysisResult.moments.length} momen terdeteksi
+          </h2>
+
+          <div className="space-y-2 mb-6">
+            {[
+              { label: "Upload Video",       done: true },
+              { label: "Analisis AI",        done: true },
+              { label: "Pilih Moments",      done: selectedClipIds.length > 0 },
+              { label: "Edit Clips",         done: Object.values(clipEdits).some(
+                (e) => e.aspectRatio !== "original" || e.textOverlays.length > 0 ||
+                       e.trimStart !== 0 || e.trimEnd !== 0 || e.speed !== 1
+              )},
+              { label: "Export & Download",  done: Object.keys(exportedUrls).length > 0 },
+            ].map((s, i) => (
+              <div key={i} className="flex items-center gap-2.5 text-xs">
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center border text-[10px] font-bold shrink-0 ${
+                  s.done
+                    ? "bg-[#1ABC71]/20 border-[#1ABC71]/40 text-[#1ABC71]"
+                    : "bg-gray-100 border-gray-300 text-gray-400"
+                }`}>
+                  {s.done ? "✓" : i + 1}
+                </div>
+                <span className={s.done ? "text-gray-700" : "text-gray-400"}>{s.label}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-auto pt-5 border-t border-gray-200">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 font-mono">AI Summary</p>
+            <p className="text-xs text-gray-600 leading-relaxed">{project.analysisResult.summary}</p>
+          </div>
+        </aside>
+
+        {/* Main panel */}
+        <main className="flex-1 overflow-y-auto min-w-0 bg-white">
+          <div className="sticky top-0 z-10 flex items-center gap-1 px-6 py-3 bg-white/90 backdrop-blur border-b border-gray-100">
+            <button
+              onClick={() => setActivePanel("moments")}
+              className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 ${
+                activePanel === "moments" ? "bg-[#1ABC71] text-white" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+              }`}
+            >
+              <Sparkles size={12} />
+              Momen Viral ({project.analysisResult.moments.length})
+            </button>
+            <button
+              onClick={() => setActivePanel("export")}
+              className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 ${
+                activePanel === "export" ? "bg-[#1ABC71] text-white" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+              }`}
+            >
+              <Film size={12} />
+              Clips Dipilih ({selectedClipIds.length})
+            </button>
+          </div>
+
+          <div className="p-6">
+            {activePanel === "moments" && (
+              <MomentsList
+                result={project.analysisResult}
+                selectedIds={selectedClipIds}
+                onToggleSelect={handleToggleSelect}
+                onEditClip={handleEditMoment}
+                videoFileName={project.videoFileName}
+                videoDuration={project.videoDuration}
+              />
+            )}
+            {activePanel === "export" && (
+              <ExportPanel
+                clips={selectedClips}
+                exportedUrls={exportedUrls}
+                exportingId={exportingId}
+                onExportClip={(clip) => handleExportClip(clip.moment, clip.edits)}
+                onEditClip={(clip) => handleEditMoment(clip.moment)}
+                onRemoveClip={(id) => setSelectedClipIds((prev) => prev.filter((x) => x !== id))}
+              />
+            )}
+          </div>
+        </main>
+      </div>
+
+      {progressMsg && <ProgressToast message={progressMsg} />}
+
+      {editingMoment && (
+        <VideoEditor
+          moment={editingMoment}
+          edits={clipEdits[editingMoment.id] || defaultEdits()}
+          videoSrc={project.localVideoUrl || ""}
+          onUpdateEdits={handleUpdateEdits}
+          onExport={handleExportClip}
+          onClose={() => setEditingMoment(null)}
+          isExporting={isExporting && exportingId === editingMoment.id}
+        />
+      )}
+    </div>
+  );
+}
