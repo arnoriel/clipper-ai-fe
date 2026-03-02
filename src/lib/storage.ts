@@ -1,14 +1,14 @@
-// src/lib/storage.ts
-// Local storage for project metadata (localStorage)
-// Video blobs stored in IndexedDB via src/lib/videoDB.ts
+// src/lib/storage.ts (UPDATED)
+// API key OpenRouter sekarang hanya ada di backend Python
+// Frontend tidak perlu menyimpan/membaca API key
 
 import type { ViralMoment, VideoAnalysisResult } from "./AI";
 
 export interface TextOverlay {
   id: string;
   text: string;
-  x: number;       // 0-1 normalized
-  y: number;       // 0-1 normalized
+  x: number;
+  y: number;
   fontSize: number;
   color: string;
   startSec: number | null;
@@ -23,12 +23,12 @@ export interface ClipEdits {
   cropH: number;
   aspectRatio: "9:16" | "16:9" | "1:1" | "4:3" | "original";
   textOverlays: TextOverlay[];
-  brightness: number;   // -1 to 1
-  contrast: number;     // -1 to 1
-  saturation: number;   // -1 to 1
-  speed: number;        // 0.5 | 1 | 1.5 | 2
-  trimStart: number;    // offset from moment.startTime
-  trimEnd: number;      // offset from moment.endTime (negative)
+  brightness: number;
+  contrast: number;
+  saturation: number;
+  speed: number;
+  trimStart: number;
+  trimEnd: number;
 }
 
 export interface ProjectClip {
@@ -40,19 +40,11 @@ export interface ProjectClip {
 
 export interface Project {
   id: string;
-
-  // Source file info (replacing YouTube fields)
-  videoFileName: string;   // original file name e.g. "my-video.mp4"
-  videoFileSize: number;   // bytes
-  videoMimeType: string;   // e.g. "video/mp4"
-  videoDuration: number;   // seconds
-
-  /**
-   * Ephemeral blob URL (from IndexedDB, valid for current session only).
-   * NOT persisted in localStorage.
-   */
+  videoFileName: string;
+  videoFileSize: number;
+  videoMimeType: string;
+  videoDuration: number;
   localVideoUrl?: string;
-
   analysisResult: VideoAnalysisResult;
   selectedClips: ProjectClip[];
   createdAt: number;
@@ -61,14 +53,16 @@ export interface Project {
 
 const STORAGE_KEY = "ai_clipper_projects_v2";
 
-// ─── API Key ──────────────────────────────────────────────────────────────────
+// ─── API Key — sekarang ada di backend, frontend tidak butuh ──────────────────
 export function getApiKey(): string {
-  return import.meta.env.VITE_OPENROUTER_API_KEY ?? "";
+  // Kembalikan dummy string agar kode lama tidak error
+  // API key sesungguhnya ada di environment variable backend
+  return "server-side";
 }
 
 export function isApiKeyConfigured(): boolean {
-  const key = getApiKey();
-  return key.startsWith("sk-or-") && key.length > 20;
+  // Selalu true karena API key ada di backend
+  return true;
 }
 
 // ─── Projects ─────────────────────────────────────────────────────────────────
@@ -101,7 +95,6 @@ export function getProject(id: string): Project | null {
   return loadProjects().find((p) => p.id === id) || null;
 }
 
-// ─── Default edits ────────────────────────────────────────────────────────────
 export function defaultEdits(): ClipEdits {
   return {
     cropX: 0, cropY: 0, cropW: 1, cropH: 1,
