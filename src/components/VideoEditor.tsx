@@ -51,6 +51,10 @@ const ASPECT_RATIOS: { label: string; value: ClipEdits["aspectRatio"]; desc: str
 const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const SNAP_THRESHOLD = 0.03;
 
+// ── Font size disimpan sebagai "px di referensi 1080px lebar" ─────────────────
+// Preview akan scale: actualPx = storedPx * (previewWidth / 1080)
+const FONT_REFERENCE_WIDTH = 1080;
+
 const CATEGORY_LABELS: Record<string, string> = {
   "sans-serif":  "Sans-serif",
   "display":     "Display / Impact",
@@ -67,10 +71,14 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-function buildTextShadow(t: TextOverlay): string {
+function buildTextShadow(t: TextOverlay, scale: number): string {
   if (!t.shadowEnabled) return "none";
   const color = hexToRgba(t.shadowColor || "#000000", 0.85);
-  return `${t.shadowX}px ${t.shadowY}px ${t.shadowBlur}px ${color}`;
+  // Scale shadow offset supaya proporsional dengan ukuran preview
+  const sx = (t.shadowX ?? 2) * scale;
+  const sy = (t.shadowY ?? 2) * scale;
+  const blur = (t.shadowBlur ?? 8) * scale;
+  return `${sx}px ${sy}px ${blur}px ${color}`;
 }
 
 // ─── Font picker ──────────────────────────────────────────────────────────────
@@ -216,9 +224,10 @@ function PresetCard({
 export default function VideoEditor({
   moment, edits, videoSrc, onUpdateEdits, onExport, onClose, isExporting, onAutoSubtitle,
 }: Props) {
-  const videoRef     = useRef<HTMLVideoElement>(null);
-  const videoWrapRef = useRef<HTMLDivElement>(null);
-  const timelineRef  = useRef<HTMLDivElement>(null);
+  const videoRef       = useRef<HTMLVideoElement>(null);
+  const videoWrapRef   = useRef<HTMLDivElement>(null);
+  const timelineRef    = useRef<HTMLDivElement>(null);
+  const progressBarRef = useRef<HTMLDivElement>(null);
 
   const [isPlaying, setIsPlaying]                 = useState(false);
   const [currentTime, setCurrentTime]             = useState(0);
@@ -232,10 +241,31 @@ export default function VideoEditor({
   const [transcribeError, setTranscribeError]     = useState("");
   const [subtitleSubTab, setSubtitleSubTab]       = useState<"presets" | "layers" | "add">("presets");
 
+  // ── Preview video wrapper actual pixel width (untuk scale font) ───────────
+  const [previewWidth, setPreviewWidth] = useState(0);
+
+  useEffect(() => {
+    const el = videoWrapRef.current;
+    if (!el) return;
+    const obs = new ResizeObserver(([entry]) => {
+      setPreviewWidth(entry.contentRect.width);
+    });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  // Scale factor: berapa kali lebih kecil preview dibanding referensi 1080px
+  // Contoh: preview 400px wide → scale = 400/1080 = 0.37
+  // Sehingga fontSize 44 (stored) → 44 * 0.37 = ~16px di preview → proporsional
+  const fontPreviewScale = previewWidth > 0 ? previewWidth / FONT_REFERENCE_WIDTH : 1;
+
   // Drag state
   const [draggingTextId, setDraggingTextId]   = useState<string | null>(null);
   const [snapGuides, setSnapGuides]           = useState<{ x: boolean; y: boolean }>({ x: false, y: false });
   const dragStartRef = useRef<{ mouseX: number; mouseY: number; textX: number; textY: number } | null>(null);
+
+  // Progress bar drag state
+  const [isDraggingProgress, setIsDraggingProgress] = useState(false);
 
   // Timeline drag
   const [draggingTimelineId, setDraggingTimelineId]     = useState<string | null>(null);
@@ -276,6 +306,48 @@ export default function VideoEditor({
     if (!v) return;
     v.currentTime = Math.min(Math.max(v.currentTime + delta, clipStart), clipEnd);
   }
+
+  // ── Spacebar play/pause ───────────────────────────────────────────────────
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      // Jangan trigger saat user sedang mengetik di input/textarea
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.code === "Space") {
+        e.preventDefault();
+        togglePlay();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isPlaying]);
+
+  // ── Progress bar drag ─────────────────────────────────────────────────────
+  function seekToClientX(clientX: number) {
+    const bar = progressBarRef.current;
+    if (!bar || !videoRef.current) return;
+    const rect = bar.getBoundingClientRect();
+    const pct  = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    videoRef.current.currentTime = clipStart + pct * clipDuration;
+  }
+
+  function handleProgressMouseDown(e: React.MouseEvent) {
+    e.preventDefault();
+    setIsDraggingProgress(true);
+    seekToClientX(e.clientX);
+  }
+
+  useEffect(() => {
+    if (!isDraggingProgress) return;
+    const onMove = (e: MouseEvent) => seekToClientX(e.clientX);
+    const onUp   = () => setIsDraggingProgress(false);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup",   onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup",   onUp);
+    };
+  }, [isDraggingProgress]);
 
   function updateEdits(partial: Partial<ClipEdits>) {
     onUpdateEdits({ ...edits, ...partial });
@@ -460,6 +532,9 @@ export default function VideoEditor({
     const s  = t.startSec ?? 0;
     const en = t.endSec ?? clipDuration;
 
+    // Tampilkan font size dalam px "nyata" di preview untuk UX yang intuitif
+    const previewPx = Math.round(t.fontSize * fontPreviewScale);
+
     return (
       <div className="border-t border-white/10 p-3 space-y-4">
         <div>
@@ -475,7 +550,12 @@ export default function VideoEditor({
 
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-[10px] text-white/40 mb-1.5 font-medium uppercase tracking-wider">Size: {t.fontSize}px</label>
+            <label className="block text-[10px] text-white/40 mb-1.5 font-medium uppercase tracking-wider">
+              Size: {t.fontSize}
+              {fontPreviewScale < 0.99 && (
+                <span className="text-white/20 ml-1">(~{previewPx}px preview)</span>
+              )}
+            </label>
             <input type="range" min={12} max={120} value={t.fontSize} onChange={(e) => updateOverlay(t.id, { fontSize: +e.target.value })} className="w-full accent-[#1ABC71]" />
           </div>
           <div>
@@ -704,6 +784,11 @@ export default function VideoEditor({
                     const displayText = t.uppercase ? t.text.toUpperCase() : t.text;
                     const fontFamily  = `'${t.fontFamily || "Montserrat"}', sans-serif`;
 
+                    // ── Scale font size & stroke proporsional ke ukuran preview ──────
+                    const scaledFontSize    = t.fontSize * fontPreviewScale;
+                    const scaledOutline     = (t.outlineWidth ?? 0) * fontPreviewScale;
+                    const scaledLetterSpace = (t.letterSpacing ?? 0) * fontPreviewScale;
+
                     return (
                       <div key={t.id}
                         className={`absolute select-none ${draggingTextId === t.id ? "cursor-grabbing" : "cursor-grab"} ${isSelected ? "z-30" : "z-10"}`}
@@ -713,21 +798,31 @@ export default function VideoEditor({
 
                         {t.backgroundEnabled && (
                           <div className="absolute rounded pointer-events-none"
-                            style={{ inset: `-${t.backgroundPadding ?? 10}px`, backgroundColor: hexToRgba(t.backgroundColor || "#000000", t.backgroundOpacity ?? 0.6), zIndex: 0 }} />
+                            style={{
+                              inset: `-${(t.backgroundPadding ?? 10) * fontPreviewScale}px`,
+                              backgroundColor: hexToRgba(t.backgroundColor || "#000000", t.backgroundOpacity ?? 0.6),
+                              zIndex: 0,
+                            }} />
                         )}
 
                         <div style={{
                           position: "relative", zIndex: 1,
-                          fontSize: `${t.fontSize}px`, fontFamily,
-                          color: t.color,
+                          // ↓ Font size di-scale sesuai ukuran preview wrapper
+                          fontSize:      `${scaledFontSize}px`,
+                          fontFamily,
+                          color:         t.color,
                           fontWeight:    t.bold   ? "bold"   : "normal",
                           fontStyle:     t.italic ? "italic" : "normal",
                           textTransform: t.uppercase ? "uppercase" : "none",
                           textAlign:     t.textAlign || "center",
-                          letterSpacing: `${t.letterSpacing ?? 0}px`,
+                          letterSpacing: `${scaledLetterSpace}px`,
                           lineHeight:    t.lineHeight || 1.2,
-                          WebkitTextStroke: (t.outlineWidth ?? 0) > 0 ? `${t.outlineWidth}px ${t.outlineColor || "#000000"}` : undefined,
-                          textShadow:    buildTextShadow(t),
+                          // ↓ Outline di-scale juga
+                          WebkitTextStroke: scaledOutline > 0
+                            ? `${scaledOutline}px ${t.outlineColor || "#000000"}`
+                            : undefined,
+                          // ↓ Shadow offset & blur di-scale
+                          textShadow:    buildTextShadow(t, fontPreviewScale),
                           whiteSpace:    "nowrap",
                         }}>
                           {displayText}
@@ -737,7 +832,7 @@ export default function VideoEditor({
                           <div className="absolute -inset-2 border border-[#1ABC71]/70 rounded pointer-events-none" style={{ borderStyle: "dashed" }}>
                             <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-[#1ABC71] text-white text-[9px] px-2 py-0.5 rounded font-mono whitespace-nowrap flex items-center gap-1">
                               {t.isAutoSubtitle && <Sparkles size={8} />}
-                              {t.fontFamily} · {t.fontSize}px
+                              {t.fontFamily} · {t.fontSize} · ~{Math.round(scaledFontSize)}px
                             </div>
                           </div>
                         )}
@@ -758,15 +853,18 @@ export default function VideoEditor({
 
             {/* Playback controls */}
             <div className="shrink-0 px-4 py-3 bg-[#0a0a0a] border-t border-white/10">
-              <div className="h-1 bg-white/10 rounded-full mb-3 cursor-pointer relative group"
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const pct  = (e.clientX - rect.left) / rect.width;
-                  if (videoRef.current) videoRef.current.currentTime = clipStart + pct * clipDuration;
-                }}>
-                <div className="absolute inset-y-0 left-0 bg-[#1ABC71] rounded-full" style={{ width: `${progressPct}%` }} />
-                <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-[#1ABC71] border-2 border-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ left: `${progressPct}%`, transform: "translate(-50%,-50%)" }} />
+              {/* ── Progress bar — click + drag ── */}
+              <div
+                ref={progressBarRef}
+                className={`h-2 bg-white/10 rounded-full mb-3 relative group select-none ${isDraggingProgress ? "cursor-grabbing" : "cursor-pointer"}`}
+                onMouseDown={handleProgressMouseDown}
+              >
+                <div className="absolute inset-y-0 left-0 bg-[#1ABC71] rounded-full pointer-events-none" style={{ width: `${progressPct}%` }} />
+                {/* Thumb — always visible while dragging, hover otherwise */}
+                <div
+                  className={`absolute top-1/2 w-4 h-4 rounded-full bg-[#1ABC71] border-2 border-white shadow-lg pointer-events-none transition-opacity ${isDraggingProgress ? "opacity-100 scale-110" : "opacity-0 group-hover:opacity-100"}`}
+                  style={{ left: `${progressPct}%`, transform: "translate(-50%, -50%)" }}
+                />
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -787,10 +885,14 @@ export default function VideoEditor({
               </div>
             </div>
 
-            {/* Subtitle Timeline */}
+            {/* Subtitle Timeline — fixed max height, inner content scrollable */}
             {activeTab === "subtitle" && (
-              <div className="shrink-0 bg-[#0d0d0d] border-t border-white/10" style={{ minHeight: "120px" }}>
-                <div className="flex items-center gap-2 px-4 py-2 border-b border-white/5">
+              <div
+                className="shrink-0 bg-[#0d0d0d] border-t border-white/10 flex flex-col"
+                style={{ minHeight: "120px", maxHeight: "220px" }}
+              >
+                {/* ── Header (always visible, never scrolls) ── */}
+                <div className="flex items-center gap-2 px-4 py-2 border-b border-white/5 shrink-0">
                   <Type size={11} className="text-[#1ABC71]" />
                   <span className="text-[10px] text-white/40 font-medium uppercase tracking-wider">Subtitle Timeline</span>
                   {autoCount > 0 && (
@@ -799,22 +901,31 @@ export default function VideoEditor({
                     </span>
                   )}
                 </div>
-                <div className="px-4 pb-2">
-                  {/* Ruler */}
-                  <div className="relative h-5 mb-1">
+
+                {/* ── Ruler (always visible, never scrolls) ── */}
+                <div className="px-4 pt-1 shrink-0">
+                  <div className="relative h-5">
                     {Array.from({ length: Math.ceil(clipDuration) + 1 }).map((_, i) => (
                       <div key={i} className="absolute top-0 flex flex-col items-center" style={{ left: `${(i / clipDuration) * 100}%` }}>
                         <div className="w-px h-2 bg-white/20" />
                         <span className="text-[8px] text-white/25 font-mono mt-0.5">{i}s</span>
                       </div>
                     ))}
+                    {/* Playhead on ruler */}
                     <div className="absolute top-0 bottom-0 w-px bg-[#1ABC71] z-10 pointer-events-none" style={{ left: `${progressPct}%` }}>
                       <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-[#1ABC71]" />
                     </div>
                   </div>
+                </div>
 
-                  <div ref={timelineRef} className="relative cursor-crosshair" onClick={handleTimelineClick}
-                    style={{ minHeight: `${Math.max(1, edits.textOverlays.length) * 36 + 8}px` }}>
+                {/* ── Track lanes — scrollable ── */}
+                <div className="flex-1 overflow-y-auto px-4 pb-2 min-h-0">
+                  <div
+                    ref={timelineRef}
+                    className="relative cursor-crosshair"
+                    onClick={handleTimelineClick}
+                    style={{ height: `${Math.max(1, edits.textOverlays.length) * 36 + 8}px` }}
+                  >
                     {edits.textOverlays.length === 0 && (
                       <div className="absolute inset-0 flex items-center justify-center text-[10px] text-white/20">
                         Generate auto subtitles or add text → clips appear here
@@ -861,6 +972,7 @@ export default function VideoEditor({
                       );
                     })}
 
+                    {/* Playhead on tracks */}
                     <div className="absolute top-0 bottom-0 w-px bg-[#1ABC71]/60 pointer-events-none z-20" style={{ left: `${progressPct}%` }} />
                   </div>
                 </div>
