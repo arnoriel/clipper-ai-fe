@@ -2,12 +2,12 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Zap, Film, ChevronRight, Loader2,
-  CheckCircle2, AlertCircle, Sparkles, ArrowLeft,
+  CheckCircle2, AlertCircle, Sparkles, ArrowLeft, X, Check,
 } from "lucide-react";
 import FileUploadInput from "../components/FileUploadInput";
-import MomentsList  from "../components/MomentsList";
-import VideoEditor  from "../components/VideoEditor";
-import ExportPanel  from "../components/ExportPanel";
+import MomentsList from "../components/MomentsList";
+import VideoEditor from "../components/VideoEditor";
+import ExportPanel from "../components/ExportPanel";
 import { detectViralMomentsFromFile, formatTime, type ViralMoment } from "../lib/AI";
 import {
   saveProject, defaultEdits, generateId, getApiKey,
@@ -36,19 +36,19 @@ function ProgressToast({ message }: { message: string }) {
 }
 
 export default function App() {
-  const [step, setStep]                   = useState<Step>("input");
-  const [project, setProject]             = useState<Project | null>(null);
+  const [step, setStep] = useState<Step>("input");
+  const [project, setProject] = useState<Project | null>(null);
   const [selectedClipIds, setSelectedClipIds] = useState<string[]>([]);
   const [editingMoment, setEditingMoment] = useState<ViralMoment | null>(null);
-  const [clipEdits, setClipEdits]         = useState<Record<string, ClipEdits>>({});
-  const [exportedUrls, setExportedUrls]   = useState<Record<string, string>>({});
+  const [clipEdits, setClipEdits] = useState<Record<string, ClipEdits>>({});
+  const [exportedUrls, setExportedUrls] = useState<Record<string, string>>({});
 
-  const [isLoading, setIsLoading]         = useState(false);
-  const [isExporting, setIsExporting]     = useState(false);
-  const [exportingId, setExportingId]     = useState<string | null>(null);
-  const [progressMsg, setProgressMsg]     = useState("");
-  const [error, setError]                 = useState("");
-  const [activePanel, setActivePanel]     = useState<"moments" | "export">("moments");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportingId, setExportingId] = useState<string | null>(null);
+  const [progressMsg, setProgressMsg] = useState("");
+  const [error, setError] = useState("");
+  const [activePanel, setActivePanel] = useState<"moments" | "export">("moments");
 
   const videoObjectUrlRef = useRef<string | null>(null);
 
@@ -72,7 +72,7 @@ export default function App() {
       const storedIds = await listStoredExportIds();
       if (storedIds.length === 0) return;
       const momentIds = project.analysisResult.moments.map((m) => m.id);
-      const relevant  = storedIds.filter((id) => momentIds.includes(id));
+      const relevant = storedIds.filter((id) => momentIds.includes(id));
       if (relevant.length === 0) return;
 
       const entries = await Promise.all(
@@ -137,16 +137,16 @@ export default function App() {
       );
 
       const proj: Project = {
-        id:            projectId,
+        id: projectId,
         videoFileName: file.name,
         videoFileSize: file.size,
         videoMimeType: file.type || "video/mp4",
         videoDuration: duration,
         localVideoUrl: objectUrl,
         analysisResult: result,
-        selectedClips:  [],
-        createdAt:      Date.now(),
-        updatedAt:      Date.now(),
+        selectedClips: [],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       saveProject(proj);
@@ -203,19 +203,19 @@ export default function App() {
       return null;
     }
 
-    const edits      = clipEdits[editingMoment.id] || defaultEdits();
-    const startTime  = editingMoment.startTime + edits.trimStart;
-    const endTime    = editingMoment.endTime + edits.trimEnd;
+    const edits = clipEdits[editingMoment.id] || defaultEdits();
+    const startTime = editingMoment.startTime + edits.trimStart;
+    const endTime = editingMoment.endTime + edits.trimEnd;
 
     const formData = new FormData();
-    formData.append("video",           videoBlob, "source.mp4");
-    formData.append("start_time",      startTime.toString());
-    formData.append("end_time",        endTime.toString());
+    formData.append("video", videoBlob, "source.mp4");
+    formData.append("start_time", startTime.toString());
+    formData.append("end_time", endTime.toString());
     formData.append("words_per_chunk", "3");
 
     const resp = await fetch(`${API_BASE}/api/auto-subtitle`, {
       method: "POST",
-      body:   formData,
+      body: formData,
     });
 
     if (!resp.ok) {
@@ -246,47 +246,47 @@ export default function App() {
     try {
       const clip = {
         startTime: moment.startTime + edits.trimStart,
-        endTime:   moment.endTime   + edits.trimEnd,
-        label:     moment.label,
+        endTime: moment.endTime + edits.trimEnd,
+        label: moment.label,
       };
 
       // Pass FULL edits (all style properties) to backend for proper ffmpeg rendering
       const editsForServer = {
-        aspectRatio:    edits.aspectRatio,
-        brightness:     edits.brightness,
-        contrast:       edits.contrast,
-        saturation:     edits.saturation,
-        speed:          edits.speed,
-        trimStart:      edits.trimStart,
-        trimEnd:        edits.trimEnd,
+        aspectRatio: edits.aspectRatio,
+        brightness: edits.brightness,
+        contrast: edits.contrast,
+        saturation: edits.saturation,
+        speed: edits.speed,
+        trimStart: edits.trimStart,
+        trimEnd: edits.trimEnd,
         // Send complete TextOverlay objects so backend can render all styles
         textOverlays: edits.textOverlays.map((t) => ({
-          id:                t.id,
-          text:              t.text,
-          x:                 t.x,
-          y:                 t.y,
-          fontSize:          t.fontSize,
-          fontFamily:        t.fontFamily,
-          color:             t.color,
-          bold:              t.bold,
-          italic:            t.italic,
-          uppercase:         t.uppercase,
-          textAlign:         t.textAlign,
-          letterSpacing:     t.letterSpacing,
-          opacity:           t.opacity,
-          outlineWidth:      t.outlineWidth,
-          outlineColor:      t.outlineColor,
-          shadowEnabled:     t.shadowEnabled,
-          shadowColor:       t.shadowColor,
-          shadowX:           t.shadowX,
-          shadowY:           t.shadowY,
-          shadowBlur:        t.shadowBlur,
+          id: t.id,
+          text: t.text,
+          x: t.x,
+          y: t.y,
+          fontSize: t.fontSize,
+          fontFamily: t.fontFamily,
+          color: t.color,
+          bold: t.bold,
+          italic: t.italic,
+          uppercase: t.uppercase,
+          textAlign: t.textAlign,
+          letterSpacing: t.letterSpacing,
+          opacity: t.opacity,
+          outlineWidth: t.outlineWidth,
+          outlineColor: t.outlineColor,
+          shadowEnabled: t.shadowEnabled,
+          shadowColor: t.shadowColor,
+          shadowX: t.shadowX,
+          shadowY: t.shadowY,
+          shadowBlur: t.shadowBlur,
           backgroundEnabled: t.backgroundEnabled,
-          backgroundColor:   t.backgroundColor,
+          backgroundColor: t.backgroundColor,
           backgroundOpacity: t.backgroundOpacity,
           backgroundPadding: t.backgroundPadding,
-          startSec:          t.startSec,
-          endSec:            t.endSec,
+          startSec: t.startSec,
+          endSec: t.endSec,
         })),
       };
 
@@ -382,7 +382,7 @@ export default function App() {
         <div className="mx-6 mt-4 flex items-center gap-3 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs">
           <AlertCircle size={14} className="shrink-0" />
           <span className="flex-1">{error}</span>
-          <button onClick={() => setError("")} className="text-red-400 hover:text-red-600 ml-2">✕</button>
+          <button onClick={() => setError("")} className="text-red-400 hover:text-red-600 ml-2"><X size={14} /></button>
         </div>
       )}
 
@@ -411,20 +411,21 @@ export default function App() {
 
           <div className="space-y-2 mb-6">
             {[
-              { label: "Upload Video",      done: true },
-              { label: "Analisis AI",       done: true },
-              { label: "Pilih Moments",     done: selectedClipIds.length > 0 },
-              { label: "Edit & Subtitle",   done: Object.values(clipEdits).some(
-                (e) => e.aspectRatio !== "original" || e.textOverlays.length > 0 ||
-                       e.trimStart !== 0 || e.trimEnd !== 0 || e.speed !== 1
-              )},
+              { label: "Upload Video", done: true },
+              { label: "Analisis AI", done: true },
+              { label: "Pilih Moments", done: selectedClipIds.length > 0 },
+              {
+                label: "Edit & Subtitle", done: Object.values(clipEdits).some(
+                  (e) => e.aspectRatio !== "original" || e.textOverlays.length > 0 ||
+                    e.trimStart !== 0 || e.trimEnd !== 0 || e.speed !== 1
+                )
+              },
               { label: "Export & Download", done: Object.keys(exportedUrls).length > 0 },
             ].map((s, i) => (
               <div key={i} className="flex items-center gap-2.5 text-xs">
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center border text-[10px] font-bold shrink-0 ${
-                  s.done ? "bg-[#1ABC71]/20 border-[#1ABC71]/40 text-[#1ABC71]" : "bg-gray-100 border-gray-300 text-gray-400"
-                }`}>
-                  {s.done ? "✓" : i + 1}
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center border text-[10px] font-bold shrink-0 ${s.done ? "bg-[#1ABC71]/20 border-[#1ABC71]/40 text-[#1ABC71]" : "bg-gray-100 border-gray-300 text-gray-400"
+                  }`}>
+                  {s.done ? <Check size={10} /> : i + 1}
                 </div>
                 <span className={s.done ? "text-gray-700" : "text-gray-400"}>{s.label}</span>
               </div>
@@ -441,16 +442,14 @@ export default function App() {
         <main className="flex-1 overflow-y-auto min-w-0 bg-white">
           <div className="sticky top-0 z-10 flex items-center gap-1 px-6 py-3 bg-white/90 backdrop-blur border-b border-gray-100">
             <button onClick={() => setActivePanel("moments")}
-              className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 ${
-                activePanel === "moments" ? "bg-[#1ABC71] text-white" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-              }`}>
+              className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 ${activePanel === "moments" ? "bg-[#1ABC71] text-white" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                }`}>
               <Sparkles size={12} />
               Momen Viral ({project.analysisResult.moments.length})
             </button>
             <button onClick={() => setActivePanel("export")}
-              className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 ${
-                activePanel === "export" ? "bg-[#1ABC71] text-white" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-              }`}>
+              className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 ${activePanel === "export" ? "bg-[#1ABC71] text-white" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                }`}>
               <Film size={12} />
               Clips Dipilih ({selectedClipIds.length})
             </button>
