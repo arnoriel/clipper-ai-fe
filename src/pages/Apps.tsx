@@ -1,5 +1,4 @@
-// /Users/haimac/Project/clipper-ai-fe/src/App.tsx
-// src/App.tsx
+// src/pages/App.tsx
 import { useState, useEffect, useRef } from "react";
 import {
   Zap, Film, ChevronRight, Loader2,
@@ -53,7 +52,7 @@ export default function App() {
 
   const videoObjectUrlRef = useRef<string | null>(null);
 
-  // ─── Pulihkan objectURL dari IndexedDB saat project dimuat ───────────────
+  // Restore objectURL from IndexedDB when project loads
   useEffect(() => {
     if (!project?.id || project.localVideoUrl) return;
     (async () => {
@@ -66,7 +65,7 @@ export default function App() {
     })();
   }, [project?.id]);
 
-  // ─── Pulihkan exported clip objectURLs dari IndexedDB ─────────────────────
+  // Restore exported clip objectURLs
   useEffect(() => {
     if (!project) return;
     (async () => {
@@ -93,7 +92,7 @@ export default function App() {
     })();
   }, [project?.id]);
 
-  // ─── Revoke objectURLs saat unmount ───────────────────────────────────────
+  // Revoke objectURLs on unmount
   useEffect(() => {
     return () => {
       if (videoObjectUrlRef.current) URL.revokeObjectURL(videoObjectUrlRef.current);
@@ -103,11 +102,11 @@ export default function App() {
     };
   }, []);
 
-  // ─── STEP 1: Upload file + analisis AI ────────────────────────────────────
+  // ── STEP 1: Upload + AI analysis ──────────────────────────────────────────
   async function handleAnalyze(file: File, duration: number) {
     const apiKey = getApiKey();
     if (!apiKey) {
-      setError("API key tidak ditemukan. Tambahkan VITE_OPENROUTER_API_KEY ke .env.local");
+      setError("API key tidak ditemukan.");
       return;
     }
 
@@ -117,16 +116,13 @@ export default function App() {
     setStep("analyzing");
 
     try {
-      // 1. Generate project ID dulu
       const projectId = generateId();
 
-      // 2. Simpan blob video ke IndexedDB
       await storeSourceVideo(projectId, file.name, file.type, file);
       const objectUrl = URL.createObjectURL(file);
       if (videoObjectUrlRef.current) URL.revokeObjectURL(videoObjectUrlRef.current);
       videoObjectUrlRef.current = objectUrl;
 
-      // 3. Analisis AI berdasarkan metadata file
       const videoInfo = {
         fileName: file.name,
         fileSize: file.size,
@@ -169,7 +165,7 @@ export default function App() {
     }
   }
 
-  // ─── Toggle pilihan clip ──────────────────────────────────────────────────
+  // ── Toggle clip selection ─────────────────────────────────────────────────
   function handleToggleSelect(moment: ViralMoment) {
     const isSelected = selectedClipIds.includes(moment.id);
     setSelectedClipIds((prev) =>
@@ -180,7 +176,7 @@ export default function App() {
     }
   }
 
-  // ─── Buka editor ─────────────────────────────────────────────────────────
+  // ── Open editor ───────────────────────────────────────────────────────────
   function handleEditMoment(moment: ViralMoment) {
     if (!clipEdits[moment.id]) {
       setClipEdits((prev) => ({ ...prev, [moment.id]: defaultEdits() }));
@@ -193,7 +189,44 @@ export default function App() {
     setClipEdits((prev) => ({ ...prev, [editingMoment.id]: edits }));
   }
 
-  // ─── Export clip → IndexedDB ──────────────────────────────────────────────
+  // ── Auto-subtitle: call backend Whisper endpoint ──────────────────────────
+  async function handleAutoSubtitle(): Promise<{
+    chunks: { text: string; start: number; end: number }[];
+    language?: string;
+    word_count?: number;
+  } | null> {
+    if (!project?.id || !editingMoment) return null;
+
+    const videoBlob = await getSourceVideoBlob(project.id);
+    if (!videoBlob) {
+      setError("Video tidak ditemukan di IndexedDB.");
+      return null;
+    }
+
+    const edits      = clipEdits[editingMoment.id] || defaultEdits();
+    const startTime  = editingMoment.startTime + edits.trimStart;
+    const endTime    = editingMoment.endTime + edits.trimEnd;
+
+    const formData = new FormData();
+    formData.append("video",           videoBlob, "source.mp4");
+    formData.append("start_time",      startTime.toString());
+    formData.append("end_time",        endTime.toString());
+    formData.append("words_per_chunk", "3");
+
+    const resp = await fetch(`${API_BASE}/api/auto-subtitle`, {
+      method: "POST",
+      body:   formData,
+    });
+
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      throw new Error(body.detail || body.error || "Transcription failed");
+    }
+
+    return await resp.json();
+  }
+
+  // ── Export clip → IndexedDB ───────────────────────────────────────────────
   async function handleExportClip(moment: ViralMoment, edits: ClipEdits) {
     if (!project?.id) {
       setError("Tidak ada project aktif.");
@@ -217,13 +250,44 @@ export default function App() {
         label:     moment.label,
       };
 
+      // Pass FULL edits (all style properties) to backend for proper ffmpeg rendering
       const editsForServer = {
-        ...edits,
-        textOverlays: edits.textOverlays.map(
-          ({ text, x, y, fontSize, color, startSec, endSec }) => ({
-            text, x, y, fontSize, color, startSec, endSec,
-          })
-        ),
+        aspectRatio:    edits.aspectRatio,
+        brightness:     edits.brightness,
+        contrast:       edits.contrast,
+        saturation:     edits.saturation,
+        speed:          edits.speed,
+        trimStart:      edits.trimStart,
+        trimEnd:        edits.trimEnd,
+        // Send complete TextOverlay objects so backend can render all styles
+        textOverlays: edits.textOverlays.map((t) => ({
+          id:                t.id,
+          text:              t.text,
+          x:                 t.x,
+          y:                 t.y,
+          fontSize:          t.fontSize,
+          fontFamily:        t.fontFamily,
+          color:             t.color,
+          bold:              t.bold,
+          italic:            t.italic,
+          uppercase:         t.uppercase,
+          textAlign:         t.textAlign,
+          letterSpacing:     t.letterSpacing,
+          opacity:           t.opacity,
+          outlineWidth:      t.outlineWidth,
+          outlineColor:      t.outlineColor,
+          shadowEnabled:     t.shadowEnabled,
+          shadowColor:       t.shadowColor,
+          shadowX:           t.shadowX,
+          shadowY:           t.shadowY,
+          shadowBlur:        t.shadowBlur,
+          backgroundEnabled: t.backgroundEnabled,
+          backgroundColor:   t.backgroundColor,
+          backgroundOpacity: t.backgroundOpacity,
+          backgroundPadding: t.backgroundPadding,
+          startSec:          t.startSec,
+          endSec:            t.endSec,
+        })),
       };
 
       setProgressMsg("Server memproses clip, harap tunggu…");
@@ -246,7 +310,7 @@ export default function App() {
     }
   }
 
-  // ─── Derived clips untuk ExportPanel ─────────────────────────────────────
+  // ── Derived clips ─────────────────────────────────────────────────────────
   const selectedClips: ProjectClip[] = selectedClipIds
     .map((id) => {
       const moment = project?.analysisResult.moments.find((m) => m.id === id);
@@ -255,7 +319,7 @@ export default function App() {
     })
     .filter(Boolean) as ProjectClip[];
 
-  // ─── Render: Input / Analyzing ────────────────────────────────────────────
+  // ── Render: Input / Analyzing ─────────────────────────────────────────────
   if (step === "input" || step === "analyzing") {
     return (
       <>
@@ -267,7 +331,7 @@ export default function App() {
 
   if (!project) return null;
 
-  // ─── Render: Main workspace ───────────────────────────────────────────────
+  // ── Render: Main workspace ────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-white text-black flex flex-col">
       <div className="h-px bg-gradient-to-r from-transparent via-[#1ABC71] to-transparent" />
@@ -276,26 +340,16 @@ export default function App() {
       <header className="flex items-center justify-between px-6 py-4 border-b border-gray-200 shrink-0">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => {
-              setStep("input");
-              setProject(null);
-              setSelectedClipIds([]);
-              setClipEdits({});
-              setExportedUrls({});
-              setError("");
-            }}
+            onClick={() => { setStep("input"); setProject(null); setSelectedClipIds([]); setClipEdits({}); setExportedUrls({}); setError(""); }}
             className="p-2 rounded-xl hover:bg-gray-100 text-gray-500 hover:text-black transition-colors"
-            title="Kembali ke home"
-          >
+            title="Kembali ke home">
             <ArrowLeft size={18} />
           </button>
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-lg bg-[#1ABC71] flex items-center justify-center">
               <Zap size={12} className="text-white fill-white" />
             </div>
-            <span className="text-sm font-bold" style={{ fontFamily: "'Syne', sans-serif" }}>
-              AI Viral Clipper
-            </span>
+            <span className="text-sm font-bold" style={{ fontFamily: "'Syne', sans-serif" }}>AI Viral Clipper</span>
           </div>
         </div>
 
@@ -303,9 +357,7 @@ export default function App() {
           <div className="flex items-center gap-2 text-xs text-gray-500 truncate">
             <Film size={12} className="text-[#1ABC71] shrink-0" />
             <span className="truncate">{project.videoFileName}</span>
-            <span className="shrink-0 text-gray-400 font-mono">
-              · {formatTime(project.videoDuration)}
-            </span>
+            <span className="shrink-0 text-gray-400 font-mono">· {formatTime(project.videoDuration)}</span>
           </div>
         </div>
 
@@ -314,12 +366,9 @@ export default function App() {
             <CheckCircle2 size={12} />
             <span className="hidden sm:inline">Video siap</span>
           </div>
-
           {selectedClipIds.length > 0 && (
-            <button
-              onClick={() => setActivePanel("export")}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1ABC71] text-xs font-semibold hover:bg-[#16a085] transition-all shadow-lg shadow-[#1ABC71]/20 text-white"
-            >
+            <button onClick={() => setActivePanel("export")}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1ABC71] text-xs font-semibold hover:bg-[#16a085] transition-all shadow-lg shadow-[#1ABC71]/20 text-white">
               <Film size={12} />
               Export {selectedClipIds.length} Clip{selectedClipIds.length > 1 ? "s" : ""}
               <ChevronRight size={12} />
@@ -342,7 +391,6 @@ export default function App() {
 
         {/* Left sidebar */}
         <aside className="w-72 border-r border-gray-200 overflow-y-auto p-5 hidden lg:flex flex-col shrink-0 bg-gray-50">
-          {/* Video info card */}
           <div className="rounded-xl bg-white border border-gray-200 p-4 mb-4 shadow-sm">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-lg bg-[#1ABC71]/10 border border-[#1ABC71]/20 flex items-center justify-center shrink-0">
@@ -363,20 +411,18 @@ export default function App() {
 
           <div className="space-y-2 mb-6">
             {[
-              { label: "Upload Video",       done: true },
-              { label: "Analisis AI",        done: true },
-              { label: "Pilih Moments",      done: selectedClipIds.length > 0 },
-              { label: "Edit Clips",         done: Object.values(clipEdits).some(
+              { label: "Upload Video",      done: true },
+              { label: "Analisis AI",       done: true },
+              { label: "Pilih Moments",     done: selectedClipIds.length > 0 },
+              { label: "Edit & Subtitle",   done: Object.values(clipEdits).some(
                 (e) => e.aspectRatio !== "original" || e.textOverlays.length > 0 ||
                        e.trimStart !== 0 || e.trimEnd !== 0 || e.speed !== 1
               )},
-              { label: "Export & Download",  done: Object.keys(exportedUrls).length > 0 },
+              { label: "Export & Download", done: Object.keys(exportedUrls).length > 0 },
             ].map((s, i) => (
               <div key={i} className="flex items-center gap-2.5 text-xs">
                 <div className={`w-5 h-5 rounded-full flex items-center justify-center border text-[10px] font-bold shrink-0 ${
-                  s.done
-                    ? "bg-[#1ABC71]/20 border-[#1ABC71]/40 text-[#1ABC71]"
-                    : "bg-gray-100 border-gray-300 text-gray-400"
+                  s.done ? "bg-[#1ABC71]/20 border-[#1ABC71]/40 text-[#1ABC71]" : "bg-gray-100 border-gray-300 text-gray-400"
                 }`}>
                   {s.done ? "✓" : i + 1}
                 </div>
@@ -394,21 +440,17 @@ export default function App() {
         {/* Main panel */}
         <main className="flex-1 overflow-y-auto min-w-0 bg-white">
           <div className="sticky top-0 z-10 flex items-center gap-1 px-6 py-3 bg-white/90 backdrop-blur border-b border-gray-100">
-            <button
-              onClick={() => setActivePanel("moments")}
+            <button onClick={() => setActivePanel("moments")}
               className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 ${
                 activePanel === "moments" ? "bg-[#1ABC71] text-white" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-              }`}
-            >
+              }`}>
               <Sparkles size={12} />
               Momen Viral ({project.analysisResult.moments.length})
             </button>
-            <button
-              onClick={() => setActivePanel("export")}
+            <button onClick={() => setActivePanel("export")}
               className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 ${
                 activePanel === "export" ? "bg-[#1ABC71] text-white" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-              }`}
-            >
+              }`}>
               <Film size={12} />
               Clips Dipilih ({selectedClipIds.length})
             </button>
@@ -450,6 +492,7 @@ export default function App() {
           onExport={handleExportClip}
           onClose={() => setEditingMoment(null)}
           isExporting={isExporting && exportingId === editingMoment.id}
+          onAutoSubtitle={handleAutoSubtitle}
         />
       )}
     </div>

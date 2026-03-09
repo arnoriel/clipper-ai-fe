@@ -1,15 +1,31 @@
 // src/components/VideoEditor.tsx
-// CapCut-style video editor with subtitle/text overlay timeline system
+// CapCut-style video editor with AI auto-subtitle system (2short.ai inspired)
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
   X, Play, Pause, SkipBack, SkipForward, Type, Crop,
   Sliders, Zap, Download, Loader2, Plus, Trash2, Clock, RefreshCw,
-  AlignCenter, Bold, ChevronDown, ChevronUp,
+  AlignCenter, AlignLeft, AlignRight, Bold, Italic, ChevronDown, ChevronUp,
+  Eye, EyeOff, CaseSensitive, Sparkles, Wand2, Check,
 } from "lucide-react";
 import type { ViralMoment } from "../lib/AI";
 import { formatTime } from "../lib/AI";
 import type { ClipEdits, TextOverlay } from "../lib/storage";
-import { generateId } from "../lib/storage";
+import {
+  generateId,
+  defaultTextOverlay,
+  loadAllSubtitleFonts,
+  SUBTITLE_FONTS,
+  SUBTITLE_PRESETS,
+  applyPresetToOverlay,
+  type SubtitlePreset,
+} from "../lib/storage";
+
+// ─── Props ────────────────────────────────────────────────────────────────────
+interface AutoSubtitleChunk {
+  text: string;
+  start: number;
+  end: number;
+}
 
 interface Props {
   moment: ViralMoment;
@@ -19,9 +35,10 @@ interface Props {
   onExport: (moment: ViralMoment, edits: ClipEdits) => void;
   onClose: () => void;
   isExporting: boolean;
+  onAutoSubtitle?: () => Promise<{ chunks: AutoSubtitleChunk[]; language?: string; word_count?: number } | null>;
 }
 
-type Tab = "trim" | "crop" | "subtitle" | "color" | "speed";
+type Tab = "subtitle" | "trim" | "crop" | "color" | "speed";
 
 const ASPECT_RATIOS: { label: string; value: ClipEdits["aspectRatio"]; desc: string }[] = [
   { label: "Original",      value: "original", desc: "Keep source dimensions" },
@@ -32,30 +49,195 @@ const ASPECT_RATIOS: { label: string; value: ClipEdits["aspectRatio"]; desc: str
 ];
 
 const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
-
-// Snap threshold for center alignment (normalized 0-1)
 const SNAP_THRESHOLD = 0.03;
 
+const CATEGORY_LABELS: Record<string, string> = {
+  "sans-serif":  "Sans-serif",
+  "display":     "Display / Impact",
+  "handwriting": "Handwriting",
+  "serif":       "Serif",
+  "monospace":   "Monospace",
+};
+
+function hexToRgba(hex: string, alpha: number): string {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function buildTextShadow(t: TextOverlay): string {
+  if (!t.shadowEnabled) return "none";
+  const color = hexToRgba(t.shadowColor || "#000000", 0.85);
+  return `${t.shadowX}px ${t.shadowY}px ${t.shadowBlur}px ${color}`;
+}
+
+// ─── Font picker ──────────────────────────────────────────────────────────────
+function FontPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    if (open) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const categories = ["display", "sans-serif", "serif", "handwriting", "monospace"] as const;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-3 py-2 bg-black/40 border border-white/15 rounded-xl text-left hover:border-white/30 transition-colors"
+      >
+        <span className="text-sm text-white/90 truncate" style={{ fontFamily: `'${value}', sans-serif` }}>
+          {value}
+        </span>
+        <ChevronDown size={12} className={`text-white/40 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="absolute z-50 mt-1 left-0 right-0 bg-[#181818] border border-white/15 rounded-xl shadow-2xl overflow-hidden">
+          <div className="overflow-y-auto" style={{ maxHeight: "260px" }}>
+            {categories.map((cat) => {
+              const fonts = SUBTITLE_FONTS.filter((f) => f.category === cat);
+              if (!fonts.length) return null;
+              return (
+                <div key={cat}>
+                  <div className="px-3 pt-2 pb-1 text-[9px] text-white/25 font-medium uppercase tracking-widest sticky top-0 bg-[#181818]">
+                    {CATEGORY_LABELS[cat]}
+                  </div>
+                  {fonts.map((font) => (
+                    <button
+                      key={font.name}
+                      onClick={() => { onChange(font.name); setOpen(false); }}
+                      className={`w-full px-3 py-2 text-left text-sm transition-colors hover:bg-white/8 ${
+                        value === font.name ? "text-[#1ABC71] bg-[#1ABC71]/10" : "text-white/70"
+                      }`}
+                      style={{ fontFamily: `'${font.name}', sans-serif` }}
+                    >
+                      {font.name}
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Color swatch ─────────────────────────────────────────────────────────────
+function ColorSwatch({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="flex items-center gap-2">
+      <label className="text-[10px] text-white/40 shrink-0 w-16">{label}</label>
+      <div className="relative flex-1">
+        <input type="color" value={value} onChange={(e) => onChange(e.target.value)}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+        <div className="h-7 rounded-lg border border-white/20 flex items-center px-2 gap-2 cursor-pointer"
+          style={{ backgroundColor: hexToRgba(value, 0.3) }}>
+          <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: value }} />
+          <span className="text-[10px] font-mono text-white/60">{value.toUpperCase()}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Preset card ─────────────────────────────────────────────────────────────
+function PresetCard({
+  preset,
+  isActive,
+  onClick,
+}: {
+  preset: SubtitlePreset;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`relative w-full rounded-xl overflow-hidden border transition-all duration-200 text-left group ${
+        isActive
+          ? "border-[#1ABC71] shadow-[0_0_12px_rgba(26,188,113,0.35)]"
+          : "border-white/10 hover:border-white/25"
+      }`}
+    >
+      {/* Preview area */}
+      <div
+        className="h-14 flex items-center justify-center px-2"
+        style={{ backgroundColor: preset.previewBg }}
+      >
+        <span
+          className="text-center leading-tight"
+          style={{
+            fontFamily:  `'${preset.overrides.fontFamily ?? "Montserrat"}', sans-serif`,
+            fontSize:    "14px",
+            fontWeight:  preset.overrides.bold ? "bold" : "normal",
+            color:       preset.previewText,
+            textTransform: preset.overrides.uppercase ? "uppercase" : "none",
+            letterSpacing: `${(preset.overrides.letterSpacing ?? 0) * 0.3}px`,
+            textShadow:  preset.overrides.shadowEnabled
+              ? `${preset.overrides.shadowX ?? 2}px ${preset.overrides.shadowY ?? 2}px ${preset.overrides.shadowBlur ?? 8}px ${preset.previewAccent}40`
+              : "none",
+            WebkitTextStroke: (preset.overrides.outlineWidth ?? 0) > 0
+              ? `${Math.min(1.5, preset.overrides.outlineWidth ?? 0)}px ${preset.overrides.outlineColor ?? "#000"}`
+              : undefined,
+            ...(preset.overrides.backgroundEnabled
+              ? {
+                  background: hexToRgba(preset.overrides.backgroundColor ?? "#000", preset.overrides.backgroundOpacity ?? 0.8),
+                  padding: "2px 8px",
+                  borderRadius: "4px",
+                }
+              : {}),
+          }}
+        >
+          {preset.emoji} {preset.name}
+        </span>
+      </div>
+      {/* Label */}
+      <div className={`px-2.5 py-1.5 ${isActive ? "bg-[#1ABC71]/15" : "bg-[#111]"}`}>
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-semibold text-white/80 truncate">{preset.name}</span>
+          {isActive && <Check size={10} className="text-[#1ABC71] shrink-0" />}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 export default function VideoEditor({
-  moment, edits, videoSrc, onUpdateEdits, onExport, onClose, isExporting,
+  moment, edits, videoSrc, onUpdateEdits, onExport, onClose, isExporting, onAutoSubtitle,
 }: Props) {
-  const videoRef       = useRef<HTMLVideoElement>(null);
-  const videoWrapRef   = useRef<HTMLDivElement>(null);
-  const timelineRef    = useRef<HTMLDivElement>(null);
+  const videoRef     = useRef<HTMLVideoElement>(null);
+  const videoWrapRef = useRef<HTMLDivElement>(null);
+  const timelineRef  = useRef<HTMLDivElement>(null);
 
-  const [isPlaying, setIsPlaying]       = useState(false);
-  const [currentTime, setCurrentTime]   = useState(0);
-  const [activeTab, setActiveTab]       = useState<Tab>("subtitle");
+  const [isPlaying, setIsPlaying]                 = useState(false);
+  const [currentTime, setCurrentTime]             = useState(0);
+  const [activeTab, setActiveTab]                 = useState<Tab>("subtitle");
   const [selectedOverlayId, setSelectedOverlayId] = useState<string | null>(null);
-  const [newText, setNewText]           = useState("");
-  const [expandedId, setExpandedId]     = useState<string | null>(null);
+  const [newText, setNewText]                     = useState("");
+  const [expandedId, setExpandedId]               = useState<string | null>(null);
 
-  // Drag state for text position on video
+  // Auto-subtitle state
+  const [isTranscribing, setIsTranscribing]       = useState(false);
+  const [transcribeError, setTranscribeError]     = useState("");
+  const [subtitleSubTab, setSubtitleSubTab]       = useState<"presets" | "layers" | "add">("presets");
+
+  // Drag state
   const [draggingTextId, setDraggingTextId]   = useState<string | null>(null);
   const [snapGuides, setSnapGuides]           = useState<{ x: boolean; y: boolean }>({ x: false, y: false });
   const dragStartRef = useRef<{ mouseX: number; mouseY: number; textX: number; textY: number } | null>(null);
 
-  // Timeline drag state
+  // Timeline drag
   const [draggingTimelineId, setDraggingTimelineId]     = useState<string | null>(null);
   const [draggingTimelineEdge, setDraggingTimelineEdge] = useState<"left" | "right" | "move" | null>(null);
   const timelineDragRef = useRef<{ startX: number; origStart: number; origEnd: number } | null>(null);
@@ -64,18 +246,19 @@ export default function VideoEditor({
   const clipEnd      = moment.endTime   + edits.trimEnd;
   const clipDuration = clipEnd - clipStart;
 
-  // ── Video time sync ──────────────────────────────────────────────────────
+  const activePresetId = edits.activePresetId ?? "bold-impact";
+
+  useEffect(() => { loadAllSubtitleFonts(); }, []);
+
+  // Video sync
   useEffect(() => {
     const v = videoRef.current;
     if (!v || !videoSrc) return;
     v.currentTime = clipStart;
     setCurrentTime(clipStart);
-
     const onTime = () => {
       setCurrentTime(v.currentTime);
-      if (v.currentTime >= clipEnd) {
-        v.pause(); v.currentTime = clipStart; setIsPlaying(false);
-      }
+      if (v.currentTime >= clipEnd) { v.pause(); v.currentTime = clipStart; setIsPlaying(false); }
     };
     v.addEventListener("timeupdate", onTime);
     return () => v.removeEventListener("timeupdate", onTime);
@@ -98,22 +281,76 @@ export default function VideoEditor({
     onUpdateEdits({ ...edits, ...partial });
   }
 
-  // ── Text overlay CRUD ────────────────────────────────────────────────────
+  // ── Get current active preset ─────────────────────────────────────────────
+  const currentPreset = SUBTITLE_PRESETS.find((p) => p.id === activePresetId) ?? SUBTITLE_PRESETS[0];
+
+  // ── Apply preset to all auto-subtitles ───────────────────────────────────
+  function applyPresetToAllAuto(presetId: string) {
+    const preset = SUBTITLE_PRESETS.find((p) => p.id === presetId);
+    if (!preset) return;
+    const updated = edits.textOverlays.map((t) =>
+      t.isAutoSubtitle ? applyPresetToOverlay(t, preset) : t
+    );
+    updateEdits({ textOverlays: updated, activePresetId: presetId });
+  }
+
+  // ── Auto-subtitle: call backend, create overlays ──────────────────────────
+  async function handleAutoSubtitle() {
+    if (!onAutoSubtitle) return;
+    setIsTranscribing(true);
+    setTranscribeError("");
+
+    try {
+      const result = await onAutoSubtitle();
+      if (!result || !result.chunks || result.chunks.length === 0) {
+        setTranscribeError("No speech detected in this clip.");
+        return;
+      }
+
+      const preset = SUBTITLE_PRESETS.find((p) => p.id === activePresetId) ?? SUBTITLE_PRESETS[0];
+
+      // Remove existing auto subtitles
+      const manual = edits.textOverlays.filter((t) => !t.isAutoSubtitle);
+
+      // Create overlays from chunks
+      const newOverlays: TextOverlay[] = result.chunks.map((chunk) => {
+        const base = defaultTextOverlay({
+          id:             generateId(),
+          text:           chunk.text,
+          startSec:       parseFloat(chunk.start.toFixed(3)),
+          endSec:         parseFloat(chunk.end.toFixed(3)),
+          isAutoSubtitle: true,
+        });
+        return applyPresetToOverlay(base, preset);
+      });
+
+      updateEdits({ textOverlays: [...manual, ...newOverlays] });
+      setSubtitleSubTab("layers");
+    } catch (e: any) {
+      setTranscribeError(e.message || "Transcription failed");
+    } finally {
+      setIsTranscribing(false);
+    }
+  }
+
+  // ── Remove all auto subtitles ─────────────────────────────────────────────
+  function clearAutoSubtitles() {
+    updateEdits({ textOverlays: edits.textOverlays.filter((t) => !t.isAutoSubtitle) });
+  }
+
+  // ── Text overlay CRUD ─────────────────────────────────────────────────────
   function addTextOverlay() {
     if (!newText.trim()) return;
     const relCurrentTime = currentTime - clipStart;
-    const overlay: TextOverlay = {
-      id: generateId(),
-      text: newText.trim(),
-      x: 0.5, y: 0.85,
-      fontSize: 36,
-      color: "#FFFFFF",
+    const preset = SUBTITLE_PRESETS.find((p) => p.id === activePresetId) ?? SUBTITLE_PRESETS[0];
+    const base = defaultTextOverlay({
+      id:       generateId(),
+      text:     newText.trim(),
       startSec: Math.max(0, relCurrentTime),
-      endSec: Math.min(clipDuration, relCurrentTime + 3),
-      bold: true,
-    };
-    const updated = [...edits.textOverlays, overlay];
-    updateEdits({ textOverlays: updated });
+      endSec:   Math.min(clipDuration, relCurrentTime + 3),
+    });
+    const overlay = applyPresetToOverlay(base, preset);
+    updateEdits({ textOverlays: [...edits.textOverlays, overlay] });
     setSelectedOverlayId(overlay.id);
     setExpandedId(overlay.id);
     setNewText("");
@@ -121,7 +358,7 @@ export default function VideoEditor({
 
   function updateOverlay(id: string, changes: Partial<TextOverlay>) {
     updateEdits({
-      textOverlays: edits.textOverlays.map((t) => t.id === id ? { ...t, ...changes } : t),
+      textOverlays: edits.textOverlays.map((t) => (t.id === id ? { ...t, ...changes } : t)),
     });
   }
 
@@ -131,25 +368,17 @@ export default function VideoEditor({
     if (expandedId === id) setExpandedId(null);
   }
 
-  // ── Drag text on video ───────────────────────────────────────────────────
+  // ── Drag text on video ────────────────────────────────────────────────────
   const handleTextMouseDown = useCallback((e: React.MouseEvent, id: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDraggingTextId(id);
-    setSelectedOverlayId(id);
+    e.preventDefault(); e.stopPropagation();
+    setDraggingTextId(id); setSelectedOverlayId(id);
     const overlay = edits.textOverlays.find((t) => t.id === id);
     if (!overlay) return;
-    dragStartRef.current = {
-      mouseX: e.clientX,
-      mouseY: e.clientY,
-      textX: overlay.x,
-      textY: overlay.y,
-    };
+    dragStartRef.current = { mouseX: e.clientX, mouseY: e.clientY, textX: overlay.x, textY: overlay.y };
   }, [edits.textOverlays]);
 
   useEffect(() => {
     if (!draggingTextId) return;
-
     const onMouseMove = (e: MouseEvent) => {
       if (!dragStartRef.current || !videoWrapRef.current) return;
       const rect = videoWrapRef.current.getBoundingClientRect();
@@ -157,90 +386,48 @@ export default function VideoEditor({
       const dy = (e.clientY - dragStartRef.current.mouseY) / rect.height;
       let newX = Math.min(1, Math.max(0, dragStartRef.current.textX + dx));
       let newY = Math.min(1, Math.max(0, dragStartRef.current.textY + dy));
-
       const snapX = Math.abs(newX - 0.5) < SNAP_THRESHOLD;
       const snapY = Math.abs(newY - 0.5) < SNAP_THRESHOLD;
       if (snapX) newX = 0.5;
       if (snapY) newY = 0.5;
-
       setSnapGuides({ x: snapX, y: snapY });
       updateOverlay(draggingTextId, { x: newX, y: newY });
     };
-
-    const onMouseUp = () => {
-      setDraggingTextId(null);
-      setSnapGuides({ x: false, y: false });
-      dragStartRef.current = null;
-    };
-
+    const onMouseUp = () => { setDraggingTextId(null); setSnapGuides({ x: false, y: false }); dragStartRef.current = null; };
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
-    return () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-    };
+    return () => { window.removeEventListener("mousemove", onMouseMove); window.removeEventListener("mouseup", onMouseUp); };
   }, [draggingTextId]);
 
-  // ── Timeline drag ────────────────────────────────────────────────────────
-  const handleTimelineMouseDown = useCallback((
-    e: React.MouseEvent,
-    id: string,
-    edge: "left" | "right" | "move"
-  ) => {
-    e.preventDefault();
-    e.stopPropagation();
+  // ── Timeline drag ─────────────────────────────────────────────────────────
+  const handleTimelineMouseDown = useCallback((e: React.MouseEvent, id: string, edge: "left" | "right" | "move") => {
+    e.preventDefault(); e.stopPropagation();
     const overlay = edits.textOverlays.find((t) => t.id === id);
     if (!overlay) return;
-    setDraggingTimelineId(id);
-    setDraggingTimelineEdge(edge);
-    setSelectedOverlayId(id);
-    timelineDragRef.current = {
-      startX: e.clientX,
-      origStart: overlay.startSec ?? 0,
-      origEnd: overlay.endSec ?? clipDuration,
-    };
+    setDraggingTimelineId(id); setDraggingTimelineEdge(edge); setSelectedOverlayId(id);
+    timelineDragRef.current = { startX: e.clientX, origStart: overlay.startSec ?? 0, origEnd: overlay.endSec ?? clipDuration };
   }, [edits.textOverlays, clipDuration]);
 
   useEffect(() => {
     if (!draggingTimelineId || !draggingTimelineEdge) return;
-
     const onMouseMove = (e: MouseEvent) => {
       if (!timelineDragRef.current || !timelineRef.current) return;
       const rect = timelineRef.current.getBoundingClientRect();
       const pxPerSec = rect.width / clipDuration;
       const dSec = (e.clientX - timelineDragRef.current.startX) / pxPerSec;
       const { origStart, origEnd } = timelineDragRef.current;
-
-      let newStart = origStart;
-      let newEnd = origEnd;
-
-      if (draggingTimelineEdge === "left") {
-        newStart = Math.min(Math.max(0, origStart + dSec), origEnd - 0.5);
-      } else if (draggingTimelineEdge === "right") {
-        newEnd = Math.max(Math.min(clipDuration, origEnd + dSec), origStart + 0.5);
-      } else {
-        const dur = origEnd - origStart;
-        newStart = Math.min(Math.max(0, origStart + dSec), clipDuration - dur);
-        newEnd = newStart + dur;
-      }
-
+      let newStart = origStart, newEnd = origEnd;
+      if (draggingTimelineEdge === "left") newStart = Math.min(Math.max(0, origStart + dSec), origEnd - 0.5);
+      else if (draggingTimelineEdge === "right") newEnd = Math.max(Math.min(clipDuration, origEnd + dSec), origStart + 0.5);
+      else { const dur = origEnd - origStart; newStart = Math.min(Math.max(0, origStart + dSec), clipDuration - dur); newEnd = newStart + dur; }
       updateOverlay(draggingTimelineId, { startSec: newStart, endSec: newEnd });
     };
-
-    const onMouseUp = () => {
-      setDraggingTimelineId(null);
-      setDraggingTimelineEdge(null);
-    };
-
+    const onMouseUp = () => { setDraggingTimelineId(null); setDraggingTimelineEdge(null); };
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
-    return () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-    };
+    return () => { window.removeEventListener("mousemove", onMouseMove); window.removeEventListener("mouseup", onMouseUp); };
   }, [draggingTimelineId, draggingTimelineEdge, clipDuration]);
 
-  // ── Timeline click to seek ────────────────────────────────────────────────
   function handleTimelineClick(e: React.MouseEvent) {
     if (!timelineRef.current) return;
     const rect = timelineRef.current.getBoundingClientRect();
@@ -253,24 +440,186 @@ export default function VideoEditor({
   const isCropped = edits.aspectRatio !== "original";
   const [arW, arH] = isCropped ? edits.aspectRatio.split(":").map(Number) : [16, 9];
   const cssAspectRatio = `${arW} / ${arH}`;
-
-  // Which overlays are visible at current time
   const relTime = currentTime - clipStart;
+
   const visibleOverlayIds = new Set(
     edits.textOverlays
       .filter((t) => {
         const s = t.startSec ?? 0;
-        const e = t.endSec ?? clipDuration;
-        return relTime >= s && relTime <= e;
+        const en = t.endSec ?? clipDuration;
+        return relTime >= s && relTime <= en;
       })
       .map((t) => t.id)
   );
+
+  const autoCount = edits.textOverlays.filter((t) => t.isAutoSubtitle).length;
+  const manualCount = edits.textOverlays.filter((t) => !t.isAutoSubtitle).length;
+
+  // ── Overlay controls ──────────────────────────────────────────────────────
+  function renderOverlayControls(t: TextOverlay) {
+    const s  = t.startSec ?? 0;
+    const en = t.endSec ?? clipDuration;
+
+    return (
+      <div className="border-t border-white/10 p-3 space-y-4">
+        <div>
+          <label className="block text-[10px] text-white/40 mb-1.5 font-medium uppercase tracking-wider">Text</label>
+          <input type="text" value={t.text} onChange={(e) => updateOverlay(t.id, { text: e.target.value })}
+            className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#1ABC71]/60 transition-colors" />
+        </div>
+
+        <div>
+          <label className="block text-[10px] text-white/40 mb-1.5 font-medium uppercase tracking-wider">Font Family</label>
+          <FontPicker value={t.fontFamily || "Montserrat"} onChange={(v) => updateOverlay(t.id, { fontFamily: v })} />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-[10px] text-white/40 mb-1.5 font-medium uppercase tracking-wider">Size: {t.fontSize}px</label>
+            <input type="range" min={12} max={120} value={t.fontSize} onChange={(e) => updateOverlay(t.id, { fontSize: +e.target.value })} className="w-full accent-[#1ABC71]" />
+          </div>
+          <div>
+            <label className="block text-[10px] text-white/40 mb-1.5 font-medium uppercase tracking-wider">Opacity: {Math.round((t.opacity ?? 1) * 100)}%</label>
+            <input type="range" min={0} max={1} step={0.05} value={t.opacity ?? 1} onChange={(e) => updateOverlay(t.id, { opacity: +e.target.value })} className="w-full accent-[#1ABC71]" />
+          </div>
+        </div>
+
+        <ColorSwatch label="Text color" value={t.color} onChange={(v) => updateOverlay(t.id, { color: v })} />
+
+        <div>
+          <label className="block text-[10px] text-white/40 mb-1.5 font-medium uppercase tracking-wider">Style</label>
+          <div className="flex gap-1.5 flex-wrap">
+            <button onClick={() => updateOverlay(t.id, { bold: !t.bold })}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all border ${t.bold ? "bg-[#1ABC71]/20 border-[#1ABC71]/40 text-[#1ABC71]" : "bg-white/5 border-white/10 text-white/40 hover:text-white/70"}`}>
+              <Bold size={11} /> Bold</button>
+            <button onClick={() => updateOverlay(t.id, { italic: !t.italic })}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all border ${t.italic ? "bg-[#1ABC71]/20 border-[#1ABC71]/40 text-[#1ABC71]" : "bg-white/5 border-white/10 text-white/40 hover:text-white/70"}`}>
+              <Italic size={11} /> Italic</button>
+            <button onClick={() => updateOverlay(t.id, { uppercase: !t.uppercase })}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all border ${t.uppercase ? "bg-[#1ABC71]/20 border-[#1ABC71]/40 text-[#1ABC71]" : "bg-white/5 border-white/10 text-white/40 hover:text-white/70"}`}>
+              <CaseSensitive size={11} /> ALL CAPS</button>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-[10px] text-white/40 mb-1.5 font-medium uppercase tracking-wider">Alignment</label>
+          <div className="flex gap-1">
+            {(["left", "center", "right"] as const).map((align) => {
+              const Icon = align === "left" ? AlignLeft : align === "center" ? AlignCenter : AlignRight;
+              return (
+                <button key={align} onClick={() => updateOverlay(t.id, { textAlign: align })}
+                  className={`flex-1 py-1.5 rounded-lg flex items-center justify-center transition-all border ${
+                    (t.textAlign || "center") === align ? "bg-[#1ABC71]/20 border-[#1ABC71]/40 text-[#1ABC71]" : "bg-white/5 border-white/10 text-white/40 hover:text-white/60"
+                  }`}>
+                  <Icon size={13} />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-[10px] text-white/40 mb-1.5 font-medium uppercase tracking-wider">
+            Letter Spacing: {t.letterSpacing > 0 ? "+" : ""}{t.letterSpacing}px
+          </label>
+          <input type="range" min={-5} max={20} step={0.5} value={t.letterSpacing ?? 0}
+            onChange={(e) => updateOverlay(t.id, { letterSpacing: +e.target.value })}
+            className="w-full accent-[#1ABC71]" />
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-[10px] text-white/40 font-medium uppercase tracking-wider">Outline</label>
+            <span className="text-[10px] text-white/30 font-mono">{t.outlineWidth}px</span>
+          </div>
+          <input type="range" min={0} max={8} step={0.5} value={t.outlineWidth ?? 0}
+            onChange={(e) => updateOverlay(t.id, { outlineWidth: +e.target.value })} className="w-full accent-[#1ABC71]" />
+          {(t.outlineWidth ?? 0) > 0 && (
+            <ColorSwatch label="Outline" value={t.outlineColor || "#000000"} onChange={(v) => updateOverlay(t.id, { outlineColor: v })} />
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-[10px] text-white/40 font-medium uppercase tracking-wider">Drop Shadow</label>
+            <button onClick={() => updateOverlay(t.id, { shadowEnabled: !t.shadowEnabled })}
+              className={`p-1 rounded transition-colors ${t.shadowEnabled ? "text-[#1ABC71]" : "text-white/20 hover:text-white/40"}`}>
+              {t.shadowEnabled ? <Eye size={12} /> : <EyeOff size={12} />}
+            </button>
+          </div>
+          {t.shadowEnabled && (
+            <div className="space-y-2 pl-1 border-l border-white/10">
+              <ColorSwatch label="Shadow" value={t.shadowColor || "#000000"} onChange={(v) => updateOverlay(t.id, { shadowColor: v })} />
+              <div className="grid grid-cols-3 gap-2">
+                <div><div className="text-[9px] text-white/25 mb-1">X: {t.shadowX}px</div>
+                  <input type="range" min={-10} max={10} value={t.shadowX ?? 2} onChange={(e) => updateOverlay(t.id, { shadowX: +e.target.value })} className="w-full accent-[#1ABC71]" /></div>
+                <div><div className="text-[9px] text-white/25 mb-1">Y: {t.shadowY}px</div>
+                  <input type="range" min={-10} max={10} value={t.shadowY ?? 2} onChange={(e) => updateOverlay(t.id, { shadowY: +e.target.value })} className="w-full accent-[#1ABC71]" /></div>
+                <div><div className="text-[9px] text-white/25 mb-1">Blur: {t.shadowBlur}px</div>
+                  <input type="range" min={0} max={20} value={t.shadowBlur ?? 8} onChange={(e) => updateOverlay(t.id, { shadowBlur: +e.target.value })} className="w-full accent-[#1ABC71]" /></div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-[10px] text-white/40 font-medium uppercase tracking-wider">Background Box</label>
+            <button onClick={() => updateOverlay(t.id, { backgroundEnabled: !t.backgroundEnabled })}
+              className={`p-1 rounded transition-colors ${t.backgroundEnabled ? "text-[#1ABC71]" : "text-white/20 hover:text-white/40"}`}>
+              {t.backgroundEnabled ? <Eye size={12} /> : <EyeOff size={12} />}
+            </button>
+          </div>
+          {t.backgroundEnabled && (
+            <div className="space-y-2 pl-1 border-l border-white/10">
+              <ColorSwatch label="BG color" value={t.backgroundColor || "#000000"} onChange={(v) => updateOverlay(t.id, { backgroundColor: v })} />
+              <div className="grid grid-cols-2 gap-2">
+                <div><div className="text-[9px] text-white/25 mb-1">Opacity: {Math.round((t.backgroundOpacity ?? 0.6) * 100)}%</div>
+                  <input type="range" min={0} max={1} step={0.05} value={t.backgroundOpacity ?? 0.6} onChange={(e) => updateOverlay(t.id, { backgroundOpacity: +e.target.value })} className="w-full accent-[#1ABC71]" /></div>
+                <div><div className="text-[9px] text-white/25 mb-1">Padding: {t.backgroundPadding ?? 10}px</div>
+                  <input type="range" min={2} max={32} value={t.backgroundPadding ?? 10} onChange={(e) => updateOverlay(t.id, { backgroundPadding: +e.target.value })} className="w-full accent-[#1ABC71]" /></div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-[10px] text-white/40 font-medium uppercase tracking-wider">Position</label>
+            <button onClick={() => updateOverlay(t.id, { x: 0.5, y: 0.82 })}
+              className="text-[9px] text-[#1ABC71]/60 hover:text-[#1ABC71] transition-colors flex items-center gap-1">
+              <AlignCenter size={9} /> Reset
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div><div className="text-[9px] text-white/25 mb-1">X: {Math.round(t.x * 100)}%</div>
+              <input type="range" min={0} max={1} step={0.01} value={t.x} onChange={(e) => updateOverlay(t.id, { x: +e.target.value })} className="w-full accent-[#1ABC71]" /></div>
+            <div><div className="text-[9px] text-white/25 mb-1">Y: {Math.round(t.y * 100)}%</div>
+              <input type="range" min={0} max={1} step={0.01} value={t.y} onChange={(e) => updateOverlay(t.id, { y: +e.target.value })} className="w-full accent-[#1ABC71]" /></div>
+          </div>
+          <p className="text-[9px] text-white/20">💡 Drag text directly on video · snaps to center</p>
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-[10px] text-white/40 font-medium uppercase tracking-wider">Duration</label>
+          <div className="grid grid-cols-2 gap-2">
+            <div><div className="text-[9px] text-white/25 mb-1">Start: {s.toFixed(1)}s</div>
+              <input type="range" min={0} max={clipDuration - 0.5} step={0.1} value={s}
+                onChange={(e) => updateOverlay(t.id, { startSec: +e.target.value })} className="w-full accent-[#1ABC71]" /></div>
+            <div><div className="text-[9px] text-white/25 mb-1">End: {en.toFixed(1)}s</div>
+              <input type="range" min={0.5} max={clipDuration} step={0.1} value={en}
+                onChange={(e) => updateOverlay(t.id, { endSec: +e.target.value })} className="w-full accent-[#1ABC71]" /></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-2">
       <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-[1300px] h-[95vh] overflow-hidden flex flex-col shadow-2xl">
 
-        {/* ── Header ─────────────────────────────────────────────────────── */}
+        {/* ── Header ── */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-white/10 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-7 h-7 rounded-lg bg-[#1ABC71] flex items-center justify-center">
@@ -284,7 +633,6 @@ export default function VideoEditor({
             </div>
           </div>
 
-          {/* Tab bar */}
           <div className="flex items-center gap-1 bg-white/5 rounded-xl p-1">
             {([
               { id: "subtitle", label: "Subtitle", icon: Type },
@@ -293,30 +641,19 @@ export default function VideoEditor({
               { id: "color",    label: "Color",    icon: Sliders },
               { id: "speed",    label: "Speed",    icon: Zap },
             ] as const).map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                onClick={() => setActiveTab(id as Tab)}
+              <button key={id} onClick={() => setActiveTab(id as Tab)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  activeTab === id
-                    ? "bg-[#1ABC71] text-white shadow"
-                    : "text-white/50 hover:text-white/80"
-                }`}
-              >
-                <Icon size={11} />
-                {label}
+                  activeTab === id ? "bg-[#1ABC71] text-white shadow" : "text-white/50 hover:text-white/80"
+                }`}>
+                <Icon size={11} />{label}
               </button>
             ))}
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => onExport(moment, edits)}
-              disabled={isExporting || !videoSrc}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1ABC71] text-white text-xs font-bold hover:bg-[#16a085] disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-lg"
-            >
-              {isExporting
-                ? <><Loader2 size={13} className="animate-spin" /> Exporting...</>
-                : <><Download size={13} /> Export</>}
+            <button onClick={() => onExport(moment, edits)} disabled={isExporting || !videoSrc}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1ABC71] text-white text-xs font-bold hover:bg-[#16a085] disabled:opacity-40 transition-all shadow-lg">
+              {isExporting ? <><Loader2 size={13} className="animate-spin" /> Exporting...</> : <><Download size={13} /> Export</>}
             </button>
             <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/10 text-white/50 hover:text-white transition-colors">
               <X size={18} />
@@ -324,26 +661,19 @@ export default function VideoEditor({
           </div>
         </div>
 
-        {/* ── Body ──────────────────────────────────────────────────────── */}
+        {/* ── Body ── */}
         <div className="flex flex-1 overflow-hidden min-h-0">
 
-          {/* ── Video area ────────────────────────────────────────────── */}
+          {/* ── Video area ── */}
           <div className="flex-1 flex flex-col min-w-0 bg-black">
-
-            {/* Video canvas */}
             <div className="flex-1 relative flex items-center justify-center overflow-hidden">
               {videoSrc ? (
-                <div
-                  ref={videoWrapRef}
-                  className="relative"
+                <div ref={videoWrapRef} className="relative"
                   style={isCropped
                     ? { aspectRatio: cssAspectRatio, maxHeight: "100%", maxWidth: "100%", boxShadow: "0 0 0 9999px rgba(0,0,0,0.7)" }
                     : { width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }
-                  }
-                >
-                  <video
-                    ref={videoRef}
-                    src={videoSrc}
+                  }>
+                  <video ref={videoRef} src={videoSrc}
                     className={isCropped ? "w-full h-full" : "max-h-full max-w-full"}
                     style={{
                       objectFit: isCropped ? "cover" : "contain",
@@ -368,39 +698,46 @@ export default function VideoEditor({
 
                   {/* Text overlays on video */}
                   {edits.textOverlays.map((t) => {
-                    const isVisible = visibleOverlayIds.has(t.id);
+                    const isVisible  = visibleOverlayIds.has(t.id);
                     const isSelected = selectedOverlayId === t.id;
                     if (!isVisible && !isSelected) return null;
+                    const displayText = t.uppercase ? t.text.toUpperCase() : t.text;
+                    const fontFamily  = `'${t.fontFamily || "Montserrat"}', sans-serif`;
+
                     return (
-                      <div
-                        key={t.id}
+                      <div key={t.id}
                         className={`absolute select-none ${draggingTextId === t.id ? "cursor-grabbing" : "cursor-grab"} ${isSelected ? "z-30" : "z-10"}`}
-                        style={{
-                          left: `${t.x * 100}%`,
-                          top: `${t.y * 100}%`,
-                          transform: "translate(-50%, -50%)",
-                          opacity: isVisible ? 1 : 0,
-                        }}
+                        style={{ left: `${t.x * 100}%`, top: `${t.y * 100}%`, transform: "translate(-50%, -50%)", opacity: isVisible ? (t.opacity ?? 1) : 0 }}
                         onMouseDown={(e) => handleTextMouseDown(e, t.id)}
-                        onClick={(e) => { e.stopPropagation(); setSelectedOverlayId(t.id); }}
-                      >
-                        <div
-                          style={{
-                            fontSize: `${t.fontSize}px`,
-                            color: t.color,
-                            fontWeight: t.bold ? "bold" : "normal",
-                            textShadow: "0 2px 8px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.6)",
-                            whiteSpace: "nowrap",
-                            fontFamily: "'Syne', sans-serif",
-                            lineHeight: 1.2,
-                          }}
-                        >
-                          {t.text}
+                        onClick={(e) => { e.stopPropagation(); setSelectedOverlayId(t.id); }}>
+
+                        {t.backgroundEnabled && (
+                          <div className="absolute rounded pointer-events-none"
+                            style={{ inset: `-${t.backgroundPadding ?? 10}px`, backgroundColor: hexToRgba(t.backgroundColor || "#000000", t.backgroundOpacity ?? 0.6), zIndex: 0 }} />
+                        )}
+
+                        <div style={{
+                          position: "relative", zIndex: 1,
+                          fontSize: `${t.fontSize}px`, fontFamily,
+                          color: t.color,
+                          fontWeight:    t.bold   ? "bold"   : "normal",
+                          fontStyle:     t.italic ? "italic" : "normal",
+                          textTransform: t.uppercase ? "uppercase" : "none",
+                          textAlign:     t.textAlign || "center",
+                          letterSpacing: `${t.letterSpacing ?? 0}px`,
+                          lineHeight:    t.lineHeight || 1.2,
+                          WebkitTextStroke: (t.outlineWidth ?? 0) > 0 ? `${t.outlineWidth}px ${t.outlineColor || "#000000"}` : undefined,
+                          textShadow:    buildTextShadow(t),
+                          whiteSpace:    "nowrap",
+                        }}>
+                          {displayText}
                         </div>
+
                         {isSelected && (
                           <div className="absolute -inset-2 border border-[#1ABC71]/70 rounded pointer-events-none" style={{ borderStyle: "dashed" }}>
-                            <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-[#1ABC71] text-white text-[9px] px-2 py-0.5 rounded font-mono whitespace-nowrap">
-                              x:{Math.round(t.x * 100)}% y:{Math.round(t.y * 100)}%
+                            <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-[#1ABC71] text-white text-[9px] px-2 py-0.5 rounded font-mono whitespace-nowrap flex items-center gap-1">
+                              {t.isAutoSubtitle && <Sparkles size={8} />}
+                              {t.fontFamily} · {t.fontSize}px
                             </div>
                           </div>
                         )}
@@ -415,380 +752,309 @@ export default function VideoEditor({
                   )}
                 </div>
               ) : (
-                <div className="text-center text-white/30 p-8">
-                  <p className="text-sm">Video tidak tersedia.</p>
-                </div>
+                <div className="text-center text-white/30 p-8"><p className="text-sm">Video tidak tersedia.</p></div>
               )}
             </div>
 
-            {/* ── Playback controls ──────────────────────────────────── */}
+            {/* Playback controls */}
             <div className="shrink-0 px-4 py-3 bg-[#0a0a0a] border-t border-white/10">
-              {/* Progress bar / timeline scrubber */}
-              <div
-                className="h-1 bg-white/10 rounded-full mb-3 cursor-pointer relative group"
+              <div className="h-1 bg-white/10 rounded-full mb-3 cursor-pointer relative group"
                 onClick={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
                   const pct  = (e.clientX - rect.left) / rect.width;
-                  const t    = clipStart + pct * clipDuration;
-                  if (videoRef.current) videoRef.current.currentTime = t;
-                }}
-              >
-                <div
-                  className="absolute inset-y-0 left-0 bg-[#1ABC71] rounded-full"
-                  style={{ width: `${progressPct}%` }}
-                />
-                <div
-                  className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-[#1ABC71] border-2 border-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ left: `${progressPct}%`, transform: "translate(-50%,-50%)" }}
-                />
+                  if (videoRef.current) videoRef.current.currentTime = clipStart + pct * clipDuration;
+                }}>
+                <div className="absolute inset-y-0 left-0 bg-[#1ABC71] rounded-full" style={{ width: `${progressPct}%` }} />
+                <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-[#1ABC71] border-2 border-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ left: `${progressPct}%`, transform: "translate(-50%,-50%)" }} />
               </div>
-
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <button onClick={() => seek(-5)} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-white/50 hover:text-white">
-                    <SkipBack size={14} />
-                  </button>
+                  <button onClick={() => seek(-5)} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-white/50 hover:text-white"><SkipBack size={14} /></button>
                   <button onClick={togglePlay} className="p-2.5 bg-[#1ABC71] rounded-xl hover:bg-[#16a085] transition-colors text-white">
                     {isPlaying ? <Pause size={16} /> : <Play size={16} fill="white" />}
                   </button>
-                  <button onClick={() => seek(5)} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-white/50 hover:text-white">
-                    <SkipForward size={14} />
-                  </button>
+                  <button onClick={() => seek(5)} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-white/50 hover:text-white"><SkipForward size={14} /></button>
                   <span className="text-[11px] font-mono text-white/40 ml-1">
                     {formatTime(Math.max(0, currentTime - clipStart))} / {formatTime(clipDuration)}
                   </span>
                 </div>
-                <div className="flex items-center gap-3 text-[10px] text-white/30 font-mono">
-                  <span>{edits.speed !== 1 && `${edits.speed}×`}</span>
-                  <span>{edits.aspectRatio !== "original" && edits.aspectRatio}</span>
+                <div className="flex items-center gap-2 text-[10px] text-white/30 font-mono">
+                  {autoCount > 0 && <span className="flex items-center gap-1 text-[#1ABC71]/60"><Sparkles size={9} />{autoCount} auto</span>}
+                  {edits.speed !== 1 && <span>{edits.speed}×</span>}
+                  {edits.aspectRatio !== "original" && <span>{edits.aspectRatio}</span>}
                 </div>
               </div>
             </div>
 
-            {/* ── Subtitle Timeline ──────────────────────────────────── */}
+            {/* Subtitle Timeline */}
             {activeTab === "subtitle" && (
               <div className="shrink-0 bg-[#0d0d0d] border-t border-white/10" style={{ minHeight: "120px" }}>
                 <div className="flex items-center gap-2 px-4 py-2 border-b border-white/5">
                   <Type size={11} className="text-[#1ABC71]" />
                   <span className="text-[10px] text-white/40 font-medium uppercase tracking-wider">Subtitle Timeline</span>
-                  <span className="text-[10px] text-white/20">· drag to reposition, resize handles to trim</span>
+                  {autoCount > 0 && (
+                    <span className="flex items-center gap-1 text-[9px] text-[#1ABC71]/60 ml-1">
+                      <Sparkles size={9} />{autoCount} auto · {manualCount} manual
+                    </span>
+                  )}
                 </div>
-
-                {/* Timeline ruler */}
                 <div className="px-4 pb-2">
-                  {/* Time ruler */}
+                  {/* Ruler */}
                   <div className="relative h-5 mb-1">
                     {Array.from({ length: Math.ceil(clipDuration) + 1 }).map((_, i) => (
-                      <div
-                        key={i}
-                        className="absolute top-0 flex flex-col items-center"
-                        style={{ left: `${(i / clipDuration) * 100}%` }}
-                      >
+                      <div key={i} className="absolute top-0 flex flex-col items-center" style={{ left: `${(i / clipDuration) * 100}%` }}>
                         <div className="w-px h-2 bg-white/20" />
                         <span className="text-[8px] text-white/25 font-mono mt-0.5">{i}s</span>
                       </div>
                     ))}
-                    {/* Playhead */}
-                    <div
-                      className="absolute top-0 bottom-0 w-px bg-[#1ABC71] z-10 pointer-events-none"
-                      style={{ left: `${progressPct}%` }}
-                    >
+                    <div className="absolute top-0 bottom-0 w-px bg-[#1ABC71] z-10 pointer-events-none" style={{ left: `${progressPct}%` }}>
                       <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-[#1ABC71]" />
                     </div>
                   </div>
 
-                  {/* Timeline track area */}
-                  <div
-                    ref={timelineRef}
-                    className="relative cursor-crosshair"
-                    onClick={handleTimelineClick}
-                    style={{ minHeight: `${Math.max(1, edits.textOverlays.length) * 36 + 8}px` }}
-                  >
+                  <div ref={timelineRef} className="relative cursor-crosshair" onClick={handleTimelineClick}
+                    style={{ minHeight: `${Math.max(1, edits.textOverlays.length) * 36 + 8}px` }}>
                     {edits.textOverlays.length === 0 && (
                       <div className="absolute inset-0 flex items-center justify-center text-[10px] text-white/20">
-                        Add subtitle text above → it will appear here as a draggable clip
+                        Generate auto subtitles or add text → clips appear here
                       </div>
                     )}
 
                     {edits.textOverlays.map((t, index) => {
                       const s = t.startSec ?? 0;
-                      const e = t.endSec ?? clipDuration;
-                      const leftPct = (s / clipDuration) * 100;
-                      const widthPct = ((e - s) / clipDuration) * 100;
+                      const en = t.endSec ?? clipDuration;
+                      const leftPct  = (s / clipDuration) * 100;
+                      const widthPct = ((en - s) / clipDuration) * 100;
                       const isSelected = selectedOverlayId === t.id;
-                      const row = index;
 
                       return (
-                        <div
-                          key={t.id}
-                          className="absolute"
-                          style={{
-                            top: `${row * 36 + 4}px`,
-                            left: `${leftPct}%`,
-                            width: `${widthPct}%`,
-                            height: "28px",
-                          }}
-                        >
-                          {/* Main bar */}
+                        <div key={t.id} className="absolute"
+                          style={{ top: `${index * 36 + 4}px`, left: `${leftPct}%`, width: `${widthPct}%`, height: "28px" }}>
                           <div
                             className={`relative w-full h-full rounded-md flex items-center overflow-hidden border transition-all cursor-grab active:cursor-grabbing ${
                               isSelected
                                 ? "bg-[#1ABC71]/30 border-[#1ABC71] shadow-[0_0_8px_rgba(26,188,113,0.4)]"
-                                : "bg-[#1ABC71]/15 border-[#1ABC71]/40 hover:bg-[#1ABC71]/25"
+                                : t.isAutoSubtitle
+                                  ? "bg-purple-500/15 border-purple-500/40 hover:bg-purple-500/25"
+                                  : "bg-[#1ABC71]/15 border-[#1ABC71]/40 hover:bg-[#1ABC71]/25"
                             }`}
                             onMouseDown={(e) => { e.stopPropagation(); handleTimelineMouseDown(e, t.id, "move"); }}
-                            onClick={(e) => { e.stopPropagation(); setSelectedOverlayId(t.id); setExpandedId(t.id); }}
-                          >
-                            <div className="flex-1 px-2 truncate">
-                              <span className="text-[10px] text-[#1ABC71] font-medium">{t.text}</span>
+                            onClick={(e) => { e.stopPropagation(); setSelectedOverlayId(t.id); setExpandedId(t.id); setSubtitleSubTab("layers"); }}>
+                            <div className="flex-1 px-2 truncate flex items-center gap-1">
+                              {t.isAutoSubtitle && <Sparkles size={8} className="text-purple-400 shrink-0" />}
+                              <span className="text-[10px] text-white/80 font-medium truncate"
+                                style={{ fontFamily: `'${t.fontFamily || "Montserrat"}', sans-serif` }}>
+                                {t.uppercase ? t.text.toUpperCase() : t.text}
+                              </span>
                             </div>
                           </div>
-
-                          {/* Left resize handle */}
-                          <div
-                            className="absolute left-0 top-0 bottom-0 w-2.5 cursor-col-resize flex items-center justify-center z-10"
-                            onMouseDown={(e) => { e.stopPropagation(); handleTimelineMouseDown(e, t.id, "left"); }}
-                          >
+                          <div className="absolute left-0 top-0 bottom-0 w-2.5 cursor-col-resize flex items-center justify-center z-10"
+                            onMouseDown={(e) => { e.stopPropagation(); handleTimelineMouseDown(e, t.id, "left"); }}>
                             <div className="w-0.5 h-3/4 rounded-full bg-[#1ABC71]/60 hover:bg-[#1ABC71]" />
                           </div>
-
-                          {/* Right resize handle */}
-                          <div
-                            className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize flex items-center justify-center z-10"
-                            onMouseDown={(e) => { e.stopPropagation(); handleTimelineMouseDown(e, t.id, "right"); }}
-                          >
+                          <div className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize flex items-center justify-center z-10"
+                            onMouseDown={(e) => { e.stopPropagation(); handleTimelineMouseDown(e, t.id, "right"); }}>
                             <div className="w-0.5 h-3/4 rounded-full bg-[#1ABC71]/60 hover:bg-[#1ABC71]" />
                           </div>
                         </div>
                       );
                     })}
 
-                    {/* Playhead overlay on timeline */}
-                    <div
-                      className="absolute top-0 bottom-0 w-px bg-[#1ABC71]/60 pointer-events-none z-20"
-                      style={{ left: `${progressPct}%` }}
-                    />
+                    <div className="absolute top-0 bottom-0 w-px bg-[#1ABC71]/60 pointer-events-none z-20" style={{ left: `${progressPct}%` }} />
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* ── Right panel ───────────────────────────────────────────── */}
-          <div className="w-72 border-l border-white/10 flex flex-col overflow-hidden shrink-0 bg-[#0e0e0e]">
+          {/* ── Right panel ── */}
+          <div className="w-80 border-l border-white/10 flex flex-col overflow-hidden shrink-0 bg-[#0e0e0e]">
             <div className="flex-1 overflow-y-auto">
 
-              {/* ── SUBTITLE TAB ─────────────────────────────────────── */}
+              {/* ── SUBTITLE TAB ── */}
               {activeTab === "subtitle" && (
-                <div className="p-4 space-y-4">
-                  <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Add Subtitle</div>
-
-                  {/* Add text input */}
-                  <div className="flex flex-col gap-2">
-                    <textarea
-                      value={newText}
-                      onChange={(e) => setNewText(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addTextOverlay(); } }}
-                      placeholder="Type subtitle text..."
-                      rows={2}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-[#1ABC71]/50 resize-none"
-                    />
-                    <button
-                      onClick={addTextOverlay}
-                      className="w-full py-2 bg-[#1ABC71]/20 border border-[#1ABC71]/30 rounded-xl text-[#1ABC71] text-xs font-medium hover:bg-[#1ABC71]/30 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Plus size={13} />
-                      Add Subtitle at {formatTime(Math.max(0, currentTime - clipStart))}
-                    </button>
+                <div className="flex flex-col h-full">
+                  {/* Sub-tab bar */}
+                  <div className="flex border-b border-white/10 shrink-0">
+                    {(["presets", "add", "layers"] as const).map((tab) => (
+                      <button key={tab} onClick={() => setSubtitleSubTab(tab)}
+                        className={`flex-1 py-2.5 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+                          subtitleSubTab === tab ? "text-[#1ABC71] border-b-2 border-[#1ABC71]" : "text-white/30 hover:text-white/60"
+                        }`}>
+                        {tab === "presets" ? "Styles" : tab === "add" ? "+ Add" : `Layers (${edits.textOverlays.length})`}
+                      </button>
+                    ))}
                   </div>
 
-                  {/* Overlay list */}
-                  <div className="space-y-2">
-                    <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">
-                      Layers ({edits.textOverlays.length})
-                    </div>
-
-                    {edits.textOverlays.length === 0 && (
-                      <div className="py-8 text-center">
-                        <Type size={24} className="text-white/10 mx-auto mb-2" />
-                        <p className="text-xs text-white/20">No subtitles yet</p>
-                        <p className="text-[10px] text-white/10 mt-1">Add text above to get started</p>
-                      </div>
-                    )}
-
-                    {edits.textOverlays.map((t) => {
-                      const isSelected = selectedOverlayId === t.id;
-                      const isExpanded = expandedId === t.id;
-                      const s = t.startSec ?? 0;
-                      const e = t.endSec ?? clipDuration;
-
-                      return (
-                        <div
-                          key={t.id}
-                          className={`rounded-xl border transition-all overflow-hidden ${
-                            isSelected
-                              ? "border-[#1ABC71]/50 bg-[#1ABC71]/10"
-                              : "border-white/10 bg-white/3 hover:border-white/20"
-                          }`}
-                        >
-                          {/* Layer header */}
-                          <div
-                            className="flex items-center gap-2 px-3 py-2.5 cursor-pointer"
-                            onClick={() => {
-                              setSelectedOverlayId(t.id);
-                              setExpandedId(isExpanded ? null : t.id);
-                            }}
-                          >
-                            <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                              <div
-                                className="w-2 h-2 rounded-full shrink-0"
-                                style={{ backgroundColor: t.color }}
-                              />
-                              <span className="text-xs text-white/80 truncate">{t.text}</span>
-                            </div>
-                            <span className="text-[9px] text-white/25 font-mono shrink-0">
-                              {s.toFixed(1)}s–{e.toFixed(1)}s
-                            </span>
-                            <button
-                              onClick={(ev) => { ev.stopPropagation(); removeOverlay(t.id); }}
-                              className="p-1 rounded hover:bg-red-500/20 text-white/20 hover:text-red-400 transition-colors shrink-0"
-                            >
-                              <Trash2 size={11} />
-                            </button>
-                            <div className="text-white/20">
-                              {isExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
-                            </div>
-                          </div>
-
-                          {/* Expanded controls */}
-                          {isExpanded && (
-                            <div className="border-t border-white/10 p-3 space-y-3">
-
-                              {/* Text edit */}
-                              <div>
-                                <label className="block text-[10px] text-white/40 mb-1.5">Text Content</label>
-                                <input
-                                  type="text"
-                                  value={t.text}
-                                  onChange={(e) => updateOverlay(t.id, { text: e.target.value })}
-                                  className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#1ABC71]/50"
-                                />
-                              </div>
-
-                              {/* Font size + color */}
-                              <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                  <label className="block text-[10px] text-white/40 mb-1.5">Size: {t.fontSize}px</label>
-                                  <input
-                                    type="range" min={14} max={80} value={t.fontSize}
-                                    onChange={(e) => updateOverlay(t.id, { fontSize: +e.target.value })}
-                                    className="w-full accent-[#1ABC71]"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[10px] text-white/40 mb-1.5">Color</label>
-                                  <input
-                                    type="color" value={t.color}
-                                    onChange={(e) => updateOverlay(t.id, { color: e.target.value })}
-                                    className="w-full h-8 rounded-lg cursor-pointer bg-transparent border border-white/10"
-                                  />
-                                </div>
-                              </div>
-
-                              {/* Bold */}
-                              <button
-                                onClick={() => updateOverlay(t.id, { bold: !t.bold })}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors border w-full ${
-                                  t.bold
-                                    ? "bg-[#1ABC71]/20 border-[#1ABC71]/40 text-[#1ABC71]"
-                                    : "bg-white/5 border-white/10 text-white/40 hover:text-white/60"
-                                }`}
-                              >
-                                <Bold size={11} />
-                                Bold
-                              </button>
-
-                              {/* Position (X/Y) */}
-                              <div>
-                                <div className="flex items-center justify-between mb-1.5">
-                                  <label className="text-[10px] text-white/40">Position</label>
-                                  <button
-                                    onClick={() => updateOverlay(t.id, { x: 0.5, y: 0.5 })}
-                                    className="text-[9px] text-[#1ABC71]/60 hover:text-[#1ABC71] transition-colors flex items-center gap-1"
-                                  >
-                                    <AlignCenter size={9} /> Center
-                                  </button>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div>
-                                    <div className="text-[9px] text-white/25 mb-1">X: {Math.round(t.x * 100)}%</div>
-                                    <input
-                                      type="range" min={0} max={1} step={0.01} value={t.x}
-                                      onChange={(e) => updateOverlay(t.id, { x: +e.target.value })}
-                                      className="w-full accent-[#1ABC71]"
-                                    />
-                                  </div>
-                                  <div>
-                                    <div className="text-[9px] text-white/25 mb-1">Y: {Math.round(t.y * 100)}%</div>
-                                    <input
-                                      type="range" min={0} max={1} step={0.01} value={t.y}
-                                      onChange={(e) => updateOverlay(t.id, { y: +e.target.value })}
-                                      className="w-full accent-[#1ABC71]"
-                                    />
-                                  </div>
-                                </div>
-                                <p className="text-[9px] text-white/20 mt-1">💡 Drag text directly on video · snaps to center</p>
-                              </div>
-
-                              {/* Time range */}
-                              <div>
-                                <label className="block text-[10px] text-white/40 mb-1.5">Duration on screen</label>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div>
-                                    <div className="text-[9px] text-white/25 mb-1">Start: {(t.startSec ?? 0).toFixed(1)}s</div>
-                                    <input
-                                      type="range" min={0} max={clipDuration - 0.5} step={0.1}
-                                      value={t.startSec ?? 0}
-                                      onChange={(e) => updateOverlay(t.id, { startSec: +e.target.value })}
-                                      className="w-full accent-[#1ABC71]"
-                                    />
-                                  </div>
-                                  <div>
-                                    <div className="text-[9px] text-white/25 mb-1">End: {(t.endSec ?? clipDuration).toFixed(1)}s</div>
-                                    <input
-                                      type="range" min={0.5} max={clipDuration} step={0.1}
-                                      value={t.endSec ?? clipDuration}
-                                      onChange={(e) => updateOverlay(t.id, { endSec: +e.target.value })}
-                                      className="w-full accent-[#1ABC71]"
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          )}
+                  {/* ─── PRESETS sub-tab ─── */}
+                  {subtitleSubTab === "presets" && (
+                    <div className="p-4 space-y-4 overflow-y-auto flex-1">
+                      {/* Auto-generate section */}
+                      <div className="rounded-xl border border-[#1ABC71]/20 bg-[#1ABC71]/5 p-3 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Wand2 size={13} className="text-[#1ABC71]" />
+                          <span className="text-xs font-bold text-white">AI Auto Subtitle</span>
+                          <span className="ml-auto text-[9px] text-[#1ABC71]/60 font-mono">3 words/line</span>
                         </div>
-                      );
-                    })}
-                  </div>
+                        <p className="text-[10px] text-white/40 leading-relaxed">
+                          AI listens to speech in your clip and generates synced subtitles — 3 words at a time, like 2short.ai.
+                        </p>
+
+                        {transcribeError && (
+                          <p className="text-[10px] text-red-400 bg-red-500/10 rounded-lg px-2 py-1.5">{transcribeError}</p>
+                        )}
+
+                        <button
+                          onClick={handleAutoSubtitle}
+                          disabled={isTranscribing || !onAutoSubtitle}
+                          className="w-full py-2.5 rounded-xl bg-[#1ABC71] text-white text-xs font-bold hover:bg-[#16a085] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#1ABC71]/20"
+                        >
+                          {isTranscribing ? (
+                            <><Loader2 size={13} className="animate-spin" /> Transcribing speech…</>
+                          ) : (
+                            <><Sparkles size={13} /> Generate Auto Subtitles</>
+                          )}
+                        </button>
+
+                        {!onAutoSubtitle && (
+                          <p className="text-[9px] text-white/20 text-center">Requires OPENAI_API_KEY on backend</p>
+                        )}
+
+                        {autoCount > 0 && (
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-[#1ABC71]/70 flex items-center gap-1"><Sparkles size={9} />{autoCount} subtitles generated</span>
+                            <button onClick={clearAutoSubtitles} className="text-red-400/60 hover:text-red-400 transition-colors flex items-center gap-1">
+                              <Trash2 size={10} /> Clear
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Style presets grid */}
+                      <div>
+                        <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium mb-2">Style Presets</div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {SUBTITLE_PRESETS.map((preset) => (
+                            <PresetCard
+                              key={preset.id}
+                              preset={preset}
+                              isActive={activePresetId === preset.id}
+                              onClick={() => applyPresetToAllAuto(preset.id)}
+                            />
+                          ))}
+                        </div>
+                        {autoCount > 0 && (
+                          <p className="text-[9px] text-white/20 text-center mt-2">
+                            Click a style to apply to all {autoCount} auto subtitles
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ─── ADD sub-tab ─── */}
+                  {subtitleSubTab === "add" && (
+                    <div className="p-4 space-y-4">
+                      <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Add Manual Subtitle</div>
+                      <div className="flex flex-col gap-2">
+                        <textarea value={newText} onChange={(e) => setNewText(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addTextOverlay(); } }}
+                          placeholder="Type subtitle text…" rows={3}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-[#1ABC71]/50 resize-none" />
+                        <button onClick={addTextOverlay}
+                          className="w-full py-2 bg-[#1ABC71]/20 border border-[#1ABC71]/30 rounded-xl text-[#1ABC71] text-xs font-medium hover:bg-[#1ABC71]/30 transition-colors flex items-center justify-center gap-2">
+                          <Plus size={13} />
+                          Add at {formatTime(Math.max(0, currentTime - clipStart))}
+                        </button>
+                      </div>
+                      <div className="text-[9px] text-white/20 leading-relaxed">
+                        Uses active style preset. Edit text, timing & style in the Layers tab.
+                      </div>
+
+                      {/* Current preset preview */}
+                      <div className="rounded-xl border border-white/10 overflow-hidden">
+                        <div className="text-[9px] text-white/25 px-3 pt-2 pb-1 uppercase tracking-wider">Active Style</div>
+                        <PresetCard preset={currentPreset} isActive onClick={() => setSubtitleSubTab("presets")} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ─── LAYERS sub-tab ─── */}
+                  {subtitleSubTab === "layers" && (
+                    <div className="p-4 space-y-2 overflow-y-auto flex-1">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">
+                          All Layers ({edits.textOverlays.length})
+                        </div>
+                        {edits.textOverlays.length > 0 && (
+                          <button onClick={() => updateEdits({ textOverlays: [] })}
+                            className="text-[9px] text-red-400/50 hover:text-red-400 transition-colors">
+                            Clear all
+                          </button>
+                        )}
+                      </div>
+
+                      {edits.textOverlays.length === 0 && (
+                        <div className="py-10 text-center">
+                          <Type size={24} className="text-white/10 mx-auto mb-2" />
+                          <p className="text-xs text-white/20">No subtitles yet</p>
+                          <button onClick={() => setSubtitleSubTab("presets")}
+                            className="mt-2 text-[10px] text-[#1ABC71]/60 hover:text-[#1ABC71] transition-colors">
+                            Generate auto subtitles →
+                          </button>
+                        </div>
+                      )}
+
+                      {edits.textOverlays.map((t) => {
+                        const isSelected = selectedOverlayId === t.id;
+                        const isExpanded = expandedId === t.id;
+                        const s  = t.startSec ?? 0;
+                        const en = t.endSec ?? clipDuration;
+
+                        return (
+                          <div key={t.id}
+                            className={`rounded-xl border transition-all overflow-hidden ${
+                              isSelected ? "border-[#1ABC71]/50 bg-[#1ABC71]/10" : "border-white/10 bg-white/3 hover:border-white/20"
+                            }`}>
+                            <div className="flex items-center gap-2 px-3 py-2.5 cursor-pointer"
+                              onClick={() => { setSelectedOverlayId(t.id); setExpandedId(isExpanded ? null : t.id); }}>
+                              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                {t.isAutoSubtitle
+                                  ? <Sparkles size={10} className="text-purple-400 shrink-0" />
+                                  : <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
+                                }
+                                <span className="text-xs text-white/80 truncate"
+                                  style={{ fontFamily: `'${t.fontFamily || "Montserrat"}', sans-serif` }}>
+                                  {t.uppercase ? t.text.toUpperCase() : t.text}
+                                </span>
+                              </div>
+                              <span className="text-[9px] text-white/25 font-mono shrink-0">{s.toFixed(1)}–{en.toFixed(1)}s</span>
+                              <button onClick={(ev) => { ev.stopPropagation(); removeOverlay(t.id); }}
+                                className="p-1 rounded hover:bg-red-500/20 text-white/20 hover:text-red-400 transition-colors shrink-0">
+                                <Trash2 size={11} />
+                              </button>
+                              <div className="text-white/20">{isExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}</div>
+                            </div>
+                            {isExpanded && renderOverlayControls(t)}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* ── TRIM TAB ─────────────────────────────────────────── */}
+              {/* ── TRIM TAB ── */}
               {activeTab === "trim" && (
                 <div className="p-4 space-y-5">
                   <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Trim Clip</div>
-                  <SliderField
-                    label="Trim Start" value={edits.trimStart}
+                  <SliderField label="Trim Start" value={edits.trimStart}
                     min={0} max={Math.max(0, Math.floor((moment.endTime - moment.startTime) * 0.8))}
-                    step={1} format={(v) => `+${v}s`}
-                    onChange={(v) => updateEdits({ trimStart: v })}
-                  />
-                  <SliderField
-                    label="Trim End" value={edits.trimEnd}
+                    step={1} format={(v) => `+${v}s`} dark onChange={(v) => updateEdits({ trimStart: v })} />
+                  <SliderField label="Trim End" value={edits.trimEnd}
                     min={-Math.max(0, Math.floor((moment.endTime - moment.startTime) * 0.8))} max={0}
-                    step={1} format={(v) => `${v}s`}
-                    onChange={(v) => updateEdits({ trimEnd: v })}
-                  />
+                    step={1} format={(v) => `${v}s`} dark onChange={(v) => updateEdits({ trimEnd: v })} />
                   <div className="bg-white/5 rounded-xl p-3 text-xs text-white/50 space-y-1.5 border border-white/10">
                     <div className="flex justify-between"><span>New Start</span><span className="font-mono text-white">{formatTime(clipStart)}</span></div>
                     <div className="flex justify-between"><span>New End</span><span className="font-mono text-white">{formatTime(clipEnd)}</span></div>
@@ -797,21 +1063,18 @@ export default function VideoEditor({
                 </div>
               )}
 
-              {/* ── CROP TAB ─────────────────────────────────────────── */}
+              {/* ── CROP TAB ── */}
               {activeTab === "crop" && (
                 <div className="p-4 space-y-4">
                   <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Aspect Ratio</div>
                   <div className="space-y-1.5">
                     {ASPECT_RATIOS.map((ar) => (
-                      <button
-                        key={ar.value}
-                        onClick={() => updateEdits({ aspectRatio: ar.value })}
+                      <button key={ar.value} onClick={() => updateEdits({ aspectRatio: ar.value })}
                         className={`w-full px-3 py-2.5 rounded-xl text-xs font-medium text-left transition-all flex items-center justify-between ${
                           edits.aspectRatio === ar.value
                             ? "bg-[#1ABC71]/20 border border-[#1ABC71]/40 text-[#1ABC71]"
                             : "bg-white/5 border border-white/10 text-white/50 hover:text-white hover:border-white/20"
-                        }`}
-                      >
+                        }`}>
                         <span>{ar.label}</span>
                         <span className={`text-[10px] ${edits.aspectRatio === ar.value ? "text-[#1ABC71]/60" : "text-white/25"}`}>{ar.desc}</span>
                       </button>
@@ -820,7 +1083,7 @@ export default function VideoEditor({
                 </div>
               )}
 
-              {/* ── COLOR TAB ────────────────────────────────────────── */}
+              {/* ── COLOR TAB ── */}
               {activeTab === "color" && (
                 <div className="p-4 space-y-5">
                   <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Color Adjustments</div>
@@ -833,29 +1096,25 @@ export default function VideoEditor({
                   <SliderField label="Saturation" value={edits.saturation} min={-1} max={1} step={0.05}
                     format={(v) => (v > 0 ? `+${(v * 100).toFixed(0)}%` : `${(v * 100).toFixed(0)}%`)}
                     onChange={(v) => updateEdits({ saturation: v })} dark />
-                  <button
-                    onClick={() => updateEdits({ brightness: 0, contrast: 0, saturation: 0 })}
-                    className="w-full py-2 rounded-xl text-xs text-white/40 hover:text-white border border-white/10 hover:border-white/20 transition-colors flex items-center justify-center gap-2"
-                  >
+                  <button onClick={() => updateEdits({ brightness: 0, contrast: 0, saturation: 0 })}
+                    className="w-full py-2 rounded-xl text-xs text-white/40 hover:text-white border border-white/10 hover:border-white/20 transition-colors flex items-center justify-center gap-2">
                     <RefreshCw size={12} /> Reset Colors
                   </button>
                 </div>
               )}
 
-              {/* ── SPEED TAB ────────────────────────────────────────── */}
+              {/* ── SPEED TAB ── */}
               {activeTab === "speed" && (
                 <div className="p-4 space-y-4">
                   <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Playback Speed</div>
                   <div className="grid grid-cols-3 gap-2">
                     {SPEED_OPTIONS.map((s) => (
-                      <button
-                        key={s} onClick={() => updateEdits({ speed: s })}
+                      <button key={s} onClick={() => updateEdits({ speed: s })}
                         className={`py-2.5 rounded-xl text-xs font-bold transition-colors border ${
                           edits.speed === s
                             ? "bg-[#1ABC71]/30 border-[#1ABC71]/50 text-[#1ABC71]"
                             : "bg-white/5 border-white/10 text-white/40 hover:text-white"
-                        }`}
-                      >{s}×</button>
+                        }`}>{s}×</button>
                     ))}
                   </div>
                   <p className="text-xs text-white/30 leading-relaxed">
@@ -865,7 +1124,6 @@ export default function VideoEditor({
                   </p>
                 </div>
               )}
-
             </div>
           </div>
         </div>
@@ -884,11 +1142,9 @@ function SliderField({ label, value, min, max, step, format, onChange, dark }: {
         <label className={`text-xs ${dark ? "text-white/50" : "text-gray-600"}`}>{label}</label>
         <span className="text-xs font-mono text-[#1ABC71]">{format(value)}</span>
       </div>
-      <input
-        type="range" min={min} max={max} step={step} value={value}
+      <input type="range" min={min} max={max} step={step} value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full accent-[#1ABC71]"
-      />
+        className="w-full accent-[#1ABC71]" />
     </div>
   );
 }
