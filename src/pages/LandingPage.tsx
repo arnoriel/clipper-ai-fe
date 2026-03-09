@@ -1,24 +1,60 @@
 // src/pages/LandingPage.tsx
 import { useEffect, useState } from "react";
-import { 
-  Scissors, 
-  Sparkles, 
-  Zap, 
-  Timer, 
-  CreditCard, 
-  Play, 
+import {
+  Scissors,
+  Sparkles,
+  Zap,
+  Timer,
+  CreditCard,
+  Play,
   Rocket,
   Check,
   Plus,
   Gift,
   Menu,
-  ChevronDown} from "lucide-react";
+  ChevronDown,
+  Target,
+  Smartphone,
+  Brain,
+  Star,
+  Tag,
+  Flame,
+  Building2,
+  Gem,
+  Infinity,
+  Cloud,
+  Handshake,
+  HelpCircle,
+  MessageCircle,
+  Clock,
+  Ban,
+  RefreshCcw,
+  Shield,
+  TrendingUp,
+  Eye,
+  DollarSign,
+  Mic,
+  Video,
+  Trophy,
+  Book,
+  Monitor,
+  Scissors as ScissorsIcon,
+  Wrench,
+  Lightbulb,
+  ShoppingCart,
+  AlertTriangle,
+  TrendingDown,
+  Repeat,
+  Image,
+  Palette,
+  Droplets,
+  Anchor,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 
 // --- Types & Interfaces ---
 interface FeatureCardProps {
   icon: React.ReactNode;
-  emoji: string;
   title: string;
   highlight: string;
   description: string;
@@ -37,6 +73,7 @@ interface PricingCardProps {
 interface FAQItemProps {
   question: string;
   answer: string;
+  icon: React.ReactNode;
 }
 
 // --- Utility Components ---
@@ -52,15 +89,15 @@ const CardElevated = ({ children, className = "", hover = true }: { children: Re
   </div>
 );
 
-const ButtonPrimary = ({ children, to, onClick, className = "", icon }: { 
-  children: React.ReactNode; 
-  to?: string; 
+const ButtonPrimary = ({ children, to, onClick, className = "", icon }: {
+  children: React.ReactNode;
+  to?: string;
   onClick?: () => void;
   className?: string;
   icon?: React.ReactNode;
 }) => {
   const baseClasses = "inline-flex items-center justify-center gap-2 px-8 py-4 bg-[#1ABC71] text-white font-bold rounded-2xl hover:bg-[#16a085] transition-all duration-300 shadow-lg shadow-[#1ABC71]/20 hover:shadow-xl hover:shadow-[#1ABC71]/30 hover:-translate-y-0.5 active:translate-y-0";
-  
+
   const content = (
     <>
       {icon}
@@ -83,15 +120,15 @@ const ButtonPrimary = ({ children, to, onClick, className = "", icon }: {
   );
 };
 
-const ButtonSecondary = ({ children, to, onClick, className = "", icon }: { 
-  children: React.ReactNode; 
-  to?: string; 
+const ButtonSecondary = ({ children, to, onClick, className = "", icon }: {
+  children: React.ReactNode;
+  to?: string;
   onClick?: () => void;
   className?: string;
   icon?: React.ReactNode;
 }) => {
   const baseClasses = "inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-gray-800 font-bold rounded-2xl border-2 border-gray-200 hover:border-[#1ABC71]/40 hover:bg-[#1ABC71]/5 transition-all duration-300";
-  
+
   const content = (
     <>
       {icon}
@@ -132,9 +169,8 @@ const Navbar = () => {
   ];
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-      isScrolled ? "bg-white/80 backdrop-blur-xl border-b border-gray-200 shadow-sm" : "bg-transparent"
-    }`}>
+    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? "bg-white/80 backdrop-blur-xl border-b border-gray-200 shadow-sm" : "bg-transparent"
+      }`}>
       <div className="container mx-auto flex items-center justify-between px-5 py-4">
         <Link to="/" className="flex items-center gap-2 font-bold text-xl">
           <div className="h-9 w-9 rounded-xl bg-[#1ABC71] flex items-center justify-center">
@@ -146,21 +182,21 @@ const Navbar = () => {
         {/* Desktop Nav */}
         <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600">
           {navLinks.map((link) => (
-            <a 
-              key={link.href} 
-              href={link.href} 
+            <a
+              key={link.href}
+              href={link.href}
               className="hover:text-[#1ABC71] transition-colors"
             >
               {link.label}
             </a>
           ))}
-          <ButtonPrimary to="/app" className="px-6 py-2.5 text-sm">
-            Coba Sekarang 🚀
+          <ButtonPrimary to="/app" className="px-6 py-2.5 text-sm" icon={<Rocket className="h-4 w-4" />}>
+            Coba Sekarang
           </ButtonPrimary>
         </div>
 
         {/* Mobile Menu Button */}
-        <button 
+        <button
           className="md:hidden text-gray-700 p-2"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
         >
@@ -172,8 +208,8 @@ const Navbar = () => {
       {mobileMenuOpen && (
         <div className="md:hidden bg-white border-t border-gray-200 px-5 py-4 space-y-4">
           {navLinks.map((link) => (
-            <a 
-              key={link.href} 
+            <a
+              key={link.href}
               href={link.href}
               className="block text-gray-600 hover:text-[#1ABC71] font-medium"
               onClick={() => setMobileMenuOpen(false)}
@@ -181,8 +217,8 @@ const Navbar = () => {
               {link.label}
             </a>
           ))}
-          <ButtonPrimary to="/app" className="w-full py-3 text-sm">
-            Coba Sekarang 🚀
+          <ButtonPrimary to="/app" className="w-full py-3 text-sm" icon={<Rocket className="h-4 w-4" />}>
+            Coba Sekarang
           </ButtonPrimary>
         </div>
       )}
@@ -196,7 +232,7 @@ const HeroSection = () => {
       {/* Background Decorations */}
       <div className="absolute top-20 right-0 w-[500px] h-[500px] bg-[#1ABC71]/5 rounded-full blur-3xl animate-pulse" />
       <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-[#1ABC71]/5 rounded-full blur-3xl" />
-      
+
       {/* Dot Pattern */}
       <div className="absolute inset-0 opacity-30" style={{
         backgroundImage: "radial-gradient(circle, #1ABC71 1px, transparent 1px)",
@@ -208,17 +244,17 @@ const HeroSection = () => {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-[#1ABC71]/10 text-[#1ABC71] text-sm font-bold mb-6 border border-[#1ABC71]/20 hover:scale-105 transition-transform cursor-default">
             <Sparkles className="h-4 w-4" />
-            AI Clipper Pertama di Indonesia 🇮🇩
+            AI Clipper Pertama di Indonesia
           </div>
 
           {/* Heading */}
           <h1 className="text-4xl sm:text-5xl lg:text-7xl font-extrabold leading-[1.1] mb-6 tracking-tight text-gray-900">
-            Video Panjang? <TextGradient>Otomatis Jadi Clip</TextGradient> Siap Upload ⚡
+            Video Panjang? <TextGradient>Otomatis Jadi Clip</TextGradient> Siap Upload
           </h1>
 
           {/* Subheading */}
           <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto mb-5 leading-relaxed">
-            Tinggal upload, pilih gaya, AI yang kerjain sisanya. Langsung siap buat TikTok, Reels & Shorts 🎬
+            Tinggal upload, pilih gaya, AI yang kerjain sisanya. Langsung siap buat TikTok, Reels &amp; Shorts
           </p>
 
           {/* Tags */}
@@ -246,14 +282,14 @@ const HeroSection = () => {
           </div>
 
           {/* Dashboard Preview */}
-            <div className="relative mt-8">
+          <div className="relative mt-8">
             <div className="absolute -inset-3 rounded-3xl bg-gradient-to-b from-[#1ABC71]/20 via-[#1ABC71]/5 to-transparent blur-xl" />
-            <img 
-                src="https://short-clip-lab.lovable.app/assets/hero-dashboard-BfIB42Ij.png" 
-                alt="AI Viral Clipper Dashboard" 
-                className="relative rounded-3xl border-2 border-gray-200 shadow-2xl w-full"
+            <img
+              src="https://short-clip-lab.lovable.app/assets/hero-dashboard-BfIB42Ij.png"
+              alt="AI Viral Clipper Dashboard"
+              className="relative rounded-3xl border-2 border-gray-200 shadow-2xl w-full"
             />
-            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -262,42 +298,46 @@ const HeroSection = () => {
 
 const ProblemSection = () => {
   const problems = [
-    { emoji: "⏰", text: "Buang waktu 2–3 jam cuma buat 1 clip" },
-    { emoji: "😩", text: "Subtitle ribet & nggak konsisten" },
-    { emoji: "🤷", text: "Nggak tau bagian mana yang viral" },
-    { emoji: "📉", text: "Sudah upload tapi view kecil" },
+    { icon: Clock, text: "Buang waktu 2–3 jam cuma buat 1 clip" },
+    { icon: AlertTriangle, text: "Subtitle ribet & nggak konsisten" },
+    { icon: HelpCircle, text: "Nggak tau bagian mana yang viral" },
+    { icon: TrendingDown, text: "Sudah upload tapi view kecil" },
   ];
 
   return (
     <section className="py-20 sm:py-28 relative bg-white">
       <div className="container mx-auto px-5">
         <div className="max-w-3xl mx-auto text-center">
-          <span className="inline-block text-sm font-bold text-red-600 bg-red-50 px-4 py-1.5 rounded-full mb-5">
-            💥 Masalah Umum
+          <span className="inline-flex items-center gap-2 text-sm font-bold text-red-600 bg-red-50 px-4 py-1.5 rounded-full mb-5">
+            <Flame className="h-4 w-4" />
+            Masalah Umum
           </span>
           <h2 className="text-3xl sm:text-5xl font-extrabold mb-6 tracking-tight text-gray-900">
             Masih Potong Video <TextGradient>Manual?</TextGradient>
           </h2>
-          
+
           <div className="w-48 sm:w-64 mx-auto mb-8">
-            <img 
-                src="https://short-clip-lab.lovable.app/assets/illust-problem-BXpRa9fH.png" 
-                alt="Ilustrasi frustrasi edit video manual" 
-                className="w-full h-auto"
+            <img
+              src="https://short-clip-lab.lovable.app/assets/illust-problem-BXpRa9fH.png"
+              alt="Ilustrasi frustrasi edit video manual"
+              className="w-full h-auto"
             />
-            </div>
+          </div>
 
           <div className="grid sm:grid-cols-2 gap-3 sm:gap-4 mb-10">
             {problems.map((problem, i) => (
               <CardElevated key={i} className="p-4 sm:p-5 flex items-center gap-3 text-left">
-                <span className="text-2xl shrink-0">{problem.emoji}</span>
+                <div className="h-10 w-10 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+                  <problem.icon className="h-5 w-5 text-red-500" />
+                </div>
                 <span className="text-gray-800 font-medium text-sm sm:text-base">{problem.text}</span>
               </CardElevated>
             ))}
           </div>
 
-          <p className="text-gray-600 text-lg">
-            Waktunya kerja lebih <span className="text-[#1ABC71] font-bold">pintar</span>, bukan lebih lama 💪
+          <p className="text-gray-600 text-lg flex items-center justify-center gap-2">
+            <TrendingUp className="h-5 w-5 text-[#1ABC71]" />
+            Waktunya kerja lebih <span className="text-[#1ABC71] font-bold">pintar</span>, bukan lebih lama
           </p>
         </div>
       </div>
@@ -308,55 +348,54 @@ const ProblemSection = () => {
 const FeaturesSection = () => {
   const headlineStyles = [
     {
-      label: "🔥 Emoji Style",
-      examples: ["STOP SCROLL! ⚠️", "POV: Baru Sadar Ini 😳", "Kamu HARUS Coba Ini! 🔥"]
+      label: "Emoji Style",
+      labelIcon: <Flame className="h-3 w-3" />,
+      examples: ["STOP SCROLL!", "POV: Baru Sadar Ini", "Kamu HARUS Coba Ini!"]
     },
     {
-      label: "🎯 Profesional",
+      label: "Profesional",
+      labelIcon: <Target className="h-3 w-3" />,
       examples: ["5 Strategi Terbukti Meningkatkan Revenue", "Framework yang Dipakai Top 1% Creator"]
     },
     {
-      label: "📰 Gaya Berita",
+      label: "Gaya Berita",
+      labelIcon: <Monitor className="h-3 w-3" />,
       examples: ["BREAKING: Terungkap Cara Baru Monetisasi", "Riset Terbaru: 80% Creator Salah Strategi"]
     },
     {
-      label: "✍️ Clean / Tanpa Emoji",
+      label: "Clean / Minimalis",
+      labelIcon: <Scissors className="h-3 w-3" />,
       examples: ["Ini yang tidak pernah diajarkan siapapun", "Satu hal yang mengubah segalanya"]
     }
   ];
 
   const features: FeatureCardProps[] = [
     {
-      icon: <div className="h-11 w-11 rounded-xl bg-[#1ABC71]/10 flex items-center justify-center group-hover:bg-[#1ABC71]/20 transition-colors"><span className="text-[#1ABC71] font-bold text-lg">🎯</span></div>,
-      emoji: "🎯",
+      icon: <div className="h-11 w-11 rounded-xl bg-[#1ABC71]/10 flex items-center justify-center group-hover:bg-[#1ABC71]/20 transition-colors"><Target className="h-6 w-6 text-[#1ABC71]" /></div>,
       title: "Auto Detect Momen Viral",
       highlight: "Biar AI yang cari, kamu tinggal duduk manis.",
       description: "AI scan seluruh transkrip & deteksi momen paling engaging. Langsung dapet bagian yang bikin orang berhenti scroll."
     },
     {
-      icon: <div className="h-11 w-11 rounded-xl bg-[#1ABC71]/10 flex items-center justify-center group-hover:bg-[#1ABC71]/20 transition-colors"><span className="text-[#1ABC71] font-bold text-lg">📱</span></div>,
-      emoji: "📱",
+      icon: <div className="h-11 w-11 rounded-xl bg-[#1ABC71]/10 flex items-center justify-center group-hover:bg-[#1ABC71]/20 transition-colors"><Smartphone className="h-6 w-6 text-[#1ABC71]" /></div>,
       title: "Custom Crop per Platform",
       highlight: "Beda platform, beda crop. Otomatis!",
       description: "9:16 (TikTok/Reels), 4:5 (Instagram), 1:1 (Feed), 16:9 (YouTube). Wajah & momen penting selalu pas di frame."
     },
     {
-      icon: <div className="h-11 w-11 rounded-xl bg-[#1ABC71]/10 flex items-center justify-center group-hover:bg-[#1ABC71]/20 transition-colors"><span className="text-[#1ABC71] font-bold text-lg">🧠</span></div>,
-      emoji: "🧠",
+      icon: <div className="h-11 w-11 rounded-xl bg-[#1ABC71]/10 flex items-center justify-center group-hover:bg-[#1ABC71]/20 transition-colors"><Brain className="h-6 w-6 text-[#1ABC71]" /></div>,
       title: "Manual Cut Mode",
       highlight: "Kamu bosnya. AI cuma asisten.",
       description: "Mau potong di detik ke-47? Silakan. Full kontrol timeline di tangan kamu."
     },
     {
-      icon: <div className="h-11 w-11 rounded-xl bg-[#1ABC71]/10 flex items-center justify-center group-hover:bg-[#1ABC71]/20 transition-colors"><span className="text-[#1ABC71] font-bold text-lg">✨</span></div>,
-      emoji: "✨",
+      icon: <div className="h-11 w-11 rounded-xl bg-[#1ABC71]/10 flex items-center justify-center group-hover:bg-[#1ABC71]/20 transition-colors"><Sparkles className="h-6 w-6 text-[#1ABC71]" /></div>,
       title: "Subtitle Otomatis Viral Style",
       highlight: "Subtitle yang bikin nonton sampai habis.",
-      description: "Bold putih + outline hitam ala kreator viral. Highlight warna otomatis di keyword penting + emoji 🔥"
+      description: "Bold putih + outline hitam ala kreator viral. Highlight warna otomatis di keyword penting."
     },
     {
-      icon: <div className="h-11 w-11 rounded-xl bg-[#1ABC71]/10 flex items-center justify-center group-hover:bg-[#1ABC71]/20 transition-colors"><span className="text-[#1ABC71] font-bold text-lg">🏷️</span></div>,
-      emoji: "🏷️",
+      icon: <div className="h-11 w-11 rounded-xl bg-[#1ABC71]/10 flex items-center justify-center group-hover:bg-[#1ABC71]/20 transition-colors"><Tag className="h-6 w-6 text-[#1ABC71]" /></div>,
       title: "Branding Sendiri",
       highlight: "Clip kamu, identitas kamu.",
       description: "Upload logo, pasang watermark. Setiap clip yang keluar = marketing gratis buat brand kamu."
@@ -365,32 +404,36 @@ const FeaturesSection = () => {
 
   return (
     <section id="fitur" className="py-20 sm:py-28 relative">
-      
+
       <div className="container mx-auto px-5 relative z-10">
         <div className="text-center mb-14">
-          <span className="inline-block text-sm font-bold text-[#1ABC71] bg-[#1ABC71]/10 px-4 py-1.5 rounded-full mb-5">
-            ⚡ Fitur Lengkap
+          <span className="inline-flex items-center gap-2 text-sm font-bold text-[#1ABC71] bg-[#1ABC71]/10 px-4 py-1.5 rounded-full mb-5">
+            <Zap className="h-4 w-4" />
+            Fitur Lengkap
           </span>
           <h2 className="text-3xl sm:text-5xl font-extrabold max-w-3xl mx-auto tracking-tight text-gray-900">
-            Semua Yang Kamu Butuh Buat <TextGradient>Clip Viral</TextGradient> 🎬
+            Semua Yang Kamu Butuh Buat <TextGradient>Clip Viral</TextGradient>
           </h2>
           <div className="w-48 sm:w-64 mx-auto mt-6">
-            <img 
-                src="https://short-clip-lab.lovable.app/assets/illust-solution-CyNhw-ht.png" 
-                alt="AI robot mengedit video otomatis" 
-                className="w-full h-auto"
+            <img
+              src="https://short-clip-lab.lovable.app/assets/illust-solution-CyNhw-ht.png"
+              alt="AI robot mengedit video otomatis"
+              className="w-full h-auto"
             />
-            </div>
+          </div>
         </div>
 
         {/* Headline Hook Feature */}
         <CardElevated className="p-6 sm:p-8 mb-6 max-w-5xl mx-auto">
           <div className="flex items-center gap-3 mb-2">
             <div className="h-12 w-12 rounded-2xl bg-[#1ABC71]/10 flex items-center justify-center shrink-0">
-              <span className="text-2xl">🪝</span>
+              <Anchor className="h-6 w-6 text-[#1ABC71]" />
             </div>
             <div>
-              <h3 className="font-bold text-xl text-gray-900">Headline Hook Otomatis 🪝</h3>
+              <h3 className="font-bold text-xl text-gray-900 flex items-center gap-2">
+                Headline Hook Otomatis
+                <Anchor className="h-4 w-4 text-[#1ABC71]" />
+              </h3>
               <p className="text-[#1ABC71] text-xs font-bold">AI pasang headline yang bikin orang berhenti scroll.</p>
             </div>
           </div>
@@ -400,7 +443,8 @@ const FeaturesSection = () => {
           <div className="space-y-4">
             {headlineStyles.map((style, i) => (
               <div key={i}>
-                <span className="inline-block text-xs font-bold px-3 py-1 rounded-full bg-[#1ABC71]/10 text-[#1ABC71] mb-2">
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-[#1ABC71]/10 text-[#1ABC71] mb-2">
+                  {style.labelIcon}
                   {style.label}
                 </span>
                 <div className="flex flex-wrap gap-2">
@@ -421,7 +465,6 @@ const FeaturesSection = () => {
             <CardElevated key={i} className="p-5 sm:p-6 group">
               <div className="flex items-center gap-3 mb-3">
                 {feature.icon}
-                <span className="text-2xl">{feature.emoji}</span>
               </div>
               <h3 className="font-bold text-lg text-gray-900 mb-1">{feature.title}</h3>
               <p className="text-[#1ABC71] text-xs font-bold mb-2">{feature.highlight}</p>
@@ -433,19 +476,27 @@ const FeaturesSection = () => {
         {/* Template Feature */}
         <CardElevated className="p-6 sm:p-8 max-w-5xl mx-auto">
           <div className="flex items-start gap-3 mb-3">
-            <span className="text-3xl">🎬</span>
+            <div className="h-12 w-12 rounded-2xl bg-[#1ABC71]/10 flex items-center justify-center shrink-0">
+              <Video className="h-6 w-6 text-[#1ABC71]" />
+            </div>
             <div>
               <h3 className="font-bold text-xl text-gray-900">Simpan Sebagai Template Clip</h3>
-              <p className="text-[#1ABC71] text-xs font-bold">Atur sekali, pakai selamanya ♻️</p>
+              <p className="text-[#1ABC71] text-xs font-bold flex items-center gap-1"><Repeat className="h-3 w-3" /> Atur sekali, pakai selamanya</p>
             </div>
           </div>
           <p className="text-gray-600 text-sm mb-5 max-w-2xl">
             Bikin template clip lengkap: headline hook, logo, watermark, gaya teks, warna. Tinggal pilih video, pilih template, langsung jadi!
           </p>
           <div className="flex flex-wrap gap-2">
-            {["🪝 Headline Hook", "🖼️ Logo & Watermark", "🎨 Gaya Teks", "🌈 Warna Teks"].map((tag, i) => (
-              <span key={i} className="text-xs px-4 py-2 rounded-full bg-[#1ABC71]/10 text-[#1ABC71] font-bold cursor-default">
-                {tag}
+            {[
+              { icon: <Anchor className="h-3 w-3" />, label: "Headline Hook" },
+              { icon: <Image className="h-3 w-3" />, label: "Logo & Watermark" },
+              { icon: <Palette className="h-3 w-3" />, label: "Gaya Teks" },
+              { icon: <Droplets className="h-3 w-3" />, label: "Warna Teks" },
+            ].map((tag, i) => (
+              <span key={i} className="inline-flex items-center gap-1.5 text-xs px-4 py-2 rounded-full bg-[#1ABC71]/10 text-[#1ABC71] font-bold cursor-default">
+                {tag.icon}
+                {tag.label}
               </span>
             ))}
           </div>
@@ -457,11 +508,11 @@ const FeaturesSection = () => {
 
 const WhyDifferentSection = () => {
   const benefits = [
-    { emoji: "♾️", text: "Sekali beli, pakai selamanya (bukan langganan)" },
-    { emoji: "🎯", text: "1 credit = 1 menit video, simpel" },
-    { emoji: "☁️", text: "Upload dari file, YouTube, atau Google Drive" },
-    { emoji: "🤝", text: "Ajak teman, dapet komisi (affiliate)" },
-    { emoji: "⚡", text: "Server cepat & stabil, gak nge-lag" },
+    { icon: Infinity, text: "Sekali beli, pakai selamanya (bukan langganan)" },
+    { icon: Target, text: "1 credit = 1 menit video, simpel" },
+    { icon: Cloud, text: "Upload dari file, YouTube, atau Google Drive" },
+    { icon: Handshake, text: "Ajak teman, dapet komisi (affiliate)" },
+    { icon: Zap, text: "Server cepat & stabil, gak nge-lag" },
   ];
 
   return (
@@ -469,25 +520,28 @@ const WhyDifferentSection = () => {
       <div className="container mx-auto px-5">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-10">
-            <span className="inline-block text-sm font-bold text-[#1ABC71] bg-[#1ABC71]/10 px-4 py-1.5 rounded-full mb-5">
-              💎 Kenapa Beda
+            <span className="inline-flex items-center gap-2 text-sm font-bold text-[#1ABC71] bg-[#1ABC71]/10 px-4 py-1.5 rounded-full mb-5">
+              <Gem className="h-4 w-4" />
+              Kenapa Beda
             </span>
             <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-gray-900">
-              Kenapa <TextGradient>Beda</TextGradient> Dari Yang Lain? 🤔
+              Kenapa <TextGradient>Beda</TextGradient> Dari Yang Lain?
             </h2>
             <div className="w-48 sm:w-56 mx-auto mt-6">
-            <img 
-                src="https://short-clip-lab.lovable.app/assets/illust-why-different-DfVTYG-X.png" 
-                alt="Ilustrasi keunggulan produk" 
+              <img
+                src="https://short-clip-lab.lovable.app/assets/illust-why-different-DfVTYG-X.png"
+                alt="Ilustrasi keunggulan produk"
                 className="w-full h-auto"
-            />
+              />
             </div>
           </div>
 
           <CardElevated className="p-6 sm:p-8 space-y-4">
             {benefits.map((benefit, i) => (
               <div key={i} className="flex items-center gap-4">
-                <span className="text-2xl shrink-0">{benefit.emoji}</span>
+                <div className="h-10 w-10 rounded-xl bg-[#1ABC71]/10 flex items-center justify-center shrink-0">
+                  <benefit.icon className="h-5 w-5 text-[#1ABC71]" />
+                </div>
                 <div className="h-8 w-8 rounded-full bg-[#1ABC71]/15 flex items-center justify-center shrink-0">
                   <Check className="h-4 w-4 text-[#1ABC71]" />
                 </div>
@@ -524,7 +578,7 @@ const PricingSection = () => {
       perCredit: "Rp 857 / credit",
       popular: true,
       discount: "Bonus 50 Credit",
-      icon: <div className="text-3xl">🔥</div>
+      icon: <Flame className="h-6 w-6 sm:h-7 sm:w-7 text-orange-500" />
     },
     {
       name: "Business",
@@ -532,7 +586,7 @@ const PricingSection = () => {
       price: "Rp 800.000",
       perCredit: "Rp 800 / credit",
       discount: "Hemat 20%",
-      icon: <div className="text-3xl">🏢</div>
+      icon: <Building2 className="h-6 w-6 sm:h-7 sm:w-7 text-gray-500" />
     }
   ];
 
@@ -563,31 +617,32 @@ const PricingSection = () => {
         backgroundImage: "radial-gradient(circle, #1ABC71 1px, transparent 1px)",
         backgroundSize: "24px 24px"
       }} />
-      
+
       <div className="container mx-auto px-5 relative z-10">
         <div className="text-center mb-6">
-          <span className="inline-block text-sm font-bold text-[#1ABC71] bg-[#1ABC71]/10 px-4 py-1.5 rounded-full mb-5">
-            💰 Bayar Sesuai Pakai
+          <span className="inline-flex items-center gap-2 text-sm font-bold text-[#1ABC71] bg-[#1ABC71]/10 px-4 py-1.5 rounded-full mb-5">
+            <DollarSign className="h-4 w-4" />
+            Bayar Sesuai Pakai
           </span>
           <h2 className="text-3xl sm:text-5xl font-extrabold mb-4 tracking-tight text-gray-900">
-            Mulai dari <TextGradient>Rp 1.500</TextGradient> per Video 🎥
+            Mulai dari <TextGradient>Rp 1.500</TextGradient> per Video
           </h2>
           <p className="text-gray-600 max-w-xl mx-auto text-base sm:text-lg">
-            Gak ada langganan bulanan. Beli credit sesuai kebutuhan, pakai kapan aja. Semakin banyak, semakin hemat ✌️
+            Gak ada langganan bulanan. Beli credit sesuai kebutuhan, pakai kapan aja. Semakin banyak, semakin hemat.
           </p>
         </div>
 
         {/* Pricing Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 max-w-6xl mx-auto mt-12">
           {plans.map((plan, i) => (
-            <CardElevated 
-              key={i} 
+            <CardElevated
+              key={i}
               className={`rounded-2xl p-5 sm:p-7 text-center relative ${plan.popular ? 'border-2 border-[#1ABC71] bg-[#1ABC71]/5 shadow-lg' : ''}`}
               hover={!plan.popular}
             >
               {plan.popular && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#1ABC71] text-white text-xs font-bold px-4 py-1 rounded-full shadow-md">
-                  ⭐ POPULER
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#1ABC71] text-white text-xs font-bold px-4 py-1 rounded-full shadow-md flex items-center gap-1">
+                  <Star className="h-3 w-3 fill-white" /> POPULER
                 </span>
               )}
               {plan.discount && !plan.popular && (
@@ -600,11 +655,11 @@ const PricingSection = () => {
                   {plan.discount}
                 </span>
               )}
-              
+
               <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-[#1ABC71]/10 flex items-center justify-center mx-auto mb-3 sm:mb-4">
                 {plan.icon}
               </div>
-              
+
               <h3 className="font-bold text-lg sm:text-2xl text-gray-900 mb-1">{plan.name}</h3>
               <p className="text-[#1ABC71] font-extrabold text-2xl sm:text-3xl mb-1">
                 {plan.credits} <span className="text-sm sm:text-lg text-gray-600 font-medium">Credit</span>
@@ -614,19 +669,21 @@ const PricingSection = () => {
                 <CreditCard className="h-3 w-3" />
                 {plan.perCredit}
               </p>
-              
-              <ButtonPrimary 
-                to="/app" 
+
+              <ButtonPrimary
+                to="/app"
                 className={`w-full py-2.5 sm:py-3 text-sm sm:text-base ${plan.popular ? '' : 'bg-gray-100 text-gray-700 hover:bg-[#1ABC71]/10 hover:text-[#1ABC71] shadow-none'}`}
+                icon={<ShoppingCart className="h-4 w-4" />}
               >
-                Beli Credit 🛒
+                Beli Credit
               </ButtonPrimary>
             </CardElevated>
           ))}
         </div>
 
-        <p className="text-center text-gray-500 text-sm mt-8">
-          🚫 Tidak ada subscription. Tidak ada hidden fee. Bayar hanya fitur yang kamu pakai.
+        <p className="text-center text-gray-500 text-sm mt-8 flex items-center justify-center gap-2">
+          <Ban className="h-4 w-4 text-gray-400" />
+          Tidak ada subscription. Tidak ada hidden fee. Bayar hanya fitur yang kamu pakai.
         </p>
 
         {/* Features Breakdown */}
@@ -634,7 +691,7 @@ const PricingSection = () => {
           <CardElevated className="p-6 sm:p-8">
             <h3 className="font-bold text-xl text-gray-900 mb-1 flex items-center gap-2">
               <Check className="h-5 w-5 text-[#1ABC71]" />
-              Base Processing ✅
+              Base Processing
             </h3>
             <p className="text-gray-500 text-sm mb-5">Termasuk di setiap 1 credit / menit video</p>
             <ul className="space-y-2.5">
@@ -650,7 +707,7 @@ const PricingSection = () => {
           <CardElevated className="p-6 sm:p-8">
             <h3 className="font-bold text-xl text-gray-900 mb-1 flex items-center gap-2">
               <Plus className="h-5 w-5 text-[#1ABC71]" />
-              Add-on Features 🧩
+              Add-on Features
             </h3>
             <p className="text-gray-500 text-sm mb-5">Aktifkan sesuai kebutuhan, bayar credit tambahan</p>
             <ul className="space-y-3">
@@ -671,13 +728,19 @@ const PricingSection = () => {
 
         {/* Calculation Example */}
         <CardElevated className="max-w-md mx-auto mt-12 sm:mt-14 p-6 text-center">
-          <p className="text-sm font-bold text-gray-900 mb-3">💡 Contoh Kalkulasi</p>
+          <p className="text-sm font-bold text-gray-900 mb-3 flex items-center justify-center gap-2">
+            <Lightbulb className="h-4 w-4 text-yellow-500" />
+            Contoh Kalkulasi
+          </p>
           <div className="text-sm text-gray-600 space-y-1">
             <p>Video 10 menit = <span className="text-gray-900 font-medium">10 credit (base)</span></p>
             <p>+ Auto Detect Viral = <span className="text-[#1ABC71] font-bold">+5 credit</span></p>
             <p>+ Emoji Subtitle = <span className="text-[#1ABC71] font-bold">+2 credit</span></p>
             <div className="border-t border-gray-200 mt-3 pt-3">
-              <p className="text-gray-900 font-extrabold text-lg">Total: 17 Credit 🎉</p>
+              <p className="text-gray-900 font-extrabold text-lg flex items-center justify-center gap-2">
+                <Sparkles className="h-5 w-5 text-[#1ABC71]" />
+                Total: 17 Credit
+              </p>
             </div>
           </div>
         </CardElevated>
@@ -688,41 +751,44 @@ const PricingSection = () => {
 
 const AudienceSection = () => {
   const audiences = [
-    { emoji: "✂️", label: "Freelancer Clipper", rotate: -5 },
-    { emoji: "🎙️", label: "Podcaster", rotate: 4 },
-    { emoji: "🎥", label: "Content Creator", rotate: -3 },
-    { emoji: "🏆", label: "Personal Branding Coach", rotate: 3 },
-    { emoji: "🏢", label: "Agency Clipper", rotate: -4 },
-    { emoji: "📚", label: "Edukator Online", rotate: 5 },
-    { emoji: "💻", label: "Webinar Host", rotate: -2 },
+    { icon: ScissorsIcon, label: "Freelancer Clipper" },
+    { icon: Mic, label: "Podcaster" },
+    { icon: Video, label: "Content Creator" },
+    { icon: Trophy, label: "Personal Branding Coach" },
+    { icon: Building2, label: "Agency Clipper" },
+    { icon: Book, label: "Edukator Online" },
+    { icon: Monitor, label: "Webinar Host" },
   ];
 
   return (
     <section className="py-20 sm:py-28 relative overflow-hidden bg-white">
       <div className="container mx-auto px-5">
         <div className="text-center mb-8 sm:mb-10">
-          <span className="inline-block text-sm font-bold text-[#1ABC71] bg-[#1ABC71]/10 px-4 py-1.5 rounded-full mb-5">
-            🎯 Untuk Siapa
+          <span className="inline-flex items-center gap-2 text-sm font-bold text-[#1ABC71] bg-[#1ABC71]/10 px-4 py-1.5 rounded-full mb-5">
+            <Target className="h-4 w-4" />
+            Untuk Siapa
           </span>
           <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-gray-900">
-            Siapa Yang Cocok Pakai Ini? 🤩
+            Siapa Yang Cocok Pakai Ini?
           </h2>
           <div className="w-56 sm:w-72 mx-auto mt-6">
-            <img 
-                src="https://short-clip-lab.lovable.app/assets/illust-audience-C37OaC17.png" 
-                alt="Ilustrasi target audience kreator" 
-                className="w-full h-auto"
+            <img
+              src="https://short-clip-lab.lovable.app/assets/illust-audience-C37OaC17.png"
+              alt="Ilustrasi target audience kreator"
+              className="w-full h-auto"
             />
-            </div>
+          </div>
         </div>
 
         {/* Desktop Tags */}
         <div className="hidden sm:flex flex-wrap justify-center gap-3 max-w-3xl mx-auto mb-10">
           {audiences.map((audience, i) => (
-            <CardElevated 
-              key={i} 
+            <CardElevated
+              key={i}
               className="rounded-full px-5 py-3 flex items-center gap-2 cursor-default">
-              <span className="text-lg">{audience.emoji}</span>
+              <div className="h-7 w-7 rounded-full bg-[#1ABC71]/10 flex items-center justify-center">
+                <audience.icon className="h-4 w-4 text-[#1ABC71]" />
+              </div>
               <span className="text-sm font-semibold text-gray-800">{audience.label}</span>
             </CardElevated>
           ))}
@@ -731,18 +797,19 @@ const AudienceSection = () => {
         {/* Mobile Tags - Simplified */}
         <div className="sm:hidden flex flex-wrap justify-center gap-2 max-w-md mx-auto mb-10">
           {audiences.map((audience, i) => (
-            <div 
-              key={i} 
+            <div
+              key={i}
               className="bg-white rounded-full px-4 py-2 border border-gray-200 shadow-sm flex items-center gap-2"
             >
-              <span>{audience.emoji}</span>
+              <audience.icon className="h-4 w-4 text-[#1ABC71]" />
               <span className="text-sm font-medium text-gray-700">{audience.label}</span>
             </div>
           ))}
         </div>
 
-        <p className="text-center text-gray-600 text-lg">
-          Kalau kamu bikin konten panjang → <span className="text-[#1ABC71] font-bold">ini wajib punya.</span> 💯
+        <p className="text-center text-gray-600 text-lg flex items-center justify-center gap-2">
+          Kalau kamu bikin konten panjang → <span className="text-[#1ABC71] font-bold">ini wajib punya.</span>
+          <Check className="h-5 w-5 text-[#1ABC71]" />
         </p>
       </div>
     </section>
@@ -753,41 +820,44 @@ const ImagineSection = () => {
   return (
     <section className="py-20 sm:py-28 relative overflow-hidden">
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#1ABC71]/5 rounded-full blur-[100px]" />
-      
+
       <div className="container mx-auto px-5 relative z-10">
         <div className="max-w-3xl mx-auto text-center">
-          <span className="inline-block text-sm font-bold text-[#1ABC71] bg-[#1ABC71]/10 px-4 py-1.5 rounded-full mb-5">
-            🧠 Bayangkan Ini
+          <span className="inline-flex items-center gap-2 text-sm font-bold text-[#1ABC71] bg-[#1ABC71]/10 px-4 py-1.5 rounded-full mb-5">
+            <Brain className="h-4 w-4" />
+            Bayangkan Ini
           </span>
           <h2 className="text-3xl sm:text-5xl font-extrabold mb-4 tracking-tight text-gray-900">
-            Konten panjang tanpa distribusi = <TextGradient>potensi terbuang 😱</TextGradient>
+            Konten panjang tanpa distribusi = <TextGradient>potensi terbuang</TextGradient>
           </h2>
-          
+
           <div className="w-56 sm:w-72 mx-auto my-6">
-            <img 
-                src="https://short-clip-lab.lovable.app/assets/illust-imagine-B4P396rs.png" 
-                alt="Ilustrasi distribusi konten ke berbagai platform" 
-                className="w-full h-auto"
+            <img
+              src="https://short-clip-lab.lovable.app/assets/illust-imagine-B4P396rs.png"
+              alt="Ilustrasi distribusi konten ke berbagai platform"
+              className="w-full h-auto"
             />
           </div>
 
 
-          <p className="text-gray-600 text-lg mb-8">
-            AI Viral Clipper bantu kamu maksimalkan setiap menit jadi peluang exposure ✨
+          <p className="text-gray-600 text-lg mb-8 flex items-center justify-center gap-2">
+            <Sparkles className="h-5 w-5 text-[#1ABC71]" />
+            AI Viral Clipper bantu kamu maksimalkan setiap menit jadi peluang exposure
           </p>
 
           <CardElevated className="p-6 sm:p-8 mb-6">
-            <p className="text-lg sm:text-xl mb-6 text-gray-900 font-semibold">
-              🎙️ 1 podcast <span className="text-[#1ABC71] font-extrabold">1 jam</span> → Bisa jadi <span className="text-[#1ABC71] font-extrabold">20–40 short clip</span> 🤯
+            <p className="text-lg sm:text-xl mb-6 text-gray-900 font-semibold flex items-center justify-center gap-2 flex-wrap">
+              <Mic className="h-5 w-5 text-[#1ABC71]" />
+              1 podcast <span className="text-[#1ABC71] font-extrabold">1 jam</span> → Bisa jadi <span className="text-[#1ABC71] font-extrabold">20–40 short clip</span>
             </p>
             <div className="grid sm:grid-cols-3 gap-3">
               {[
-                { emoji: "📈", text: "Lebih banyak distribusi" },
-                { emoji: "👀", text: "Lebih banyak exposure" },
-                { emoji: "💰", text: "Lebih banyak peluang cuan" },
+                { icon: TrendingUp, text: "Lebih banyak distribusi" },
+                { icon: Eye, text: "Lebih banyak exposure" },
+                { icon: DollarSign, text: "Lebih banyak peluang cuan" },
               ].map((item, i) => (
                 <div key={i} className="flex items-center justify-center gap-2 text-gray-600 bg-gray-100 rounded-xl py-3 px-3">
-                  <span className="text-lg">{item.emoji}</span>
+                  <item.icon className="h-5 w-5 text-[#1ABC71]" />
                   <span className="text-sm font-medium">{item.text}</span>
                 </div>
               ))}
@@ -795,14 +865,19 @@ const ImagineSection = () => {
           </CardElevated>
 
           <CardElevated className="p-5 sm:p-6 space-y-3 text-left">
-            <h3 className="font-bold text-lg text-center text-gray-900 mb-4">🔐 Tanpa Risiko Ribet</h3>
+            <h3 className="font-bold text-lg text-center text-gray-900 mb-4 flex items-center justify-center gap-2">
+              <Shield className="h-5 w-5 text-[#1ABC71]" />
+              Tanpa Risiko Ribet
+            </h3>
             {[
-              { emoji: "🔄", text: "Credit otomatis kembali jika gagal render" },
-              { emoji: "🛡️", text: "Sistem stabil & scalable" },
-              { emoji: "🚫", text: "Tidak ada kontrak bulanan" },
+              { icon: RefreshCcw, text: "Credit otomatis kembali jika gagal render" },
+              { icon: Shield, text: "Sistem stabil & scalable" },
+              { icon: Ban, text: "Tidak ada kontrak bulanan" },
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-3">
-                <span className="text-xl">{item.emoji}</span>
+                <div className="h-8 w-8 rounded-lg bg-[#1ABC71]/10 flex items-center justify-center shrink-0">
+                  <item.icon className="h-4 w-4 text-[#1ABC71]" />
+                </div>
                 <span className="text-gray-800 font-medium">{item.text}</span>
               </div>
             ))}
@@ -820,25 +895,25 @@ const CTASection = () => {
         backgroundImage: "radial-gradient(circle, #1ABC71 1px, transparent 1px)",
         backgroundSize: "24px 24px"
       }} />
-      
+
       <div className="container mx-auto px-5 relative z-10">
         <div className="max-w-3xl mx-auto text-center mb-16 sm:mb-20">
           <h2 className="text-3xl sm:text-5xl font-extrabold mb-4 tracking-tight text-gray-900">
-            Udah Capek Edit Manual? 😮‍💨 <TextGradient>Coba Aja Dulu</TextGradient>
+            Udah Capek Edit Manual? <TextGradient>Coba Aja Dulu</TextGradient>
           </h2>
-          
+
           <div className="w-48 sm:w-60 mx-auto my-6">
-            <img 
-                src="https://short-clip-lab.lovable.app/assets/illust-cta-RjJScGTS.png" 
-                alt="Ilustrasi rocket launch mulai sekarang" 
-                className="w-full h-auto"
+            <img
+              src="https://short-clip-lab.lovable.app/assets/illust-cta-RjJScGTS.png"
+              alt="Ilustrasi rocket launch mulai sekarang"
+              className="w-full h-auto"
             />
           </div>
 
           <p className="text-gray-600 text-lg mb-8">
-            Upload 1 video, lihat hasilnya sendiri. Gak cocok? Gak masalah, gak ada langganan 😊
+            Upload 1 video, lihat hasilnya sendiri. Gak cocok? Gak masalah, gak ada langganan.
           </p>
-          
+
           <ButtonPrimary to="/app" icon={<Rocket className="h-5 w-5" />} className="px-10 py-4 text-lg">
             Coba AI Viral Clipper
           </ButtonPrimary>
@@ -849,13 +924,16 @@ const CTASection = () => {
             <div className="h-14 w-14 rounded-2xl bg-[#1ABC71]/10 flex items-center justify-center mx-auto mb-4">
               <Gift className="h-7 w-7 text-[#1ABC71]" />
             </div>
-            <h3 className="font-bold text-2xl text-gray-900 mb-2">🤝 Partner Resmi AI Viral Clipper</h3>
+            <h3 className="font-bold text-2xl text-gray-900 mb-2 flex items-center justify-center gap-2">
+              <Handshake className="h-6 w-6 text-[#1ABC71]" />
+              Partner Resmi AI Viral Clipper
+            </h3>
             <p className="text-gray-600 mb-6">
-              Jadi bagian dari ekosistem kreator dan dapatkan komisi dari setiap user yang kamu referensikan 💸<br/>
+              Jadi bagian dari ekosistem kreator dan dapatkan komisi dari setiap user yang kamu referensikan<br />
               Simple. Transparan. Scalable.
             </p>
-            <ButtonSecondary className="px-6 py-3">
-              Gabung Program Affiliate 🎉
+            <ButtonSecondary className="px-6 py-3" icon={<Sparkles className="h-4 w-4" />}>
+              Gabung Program Affiliate
             </ButtonSecondary>
           </CardElevated>
         </div>
@@ -869,19 +947,23 @@ const FAQSection = () => {
 
   const faqs: FAQItemProps[] = [
     {
-      question: "🤔 Harus bisa edit?",
+      icon: <HelpCircle className="h-4 w-4 text-[#1ABC71]" />,
+      question: "Harus bisa edit?",
       answer: "Tidak sama sekali! AI Viral Clipper dirancang untuk pemula. Tinggal upload video, AI akan otomatis mendeteksi momen viral dan membuat clip siap upload. Kamu bisa langsung download dan post ke TikTok/Reels/Shorts tanpa perlu edit manual."
     },
     {
-      question: "✍️ Bisa pakai subtitle sendiri?",
+      icon: <Scissors className="h-4 w-4 text-[#1ABC71]" />,
+      question: "Bisa pakai subtitle sendiri?",
       answer: "Ya! Kamu bisa upload file SRT atau VTT sendiri, atau biarkan AI generate subtitle otomatis dengan style viral (bold putih + outline hitam) yang sudah terbukti meningkatkan engagement."
     },
     {
-      question: "📱 Bisa pakai HP?",
+      icon: <Smartphone className="h-4 w-4 text-[#1ABC71]" />,
+      question: "Bisa pakai HP?",
       answer: "Saat ini AI Viral Clipper berbasis web dan optimal di desktop/laptop untuk pengalaman edit yang lebih baik. Namun, kamu tetap bisa akses via browser HP untuk upload dan download hasil clip."
     },
     {
-      question: "⏱️ Ada batas durasi?",
+      icon: <Timer className="h-4 w-4 text-[#1ABC71]" />,
+      question: "Ada batas durasi?",
       answer: "Kamu bisa upload video hingga 2 jam! 1 credit = 1 menit video. Jadi video 30 menit = 30 credit. Semakin panjang video, semakin banyak clip viral yang bisa dihasilkan."
     }
   ];
@@ -890,11 +972,13 @@ const FAQSection = () => {
     <section id="faq" className="py-20 sm:py-28 relative bg-gray-50">
       <div className="container mx-auto px-5">
         <div className="text-center mb-10">
-          <span className="inline-block text-sm font-bold text-[#1ABC71] bg-[#1ABC71]/10 px-4 py-1.5 rounded-full mb-5">
-            ❓ FAQ
+          <span className="inline-flex items-center gap-2 text-sm font-bold text-[#1ABC71] bg-[#1ABC71]/10 px-4 py-1.5 rounded-full mb-5">
+            <HelpCircle className="h-4 w-4" />
+            FAQ
           </span>
-          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-gray-900">
-            Pertanyaan Umum 💬
+          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-gray-900 flex items-center justify-center gap-3">
+            <MessageCircle className="h-8 w-8 text-[#1ABC71]" />
+            Pertanyaan Umum
           </h2>
         </div>
 
@@ -905,9 +989,12 @@ const FAQSection = () => {
                 onClick={() => setOpenIndex(openIndex === i ? null : i)}
                 className="w-full flex items-center justify-between px-5 sm:px-6 py-4 sm:py-5 text-left font-bold hover:text-[#1ABC71] transition-colors"
               >
-                <span className="text-sm sm:text-base">{faq.question}</span>
-                <ChevronDown 
-                  className={`h-4 w-4 shrink-0 transition-transform duration-200 ${openIndex === i ? 'rotate-180' : ''}`} 
+                <span className="text-sm sm:text-base flex items-center gap-2">
+                  {faq.icon}
+                  {faq.question}
+                </span>
+                <ChevronDown
+                  className={`h-4 w-4 shrink-0 transition-transform duration-200 ${openIndex === i ? 'rotate-180' : ''}`}
                 />
               </button>
               {openIndex === i && (
@@ -928,12 +1015,16 @@ const Footer = () => {
     <footer className="border-t border-gray-200 py-12 sm:py-16 bg-white">
       <div className="container mx-auto px-5">
         <div className="max-w-3xl mx-auto text-center mb-8">
-          <p className="text-gray-600 text-base sm:text-lg mb-2">Bukan cuma tools. 🛠️</p>
+          <p className="text-gray-600 text-base sm:text-lg mb-2 flex items-center justify-center gap-2">
+            <Wrench className="h-4 w-4 text-[#1ABC71]" />
+            Bukan cuma tools.
+          </p>
           <p className="text-gray-600 text-base sm:text-lg">
-            Konten panjang tanpa distribusi = potensi terbuang. <span className="text-[#1ABC71] font-bold">AI Viral Clipper</span> bantu kamu maksimalkan setiap menit jadi peluang exposure ✨
+            Konten panjang tanpa distribusi = potensi terbuang. <span className="text-[#1ABC71] font-bold">AI Viral Clipper</span> bantu kamu maksimalkan setiap menit jadi peluang exposure.
+            <Sparkles className="inline h-4 w-4 text-[#1ABC71] ml-1" />
           </p>
         </div>
-        
+
         <div className="flex items-center justify-center gap-2 text-gray-500 text-sm">
           <div className="h-6 w-6 rounded-md bg-[#1ABC71] flex items-center justify-center">
             <Scissors className="h-3.5 w-3.5 text-white" />
