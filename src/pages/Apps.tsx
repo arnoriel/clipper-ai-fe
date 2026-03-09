@@ -1,4 +1,4 @@
-// src/pages/App.tsx
+// src/pages/Apps.tsx
 import { useState, useEffect, useRef } from "react";
 import {
   Zap, Film, ChevronRight, Loader2,
