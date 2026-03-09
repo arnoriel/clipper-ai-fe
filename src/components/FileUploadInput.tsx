@@ -1,4 +1,3 @@
-// /Users/haimac/Project/clipper-ai-fe/src/components/FileUploadInput.tsx
 // src/components/FileUploadInput.tsx
 import { useState, useRef, useCallback } from "react";
 import { Upload, Zap, AlertCircle, Loader2, Film, CheckCircle2 } from "lucide-react";
@@ -53,14 +52,8 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
       const video = document.createElement("video");
       video.preload = "metadata";
       const url = URL.createObjectURL(f);
-      video.onloadedmetadata = () => {
-        URL.revokeObjectURL(url);
-        resolve(video.duration);
-      };
-      video.onerror = () => {
-        URL.revokeObjectURL(url);
-        reject(new Error("Gagal membaca metadata video"));
-      };
+      video.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(video.duration); };
+      video.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Gagal membaca metadata video")); };
       video.src = url;
     });
   }
@@ -101,23 +94,15 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
   }
 
   function clearFile() {
-    setFile(null);
-    setDuration(null);
-    setFileError("");
+    setFile(null); setDuration(null); setFileError("");
     if (inputRef.current) inputRef.current.value = "";
   }
 
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-6 relative overflow-hidden">
       {/* Background grid */}
-      <div
-        className="absolute inset-0 opacity-[0.03]"
-        style={{
-          backgroundImage: `linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)`,
-          backgroundSize: "60px 60px",
-        }}
-      />
-      {/* Glow orbs */}
+      <div className="absolute inset-0 opacity-[0.03]"
+        style={{ backgroundImage: `linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)`, backgroundSize: "60px 60px" }} />
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#1ABC71]/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-[#1ABC71]/5 rounded-full blur-[100px] pointer-events-none" />
 
@@ -128,47 +113,31 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
             <Zap size={12} className="fill-[#1ABC71] text-[#1ABC71]" />
             POWERED BY COBAMULAI
           </div>
-          <h1
-            className="text-5xl font-black text-black tracking-tight mb-3"
-            style={{ fontFamily: "'Syne', sans-serif" }}
-          >
+          <h1 className="text-5xl font-black text-black tracking-tight mb-3" style={{ fontFamily: "'Syne', sans-serif" }}>
             AI Viral{" "}
-            <span className="text-[#1ABC71]">
-              Clipper
-            </span>
+            <span className="text-[#1ABC71]">Clipper</span>
           </h1>
           <p className="text-gray-600 text-base">
-            Upload video kamu. AI mendeteksi momen viral. Kamu edit &amp; export.
+            Upload video kamu. AI mendeteksi momen viral. Kamu edit, auto-subtitle &amp; export.
           </p>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
-
-          {/* Drop zone */}
           {!file ? (
             <div
               onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
               onDragLeave={() => setIsDragging(false)}
               onDrop={handleDrop}
               onClick={() => inputRef.current?.click()}
-              className={`relative cursor-pointer rounded-2xl border-2 border-dashed transition-all duration-200 p-10 text-center
-                ${isDragging
-                  ? "border-[#1ABC71]/70 bg-[#1ABC71]/5 scale-[1.01]"
-                  : "border-gray-300 bg-gray-50 hover:border-[#1ABC71]/50 hover:bg-gray-100"
-                }`}
-            >
-              <input
-                ref={inputRef}
-                type="file"
+              className={`relative cursor-pointer rounded-2xl border-2 border-dashed transition-all duration-200 p-10 text-center ${
+                isDragging ? "border-[#1ABC71]/70 bg-[#1ABC71]/5 scale-[1.01]" : "border-gray-300 bg-gray-50 hover:border-[#1ABC71]/50 hover:bg-gray-100"
+              }`}>
+              <input ref={inputRef} type="file"
                 accept="video/mp4,video/webm,video/quicktime,video/avi,video/x-matroska,.mp4,.webm,.mov,.avi,.mkv"
-                onChange={handleInputChange}
-                className="hidden"
-              />
-
+                onChange={handleInputChange} className="hidden" />
               <div className="flex flex-col items-center gap-3">
-                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-colors
-                  ${isDragging ? "bg-[#1ABC71]/20" : "bg-gray-100"}`}>
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-colors ${isDragging ? "bg-[#1ABC71]/20" : "bg-gray-100"}`}>
                   {loadingDuration
                     ? <Loader2 size={28} className="text-[#1ABC71] animate-spin" />
                     : <Upload size={28} className={isDragging ? "text-[#1ABC71]" : "text-gray-400"} />
@@ -178,22 +147,15 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
                   <p className="text-sm font-semibold text-gray-700 mb-1">
                     {isDragging ? "Lepaskan file di sini" : "Drag & drop video kamu"}
                   </p>
-                  <p className="text-xs text-gray-500">
-                    atau <span className="text-[#1ABC71] underline">browse file</span>
-                  </p>
+                  <p className="text-xs text-gray-500">atau <span className="text-[#1ABC71] underline">browse file</span></p>
                 </div>
                 <div className="flex items-center gap-3 text-[10px] text-gray-400 font-mono mt-1">
-                  <span>MP4</span><span>·</span>
-                  <span>WebM</span><span>·</span>
-                  <span>MOV</span><span>·</span>
-                  <span>AVI</span><span>·</span>
-                  <span>MKV</span>
+                  <span>MP4</span><span>·</span><span>WebM</span><span>·</span><span>MOV</span><span>·</span><span>AVI</span><span>·</span><span>MKV</span>
                 </div>
                 <p className="text-[10px] text-gray-400">Maks. {MAX_SIZE_GB}GB</p>
               </div>
             </div>
           ) : (
-            /* File selected preview */
             <div className="rounded-2xl border border-[#1ABC71]/30 bg-[#1ABC71]/5 p-5">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-[#1ABC71]/10 border border-[#1ABC71]/20 flex items-center justify-center shrink-0">
@@ -204,22 +166,16 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
                   <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 font-mono">
                     <span>{formatBytes(file.size)}</span>
                     <span>·</span>
-                    {duration !== null && (
-                      <span className="text-[#1ABC71]">{formatDuration(duration)}</span>
-                    )}
+                    {duration !== null && <span className="text-[#1ABC71]">{formatDuration(duration)}</span>}
                     <span>·</span>
                     <span>{file.type || "video"}</span>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={clearFile}
-                  className="text-gray-500 hover:text-black transition-colors text-xs px-2 py-1 rounded-lg hover:bg-gray-100"
-                >
+                <button type="button" onClick={clearFile}
+                  className="text-gray-500 hover:text-black transition-colors text-xs px-2 py-1 rounded-lg hover:bg-gray-100">
                   Ganti
                 </button>
               </div>
-
               {duration !== null && (
                 <div className="mt-3 pt-3 border-t border-[#1ABC71]/15 flex items-center gap-2 text-xs text-[#1ABC71]">
                   <CheckCircle2 size={12} />
@@ -229,7 +185,6 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
             </div>
           )}
 
-          {/* Errors */}
           {(error || fileError) && (
             <div className="flex items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
               <AlertCircle size={16} className="mt-0.5 shrink-0" />
@@ -237,41 +192,30 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
             </div>
           )}
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={isLoading || !file || !apiKeyOk || duration === null}
-            className="w-full py-4 rounded-2xl font-bold text-sm tracking-wider bg-[#1ABC71] text-white hover:bg-[#16a085] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#1ABC71]/20"
-          >
+          <button type="submit" disabled={isLoading || !file || !apiKeyOk || duration === null}
+            className="w-full py-4 rounded-2xl font-bold text-sm tracking-wider bg-[#1ABC71] text-white hover:bg-[#16a085] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#1ABC71]/20">
             {isLoading ? (
-              <>
-                <Loader2 size={18} className="animate-spin" />
-                Menganalisis Video...
-              </>
+              <><Loader2 size={18} className="animate-spin" /> Menganalisis Video...</>
             ) : (
-              <>
-                <Zap size={18} />
-                Deteksi Momen Viral
-              </>
+              <><Zap size={18} /> Deteksi Momen Viral</>
             )}
           </button>
         </form>
 
-        {/* Info note */}
+        {/* Info */}
         <div className="mt-8 pt-6 border-t border-gray-200">
           <div className="flex flex-col gap-3 text-xs text-gray-500">
-            <div className="flex items-start gap-2">
-              <div className="w-1 h-1 rounded-full bg-[#1ABC71]/50 mt-1.5 shrink-0" />
-              <span>Video dianalisis AI berdasarkan durasi dan nama file — tidak perlu koneksi internet untuk video itu sendiri.</span>
-            </div>
-            <div className="flex items-start gap-2">
-              <div className="w-1 h-1 rounded-full bg-[#1ABC71]/50 mt-1.5 shrink-0" />
-              <span>File video disimpan di browser IndexedDB kamu — tidak diupload ke server sampai kamu klik Export.</span>
-            </div>
-            <div className="flex items-start gap-2">
-              <div className="w-1 h-1 rounded-full bg-[#1ABC71]/50 mt-1.5 shrink-0" />
-              <span>Format didukung: MP4, WebM, MOV, AVI, MKV (maks. {MAX_SIZE_GB}GB).</span>
-            </div>
+            {[
+              "Video dianalisis AI berdasarkan durasi dan nama file — tidak perlu koneksi internet untuk video itu sendiri.",
+              "File video disimpan di browser IndexedDB kamu — tidak diupload ke server sampai kamu klik Export.",
+              "Auto-subtitle menggunakan OpenAI Whisper — 3 kata per subtitle, tersinkronisasi otomatis.",
+              `Format didukung: MP4, WebM, MOV, AVI, MKV (maks. ${MAX_SIZE_GB}GB).`,
+            ].map((text, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <div className="w-1 h-1 rounded-full bg-[#1ABC71]/50 mt-1.5 shrink-0" />
+                <span>{text}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>

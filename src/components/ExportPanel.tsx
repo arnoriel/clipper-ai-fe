@@ -1,19 +1,17 @@
-// /Users/haimac/Project/clipper-ai-fe/src/components/ExportPanel.tsx
 // src/components/ExportPanel.tsx
-import { Download, CheckCircle2, Loader2, Film, Trash2, Zap } from "lucide-react";
+import { Download, CheckCircle2, Loader2, Film, Trash2, Zap, Sparkles } from "lucide-react";
 import type { ProjectClip } from "../lib/storage";
 import { formatTime } from "../lib/AI";
 
 interface Props {
   clips: ProjectClip[];
-  exportedUrls: Record<string, string>; // momentId → download URL
+  exportedUrls: Record<string, string>;
   exportingId: string | null;
   onExportClip: (clip: ProjectClip) => void;
   onEditClip: (clip: ProjectClip) => void;
   onRemoveClip: (momentId: string) => void;
 }
 
-// Aspect ratio label → display name map
 const AR_LABELS: Record<string, string> = {
   "9:16": "9:16 Vertical",
   "16:9": "16:9 Wide",
@@ -36,7 +34,7 @@ export default function ExportPanel({
 
   function downloadFile(url: string, filename: string) {
     const a = document.createElement("a");
-    a.href = url;                    // ← FULL Supabase URL, tidak perlu localhost lagi
+    a.href = url;
     a.download = filename;
     document.body.appendChild(a);
     a.click();
@@ -47,56 +45,47 @@ export default function ExportPanel({
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-700">
           {clips.length} Clip{clips.length > 1 ? "s" : ""} Ready
         </h3>
         {exportedCount > 0 && (
           <span className="flex items-center gap-1.5 text-xs text-[#1ABC71]">
-            <CheckCircle2 size={12} />
-            {exportedCount} exported
+            <CheckCircle2 size={12} />{exportedCount} exported
           </span>
         )}
       </div>
 
-      {/* Clip cards */}
       {clips.map((clip) => {
         const isExporting  = exportingId === clip.momentId;
         const exportedUrl  = exportedUrls[clip.momentId];
         const effectiveStart = clip.moment.startTime + clip.edits.trimStart;
         const effectiveEnd   = clip.moment.endTime   + clip.edits.trimEnd;
         const duration       = effectiveEnd - effectiveStart;
+        const autoSubCount   = clip.edits.textOverlays.filter((t) => t.isAutoSubtitle).length;
+        const manualSubCount = clip.edits.textOverlays.filter((t) => !t.isAutoSubtitle).length;
 
         return (
-          <div
-            key={clip.momentId}
-            className="bg-gray-50 border border-gray-200 rounded-2xl p-4 space-y-3"
-          >
-            {/* Clip info row */}
+          <div key={clip.momentId} className="bg-gray-50 border border-gray-200 rounded-2xl p-4 space-y-3">
+            {/* Clip info */}
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-lg bg-[#1ABC71]/10 border border-[#1ABC71]/20 flex items-center justify-center shrink-0">
                 <Film size={14} className="text-[#1ABC71]" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-black truncate">
-                  {clip.moment.label}
-                </p>
+                <p className="text-sm font-medium text-black truncate">{clip.moment.label}</p>
                 <p className="text-xs text-gray-500 font-mono mt-0.5">
                   {formatTime(effectiveStart)} → {formatTime(effectiveEnd)}
                   <span className="ml-2 text-gray-400">({Math.round(duration)}s)</span>
                 </p>
               </div>
-              <button
-                onClick={() => onRemoveClip(clip.momentId)}
-                className="text-gray-400 hover:text-red-500 transition-colors p-1 shrink-0"
-                title="Remove clip"
-              >
+              <button onClick={() => onRemoveClip(clip.momentId)}
+                className="text-gray-400 hover:text-red-500 transition-colors p-1 shrink-0" title="Remove clip">
                 <Trash2 size={14} />
               </button>
             </div>
 
-            {/* Edits applied badges */}
+            {/* Edits badges */}
             <div className="flex flex-wrap gap-1.5">
               {clip.edits.aspectRatio !== "original" && (
                 <span className="px-2 py-0.5 rounded-md bg-[#1ABC71]/10 text-[#1ABC71] text-[10px] border border-[#1ABC71]/20">
@@ -108,9 +97,15 @@ export default function ExportPanel({
                   {clip.edits.speed}× speed
                 </span>
               )}
-              {clip.edits.textOverlays.length > 0 && (
+              {autoSubCount > 0 && (
+                <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-500 text-[10px] border border-purple-200 flex items-center gap-1">
+                  <Sparkles size={8} />
+                  {autoSubCount} auto subtitle{autoSubCount > 1 ? "s" : ""}
+                </span>
+              )}
+              {manualSubCount > 0 && (
                 <span className="px-2 py-0.5 rounded-md bg-[#1ABC71]/10 text-[#1ABC71] text-[10px] border border-[#1ABC71]/20">
-                  {clip.edits.textOverlays.length} text{clip.edits.textOverlays.length > 1 ? "s" : ""}
+                  {manualSubCount} manual text{manualSubCount > 1 ? "s" : ""}
                 </span>
               )}
               {(clip.edits.brightness !== 0 || clip.edits.contrast !== 0 || clip.edits.saturation !== 0) && (
@@ -127,48 +122,28 @@ export default function ExportPanel({
 
             {/* Action buttons */}
             <div className="flex gap-2 pt-1">
-              <button
-                onClick={() => onEditClip(clip)}
-                className="flex-1 py-2 rounded-xl text-xs border border-gray-200 text-gray-600 hover:text-black hover:border-gray-300 transition-colors"
-              >
+              <button onClick={() => onEditClip(clip)}
+                className="flex-1 py-2 rounded-xl text-xs border border-gray-200 text-gray-600 hover:text-black hover:border-gray-300 transition-colors">
                 Edit
               </button>
 
               {exportedUrl ? (
                 <button
-                  onClick={() =>
-                    downloadFile(
-                      exportedUrl,
-                      `${clip.moment.label.replace(/\s+/g, "_")}.mp4`
-                    )
-                  }
-                  className="flex-1 py-2 rounded-xl text-xs bg-[#1ABC71]/20 border border-[#1ABC71]/30 text-[#1ABC71] hover:bg-[#1ABC71]/30 transition-colors flex items-center justify-center gap-1.5"
-                >
-                  <Download size={12} />
-                  Download
+                  onClick={() => downloadFile(exportedUrl, `${clip.moment.label.replace(/\s+/g, "_")}.mp4`)}
+                  className="flex-1 py-2 rounded-xl text-xs bg-[#1ABC71]/20 border border-[#1ABC71]/30 text-[#1ABC71] hover:bg-[#1ABC71]/30 transition-colors flex items-center justify-center gap-1.5">
+                  <Download size={12} /> Download
                 </button>
               ) : (
-                <button
-                  onClick={() => onExportClip(clip)}
-                  disabled={isExporting}
-                  className="flex-1 py-2 rounded-xl text-xs bg-[#1ABC71] text-white hover:bg-[#16a085] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1.5"
-                >
-                  {isExporting ? (
-                    <>
-                      <Loader2 size={12} className="animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <Zap size={12} />
-                      Export
-                    </>
-                  )}
+                <button onClick={() => onExportClip(clip)} disabled={isExporting}
+                  className="flex-1 py-2 rounded-xl text-xs bg-[#1ABC71] text-white hover:bg-[#16a085] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1.5">
+                  {isExporting
+                    ? <><Loader2 size={12} className="animate-spin" /> Processing...</>
+                    : <><Zap size={12} /> Export</>
+                  }
                 </button>
               )}
             </div>
 
-            {/* Exported success message */}
             {exportedUrl && (
               <div className="flex items-center gap-2 text-xs text-[#1ABC71]/70 bg-[#1ABC71]/5 rounded-lg px-3 py-2">
                 <CheckCircle2 size={12} className="shrink-0" />
@@ -179,7 +154,6 @@ export default function ExportPanel({
         );
       })}
 
-      {/* Batch hint */}
       {clips.length > 1 && exportedCount < clips.length && (
         <p className="text-center text-[10px] text-gray-400 pb-2">
           Export each clip individually, then download

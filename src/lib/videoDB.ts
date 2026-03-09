@@ -7,7 +7,7 @@ const STORE_TEMP    = "source-videos";
 const STORE_EXPORTS = "clip-exports";
 
 interface SourceVideoRecord {
-  videoId:   string;   // = project.id
+  videoId:   string;
   fileName:  string;
   mimeType:  string;
   blob:      Blob;
@@ -47,7 +47,7 @@ function idbRequest<T>(req: IDBRequest<T>): Promise<T> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// SOURCE VIDEOS (uploaded by user)
+// SOURCE VIDEOS
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export async function storeSourceVideo(
@@ -159,7 +159,7 @@ export async function listStoredExportIds(): Promise<string[]> {
   return keys as string[];
 }
 
-// ─── Upload helper: upload blob + receive streaming result → IndexedDB ─────────
+// ─── Upload + stream to IndexedDB ─────────────────────────────────────────────
 export async function uploadAndStoreExportedClip(
   serverUrl: string,
   videoBlob: Blob,
