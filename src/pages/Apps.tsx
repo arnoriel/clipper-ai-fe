@@ -1,4 +1,4 @@
-// src/pages/App.tsx
+// src/pages/Apps.tsx
 import { useState, useEffect, useRef } from "react";
 import {
   Zap, Film, ChevronRight, Loader2,
@@ -287,6 +287,17 @@ export default function App() {
           backgroundPadding: t.backgroundPadding,
           startSec: t.startSec,
           endSec: t.endSec,
+        })),
+        imageOverlays: (edits.imageOverlays ?? []).map((img) => ({
+          id: img.id,
+          src: img.src,
+          name: img.name,
+          x: img.x,
+          y: img.y,
+          width: img.width,
+          opacity: img.opacity,
+          startSec: img.startSec,
+          endSec: img.endSec,
         })),
       };
 
