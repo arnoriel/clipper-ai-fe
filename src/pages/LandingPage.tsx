@@ -1153,7 +1153,7 @@ const Footer = () => {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-gray-50 border-t border-gray-200 pt-16 pb-8">
+    <footer className="bg-gray-50 dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800 pt-16 pb-8">
       <div className="container mx-auto px-5">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 md:gap-8 mb-16">
           {/* Brand Column */}
@@ -1162,22 +1162,22 @@ const Footer = () => {
               <div className="h-9 w-9 rounded-xl bg-[#1ABC71] flex items-center justify-center">
                 <Scissors className="h-5 w-5 text-white" />
               </div>
-              <span className="text-gray-900">AI Viral <TextGradient>Clipper</TextGradient></span>
+              <span className="text-gray-900 dark:text-white">AI Viral <TextGradient>Clipper</TextGradient></span>
             </Link>
-            <p className="text-gray-500 text-sm mb-6 max-w-sm leading-relaxed">
+            <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 max-w-sm leading-relaxed">
               Jadikan video panjangmu peluang cuan baru. Otomatis deteksi momen viral, auto-crop, dan generate subtitle ala kreator pro dalam hitungan menit.
             </p>
             <div className="flex gap-4">
-              <a href="#" className="h-10 w-10 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-400 hover:text-[#1ABC71] hover:border-[#1ABC71] hover:shadow-md transition-all">
+              <a href="#" className="h-10 w-10 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-full flex items-center justify-center text-gray-400 dark:text-gray-500 hover:text-[#1ABC71] dark:hover:text-[#1ABC71] hover:border-[#1ABC71] dark:hover:border-[#1ABC71] hover:shadow-md transition-all">
                 <Twitter className="h-4 w-4" />
               </a>
-              <a href="#" className="h-10 w-10 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-400 hover:text-[#1ABC71] hover:border-[#1ABC71] hover:shadow-md transition-all">
+              <a href="#" className="h-10 w-10 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-full flex items-center justify-center text-gray-400 dark:text-gray-500 hover:text-[#1ABC71] dark:hover:text-[#1ABC71] hover:border-[#1ABC71] dark:hover:border-[#1ABC71] hover:shadow-md transition-all">
                 <Instagram className="h-4 w-4" />
               </a>
-              <a href="#" className="h-10 w-10 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-400 hover:text-[#1ABC71] hover:border-[#1ABC71] hover:shadow-md transition-all">
+              <a href="#" className="h-10 w-10 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-full flex items-center justify-center text-gray-400 dark:text-gray-500 hover:text-[#1ABC71] dark:hover:text-[#1ABC71] hover:border-[#1ABC71] dark:hover:border-[#1ABC71] hover:shadow-md transition-all">
                 <Youtube className="h-4 w-4" />
               </a>
-              <a href="#" className="h-10 w-10 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-400 hover:text-[#1ABC71] hover:border-[#1ABC71] hover:shadow-md transition-all">
+              <a href="#" className="h-10 w-10 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-full flex items-center justify-center text-gray-400 dark:text-gray-500 hover:text-[#1ABC71] dark:hover:text-[#1ABC71] hover:border-[#1ABC71] dark:hover:border-[#1ABC71] hover:shadow-md transition-all">
                 <Facebook className="h-4 w-4" />
               </a>
             </div>
@@ -1185,43 +1185,43 @@ const Footer = () => {
 
           {/* Links Columns */}
           <div>
-            <h4 className="font-bold text-gray-900 mb-5">Produk</h4>
+            <h4 className="font-bold text-gray-900 dark:text-white mb-5">Produk</h4>
             <ul className="space-y-3">
-              <li><a href="#fitur" className="text-gray-500 hover:text-[#1ABC71] text-sm font-medium transition-colors">Fitur Utama</a></li>
-              <li><a href="#harga" className="text-gray-500 hover:text-[#1ABC71] text-sm font-medium transition-colors">Harga</a></li>
-              <li><a href="#" className="text-gray-500 hover:text-[#1ABC71] text-sm font-medium transition-colors">Template</a></li>
-              <li><a href="#" className="text-gray-500 hover:text-[#1ABC71] text-sm font-medium transition-colors">Update Terbaru</a></li>
+              <li><a href="#fitur" className="text-gray-500 dark:text-gray-400 hover:text-[#1ABC71] dark:hover:text-[#1ABC71] text-sm font-medium transition-colors">Fitur Utama</a></li>
+              <li><a href="#harga" className="text-gray-500 dark:text-gray-400 hover:text-[#1ABC71] dark:hover:text-[#1ABC71] text-sm font-medium transition-colors">Harga</a></li>
+              <li><a href="#" className="text-gray-500 dark:text-gray-400 hover:text-[#1ABC71] dark:hover:text-[#1ABC71] text-sm font-medium transition-colors">Template</a></li>
+              <li><a href="#" className="text-gray-500 dark:text-gray-400 hover:text-[#1ABC71] dark:hover:text-[#1ABC71] text-sm font-medium transition-colors">Update Terbaru</a></li>
             </ul>
           </div>
 
           <div>
-            <h4 className="font-bold text-gray-900 mb-5">Perusahaan</h4>
+            <h4 className="font-bold text-gray-900 dark:text-white mb-5">Perusahaan</h4>
             <ul className="space-y-3">
-              <li><a href="#" className="text-gray-500 hover:text-[#1ABC71] text-sm font-medium transition-colors">Tentang Kami</a></li>
-              <li><a href="#" className="text-gray-500 hover:text-[#1ABC71] text-sm font-medium transition-colors flex items-center gap-2">Karir <span className="text-[10px] font-bold bg-[#1ABC71] text-white px-2 py-0.5 rounded-full">Hiring</span></a></li>
-              <li><a href="#" className="text-gray-500 hover:text-[#1ABC71] text-sm font-medium transition-colors">Kontak</a></li>
-              <li><a href="#" className="text-gray-500 hover:text-[#1ABC71] text-sm font-medium transition-colors">Afiliasi</a></li>
+              <li><a href="#" className="text-gray-500 dark:text-gray-400 hover:text-[#1ABC71] dark:hover:text-[#1ABC71] text-sm font-medium transition-colors">Tentang Kami</a></li>
+              <li><a href="#" className="text-gray-500 dark:text-gray-400 hover:text-[#1ABC71] dark:hover:text-[#1ABC71] text-sm font-medium transition-colors flex items-center gap-2">Karir <span className="text-[10px] font-bold bg-[#1ABC71] text-white px-2 py-0.5 rounded-full">Hiring</span></a></li>
+              <li><a href="#" className="text-gray-500 dark:text-gray-400 hover:text-[#1ABC71] dark:hover:text-[#1ABC71] text-sm font-medium transition-colors">Kontak</a></li>
+              <li><a href="#" className="text-gray-500 dark:text-gray-400 hover:text-[#1ABC71] dark:hover:text-[#1ABC71] text-sm font-medium transition-colors">Afiliasi</a></li>
             </ul>
           </div>
 
           <div>
-            <h4 className="font-bold text-gray-900 mb-5">Legalitas</h4>
+            <h4 className="font-bold text-gray-900 dark:text-white mb-5">Legalitas</h4>
             <ul className="space-y-3">
-              <li><a href="#" className="text-gray-500 hover:text-[#1ABC71] text-sm font-medium transition-colors">Syarat & Ketentuan</a></li>
-              <li><a href="#" className="text-gray-500 hover:text-[#1ABC71] text-sm font-medium transition-colors">Kebijakan Privasi</a></li>
-              <li><a href="#" className="text-gray-500 hover:text-[#1ABC71] text-sm font-medium transition-colors">Kebijakan Cookie</a></li>
-              <li><a href="#" className="text-gray-500 hover:text-[#1ABC71] text-sm font-medium transition-colors">Refund Policy</a></li>
+              <li><a href="#" className="text-gray-500 dark:text-gray-400 hover:text-[#1ABC71] dark:hover:text-[#1ABC71] text-sm font-medium transition-colors">Syarat & Ketentuan</a></li>
+              <li><a href="#" className="text-gray-500 dark:text-gray-400 hover:text-[#1ABC71] dark:hover:text-[#1ABC71] text-sm font-medium transition-colors">Kebijakan Privasi</a></li>
+              <li><a href="#" className="text-gray-500 dark:text-gray-400 hover:text-[#1ABC71] dark:hover:text-[#1ABC71] text-sm font-medium transition-colors">Kebijakan Cookie</a></li>
+              <li><a href="#" className="text-gray-500 dark:text-gray-400 hover:text-[#1ABC71] dark:hover:text-[#1ABC71] text-sm font-medium transition-colors">Refund Policy</a></li>
             </ul>
           </div>
         </div>
 
         {/* Bottom Bar */}
-        <div className="border-t border-gray-200 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-gray-500 text-sm font-medium text-center md:text-left">
+        <div className="border-t border-gray-200 dark:border-gray-800 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
+          <p className="text-gray-500 dark:text-gray-400 text-sm font-medium text-center md:text-left">
             © {currentYear} AI Viral Clipper. All rights reserved.
           </p>
           <div className="flex gap-6 text-sm font-medium">
-            <div className="flex items-center gap-1.5 text-gray-400">
+            <div className="flex items-center gap-1.5 text-gray-400 dark:text-gray-500">
               Made with <Heart className="h-3 w-3 text-red-500 fill-red-500" /> in Indonesia
             </div>
           </div>
