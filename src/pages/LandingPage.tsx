@@ -151,16 +151,73 @@ const ButtonSecondary = ({ children, to, onClick, className = "", icon }: {
   );
 };
 
-// --- Section Components ---
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState("");
 
   useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 20);
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+
+      // Scrollspy logic
+      const sections = ["fitur", "harga", "faq"];
+      let current = "";
+
+      for (const section of sections) {
+        const element = document.getElementById(section);
+        if (element) {
+          const rect = element.getBoundingClientRect();
+          // Adjust threshold - if top is within upper half of screen
+          if (rect.top <= window.innerHeight * 0.4 && rect.bottom >= window.innerHeight * 0.2) {
+            current = section;
+          }
+        }
+      }
+
+      // If we are at the very bottom of the page, force the last section to be active
+      if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 50) {
+        current = sections[sections.length - 1];
+      }
+      // If we're at the very top, clear active section
+      else if (window.scrollY < 100) {
+        current = "";
+      }
+
+      setActiveSection(current);
+    };
+
     window.addEventListener("scroll", handleScroll);
+    // Call once to set initial state
+    handleScroll();
+
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    // If it's the logo pointing to "/", scroll to top
+    if (href === "/") {
+      if (window.location.pathname === "/") {
+        e.preventDefault();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      return;
+    }
+
+    // Otherwise scroll to the specific ID
+    if (href.startsWith("#")) {
+      e.preventDefault();
+      const targetId = href.substring(1);
+      const element = document.getElementById(targetId);
+
+      if (element) {
+        // Offset by 80px to account for the fixed navbar
+        const y = element.getBoundingClientRect().top + window.scrollY - 80;
+        window.scrollTo({ top: y, behavior: "smooth" });
+        setMobileMenuOpen(false);
+      }
+    }
+  };
 
   const navLinks = [
     { href: "#fitur", label: "Fitur" },
@@ -172,7 +229,7 @@ const Navbar = () => {
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? "bg-white/80 backdrop-blur-xl border-b border-gray-200 shadow-sm" : "bg-transparent"
       }`}>
       <div className="container mx-auto flex items-center justify-between px-5 py-4">
-        <Link to="/" className="flex items-center gap-2 font-bold text-xl">
+        <Link to="/" onClick={(e) => scrollToSection(e, "/")} className="flex items-center gap-2 font-bold text-xl cursor-pointer">
           <div className="h-9 w-9 rounded-xl bg-[#1ABC71] flex items-center justify-center">
             <Scissors className="h-5 w-5 text-white" />
           </div>
@@ -181,15 +238,20 @@ const Navbar = () => {
 
         {/* Desktop Nav */}
         <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600">
-          {navLinks.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="hover:text-[#1ABC71] transition-colors"
-            >
-              {link.label}
-            </a>
-          ))}
+          {navLinks.map((link) => {
+            const isActive = activeSection === link.href.substring(1);
+            return (
+              <a
+                key={link.href}
+                href={link.href}
+                onClick={(e) => scrollToSection(e, link.href)}
+                className={`transition-colors cursor-pointer ${isActive ? "text-[#1ABC71] font-bold" : "hover:text-[#1ABC71]"
+                  }`}
+              >
+                {link.label}
+              </a>
+            );
+          })}
           <ButtonPrimary to="/app" className="px-6 py-2.5 text-sm" icon={<Rocket className="h-4 w-4" />}>
             Coba Sekarang
           </ButtonPrimary>
@@ -207,16 +269,20 @@ const Navbar = () => {
       {/* Mobile Menu */}
       {mobileMenuOpen && (
         <div className="md:hidden bg-white border-t border-gray-200 px-5 py-4 space-y-4">
-          {navLinks.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="block text-gray-600 hover:text-[#1ABC71] font-medium"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              {link.label}
-            </a>
-          ))}
+          {navLinks.map((link) => {
+            const isActive = activeSection === link.href.substring(1);
+            return (
+              <a
+                key={link.href}
+                href={link.href}
+                onClick={(e) => scrollToSection(e, link.href)}
+                className={`block font-medium cursor-pointer ${isActive ? "text-[#1ABC71] font-bold" : "text-gray-600 hover:text-[#1ABC71]"
+                  }`}
+              >
+                {link.label}
+              </a>
+            );
+          })}
           <ButtonPrimary to="/app" className="w-full py-3 text-sm" icon={<Rocket className="h-4 w-4" />}>
             Coba Sekarang
           </ButtonPrimary>
