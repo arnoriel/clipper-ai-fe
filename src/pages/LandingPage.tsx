@@ -366,6 +366,37 @@ const HeroSection = () => {
   );
 };
 
+const IntegrationsSection = () => {
+  return (
+    <section className="py-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
+      <div className="container mx-auto px-5">
+        <p className="text-center text-sm font-bold text-gray-400 mb-6 tracking-widest uppercase">
+          Siap Upload Ke & Didukung Oleh
+        </p>
+        <div className="flex flex-wrap justify-center items-center gap-10 sm:gap-16 opacity-60 grayscale hover:grayscale-0 cursor-default transition-all duration-500">
+          <div className="flex items-center gap-2 hover:text-black transition-colors">
+            <Video className="h-7 w-7" />
+            <span className="text-2xl font-extrabold tracking-tighter">TikTok</span>
+          </div>
+          <div className="flex items-center gap-2 hover:text-[#E1306C] transition-colors">
+            <Instagram className="h-7 w-7" />
+            <span className="text-2xl font-extrabold tracking-tighter">Reels</span>
+          </div>
+          <div className="flex items-center gap-2 hover:text-[#FF0000] transition-colors">
+            <Youtube className="h-8 w-8" />
+            <span className="text-2xl font-extrabold tracking-tighter">Shorts</span>
+          </div>
+          <div className="hidden sm:block h-8 w-px bg-gray-300"></div>
+          <div className="flex items-center gap-2 hover:text-[#10a37f] transition-colors">
+            <Brain className="h-7 w-7" />
+            <span className="text-2xl font-extrabold tracking-tight">OpenAI</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 const ProblemSection = () => {
   const problems = [
     { icon: Clock, text: "Buang waktu 2–3 jam cuma buat 1 clip" },
@@ -1169,6 +1200,7 @@ const LandingPage = () => {
       <Navbar />
       <main>
         <HeroSection />
+        <IntegrationsSection />
         <ProblemSection />
         <FeaturesSection />
         <WhyDifferentSection />
