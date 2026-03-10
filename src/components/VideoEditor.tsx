@@ -23,11 +23,7 @@ import {
 } from "../lib/storage";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
-interface AutoSubtitleChunk {
-  text: string;
-  start: number;
-  end: number;
-}
+
 
 interface Props {
   moment: ViralMoment;
@@ -37,7 +33,7 @@ interface Props {
   onExport: (moment: ViralMoment, edits: ClipEdits) => void;
   onClose: () => void;
   isExporting: boolean;
-  onAutoSubtitle?: () => Promise<{ chunks: AutoSubtitleChunk[]; language?: string; word_count?: number } | null>;
+  onAutoSubtitle?: () => Promise<{ vtt: string } | null>;
 }
 
 type Tab = "subtitle" | "trim" | "crop" | "color" | "speed" | "media";
@@ -173,8 +169,13 @@ function PresetCard({
     <button
       onClick={onClick}
       className={`relative w-full rounded-xl overflow-hidden border transition-all duration-200 text-left group ${isActive
+<<<<<<< HEAD
         ? "border-[#1ABC71] shadow-[0_0_12px_rgba(26,188,113,0.35)]"
         : "border-white/10 hover:border-white/25"
+=======
+          ? "border-[#1ABC71] shadow-[0_0_12px_rgba(26,188,113,0.35)]"
+          : "border-white/10 hover:border-white/25"
+>>>>>>> 7b587e1 (feat: implement Auto-Generate Subtitle frontend flow)
         }`}
     >
       {/* Preview area */}
@@ -233,7 +234,10 @@ export default function VideoEditor({
   const [currentTime, setCurrentTime] = useState(0);
   const [activeTab, setActiveTab] = useState<Tab>("subtitle");
   const [selectedOverlayId, setSelectedOverlayId] = useState<string | null>(null);
+<<<<<<< HEAD
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
+=======
+>>>>>>> 7b587e1 (feat: implement Auto-Generate Subtitle frontend flow)
   const [newText, setNewText] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -419,6 +423,78 @@ export default function VideoEditor({
   }
 
   // ── Auto-subtitle: call backend, create overlays ──────────────────────────
+
+  // VTT Parser Utility
+  function parseVttToOverlays(vttText: string, preset: SubtitlePreset): TextOverlay[] {
+    const lines = vttText.split(/\r?\n/).map(l => l.trim());
+    const overlays: TextOverlay[] = [];
+    let currentOverlay: Partial<TextOverlay> | null = null;
+    let isParsingText = false;
+
+    // Helper to parse VTT time format (HH:MM:SS.mmm or MM:SS.mmm) to seconds
+    const parseTime = (timeStr: string) => {
+      const parts = timeStr.trim().split(':');
+      let seconds = 0;
+      if (parts.length === 3) {
+        seconds += parseInt(parts[0], 10) * 3600; // Hours
+        seconds += parseInt(parts[1], 10) * 60;   // Minutes
+        seconds += parseFloat(parts[2]);          // Seconds + Ms
+      } else if (parts.length === 2) {
+        seconds += parseInt(parts[0], 10) * 60;   // Minutes
+        seconds += parseFloat(parts[1]);          // Seconds + Ms
+      }
+      return seconds;
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // Skip WEBVTT header and empty lines
+      if (line === "WEBVTT" || line === "") {
+        if (currentOverlay && isParsingText) {
+          // Finish current overlay on empty space
+          overlays.push(applyPresetToOverlay(currentOverlay as TextOverlay, preset));
+          currentOverlay = null;
+          isParsingText = false;
+        }
+        continue;
+      }
+
+      // Detect timestamp line (e.g. 00:00:00.000 --> 00:00:05.000)
+      if (line.includes("-->")) {
+        const [startStr, endStr] = line.split("-->");
+        currentOverlay = defaultTextOverlay({
+          id: generateId(),
+          startSec: parseFloat(parseTime(startStr).toFixed(3)),
+          endSec: parseFloat(parseTime(endStr).toFixed(3)),
+          isAutoSubtitle: true,
+          text: "", // Will be filled in next lines
+        });
+        isParsingText = true;
+        continue;
+      }
+
+      // Not a timestamp, not empty, must be text or cue identifier
+      if (currentOverlay && isParsingText) {
+        if (currentOverlay.text) {
+          currentOverlay.text += " " + line; // Multi-line Subtitle
+        } else {
+          currentOverlay.text = line;
+        }
+      } else {
+        // If we are not parsing text and it's not a timestamp, it's likely a Cue Identifier (like "1", "2").
+        // We can safely ignore it.
+      }
+    }
+
+    // Push the last one if EOF reached
+    if (currentOverlay && isParsingText && currentOverlay.text) {
+      overlays.push(applyPresetToOverlay(currentOverlay as TextOverlay, preset));
+    }
+
+    return overlays;
+  }
+
   async function handleAutoSubtitle() {
     if (!onAutoSubtitle) return;
     setIsTranscribing(true);
@@ -426,8 +502,8 @@ export default function VideoEditor({
 
     try {
       const result = await onAutoSubtitle();
-      if (!result || !result.chunks || result.chunks.length === 0) {
-        setTranscribeError("No speech detected in this clip.");
+      if (!result || !result.vtt) {
+        setTranscribeError("No speech detected or generation failed.");
         return;
       }
 
@@ -436,6 +512,7 @@ export default function VideoEditor({
       // Remove existing auto subtitles
       const manual = edits.textOverlays.filter((t) => !t.isAutoSubtitle);
 
+<<<<<<< HEAD
       // Create overlays from chunks
       const newOverlays: TextOverlay[] = result.chunks.map((chunk) => {
         const base = defaultTextOverlay({
@@ -447,6 +524,10 @@ export default function VideoEditor({
         });
         return applyPresetToOverlay(base, preset);
       });
+=======
+      // Create overlays by parsing VTT
+      const newOverlays = parseVttToOverlays(result.vtt, preset);
+>>>>>>> 7b587e1 (feat: implement Auto-Generate Subtitle frontend flow)
 
       updateEdits({ textOverlays: [...manual, ...newOverlays] });
       setSubtitleSubTab("layers");
@@ -771,7 +852,10 @@ export default function VideoEditor({
               { id: "crop", label: "Crop", icon: Crop },
               { id: "color", label: "Color", icon: Sliders },
               { id: "speed", label: "Speed", icon: Zap },
+<<<<<<< HEAD
               { id: "media", label: "Media", icon: ImageIcon },
+=======
+>>>>>>> 7b587e1 (feat: implement Auto-Generate Subtitle frontend flow)
             ] as const).map(({ id, label, icon: Icon }) => (
               <button key={id} onClick={() => setActiveTab(id as Tab)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${activeTab === id ? "bg-[#1ABC71] text-white shadow" : "text-white/50 hover:text-white/80"
@@ -1028,10 +1112,17 @@ export default function VideoEditor({
                           style={{ top: `${index * 36 + 4}px`, left: `${leftPct}%`, width: `${widthPct}%`, height: "28px" }}>
                           <div
                             className={`relative w-full h-full rounded-md flex items-center overflow-hidden border transition-all cursor-grab active:cursor-grabbing ${isSelected
+<<<<<<< HEAD
                               ? "bg-[#1ABC71]/30 border-[#1ABC71] shadow-[0_0_8px_rgba(26,188,113,0.4)]"
                               : t.isAutoSubtitle
                                 ? "bg-purple-500/15 border-purple-500/40 hover:bg-purple-500/25"
                                 : "bg-[#1ABC71]/15 border-[#1ABC71]/40 hover:bg-[#1ABC71]/25"
+=======
+                                ? "bg-[#1ABC71]/30 border-[#1ABC71] shadow-[0_0_8px_rgba(26,188,113,0.4)]"
+                                : t.isAutoSubtitle
+                                  ? "bg-purple-500/15 border-purple-500/40 hover:bg-purple-500/25"
+                                  : "bg-[#1ABC71]/15 border-[#1ABC71]/40 hover:bg-[#1ABC71]/25"
+>>>>>>> 7b587e1 (feat: implement Auto-Generate Subtitle frontend flow)
                               }`}
                             onMouseDown={(e) => { e.stopPropagation(); handleTimelineMouseDown(e, t.id, "move"); }}
                             onClick={(e) => { e.stopPropagation(); setSelectedOverlayId(t.id); setExpandedId(t.id); setSubtitleSubTab("layers"); }}>
@@ -1264,8 +1355,13 @@ export default function VideoEditor({
                     {ASPECT_RATIOS.map((ar) => (
                       <button key={ar.value} onClick={() => updateEdits({ aspectRatio: ar.value })}
                         className={`w-full px-3 py-2.5 rounded-xl text-xs font-medium text-left transition-all flex items-center justify-between ${edits.aspectRatio === ar.value
+<<<<<<< HEAD
                           ? "bg-[#1ABC71]/20 border border-[#1ABC71]/40 text-[#1ABC71]"
                           : "bg-white/5 border border-white/10 text-white/50 hover:text-white hover:border-white/20"
+=======
+                            ? "bg-[#1ABC71]/20 border border-[#1ABC71]/40 text-[#1ABC71]"
+                            : "bg-white/5 border border-white/10 text-white/50 hover:text-white hover:border-white/20"
+>>>>>>> 7b587e1 (feat: implement Auto-Generate Subtitle frontend flow)
                           }`}>
                         <span>{ar.label}</span>
                         <span className={`text-[10px] ${edits.aspectRatio === ar.value ? "text-[#1ABC71]/60" : "text-white/25"}`}>{ar.desc}</span>
@@ -1303,8 +1399,13 @@ export default function VideoEditor({
                     {SPEED_OPTIONS.map((s) => (
                       <button key={s} onClick={() => updateEdits({ speed: s })}
                         className={`py-2.5 rounded-xl text-xs font-bold transition-colors border ${edits.speed === s
+<<<<<<< HEAD
                           ? "bg-[#1ABC71]/30 border-[#1ABC71]/50 text-[#1ABC71]"
                           : "bg-white/5 border-white/10 text-white/40 hover:text-white"
+=======
+                            ? "bg-[#1ABC71]/30 border-[#1ABC71]/50 text-[#1ABC71]"
+                            : "bg-white/5 border-white/10 text-white/40 hover:text-white"
+>>>>>>> 7b587e1 (feat: implement Auto-Generate Subtitle frontend flow)
                           }`}>{s}×</button>
                     ))}
                   </div>

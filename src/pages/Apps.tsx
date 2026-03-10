@@ -191,9 +191,7 @@ export default function App() {
 
   // ── Auto-subtitle: call backend Whisper endpoint ──────────────────────────
   async function handleAutoSubtitle(): Promise<{
-    chunks: { text: string; start: number; end: number }[];
-    language?: string;
-    word_count?: number;
+    vtt: string;
   } | null> {
     if (!project?.id || !editingMoment) return null;
 
@@ -206,14 +204,13 @@ export default function App() {
     const edits = clipEdits[editingMoment.id] || defaultEdits();
     const startTime = editingMoment.startTime + edits.trimStart;
     const endTime = editingMoment.endTime + edits.trimEnd;
+    const duration = endTime - startTime;
 
     const formData = new FormData();
     formData.append("video", videoBlob, "source.mp4");
-    formData.append("start_time", startTime.toString());
-    formData.append("end_time", endTime.toString());
-    formData.append("words_per_chunk", "3");
-
-    const resp = await fetch(`${API_BASE}/api/auto-subtitle`, {
+    formData.append("start_sec", startTime.toString());
+    formData.append("duration", duration.toString());
+    const resp = await fetch(`${API_BASE}/api/generate-subtitle`, {
       method: "POST",
       body: formData,
     });
@@ -225,6 +222,7 @@ export default function App() {
 
     return await resp.json();
   }
+
 
   // ── Export clip → IndexedDB ───────────────────────────────────────────────
   async function handleExportClip(moment: ViralMoment, edits: ClipEdits) {
@@ -447,10 +445,10 @@ export default function App() {
             <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 font-mono">AI Summary</p>
             <p className="text-xs text-gray-600 leading-relaxed">{project.analysisResult.summary}</p>
           </div>
-        </aside>
+        </aside >
 
         {/* Main panel */}
-        <main className="flex-1 overflow-y-auto min-w-0 bg-white">
+        < main className="flex-1 overflow-y-auto min-w-0 bg-white" >
           <div className="sticky top-0 z-10 flex items-center gap-1 px-6 py-3 bg-white/90 backdrop-blur border-b border-gray-100">
             <button onClick={() => setActivePanel("moments")}
               className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 ${activePanel === "moments" ? "bg-[#1ABC71] text-white" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
@@ -488,23 +486,25 @@ export default function App() {
               />
             )}
           </div>
-        </main>
-      </div>
+        </main >
+      </div >
 
       {progressMsg && <ProgressToast message={progressMsg} />}
 
-      {editingMoment && (
-        <VideoEditor
-          moment={editingMoment}
-          edits={clipEdits[editingMoment.id] || defaultEdits()}
-          videoSrc={project.localVideoUrl || ""}
-          onUpdateEdits={handleUpdateEdits}
-          onExport={handleExportClip}
-          onClose={() => setEditingMoment(null)}
-          isExporting={isExporting && exportingId === editingMoment.id}
-          onAutoSubtitle={handleAutoSubtitle}
-        />
-      )}
-    </div>
+      {
+        editingMoment && (
+          <VideoEditor
+            moment={editingMoment}
+            edits={clipEdits[editingMoment.id] || defaultEdits()}
+            videoSrc={project.localVideoUrl || ""}
+            onUpdateEdits={handleUpdateEdits}
+            onExport={handleExportClip}
+            onClose={() => setEditingMoment(null)}
+            isExporting={isExporting && exportingId === editingMoment.id}
+            onAutoSubtitle={handleAutoSubtitle}
+          />
+        )
+      }
+    </div >
   );
 }
