@@ -5,7 +5,7 @@ import {
   X, Play, Pause, SkipBack, SkipForward, Type, Crop,
   Sliders, Zap, Download, Loader2, Plus, Trash2, Clock, RefreshCw,
   AlignCenter, AlignLeft, AlignRight, Bold, Italic, ChevronDown, ChevronUp,
-  Eye, EyeOff, CaseSensitive, Sparkles, Wand2, Check,
+  Eye, EyeOff, CaseSensitive, Sparkles, Wand2, Check, Image as ImageIcon,
 } from "lucide-react";
 import type { ViralMoment } from "../lib/AI";
 import { formatTime } from "../lib/AI";
@@ -13,19 +13,17 @@ import type { ClipEdits, TextOverlay } from "../lib/storage";
 import {
   generateId,
   defaultTextOverlay,
+  defaultImageOverlay,
   loadAllSubtitleFonts,
   SUBTITLE_FONTS,
   SUBTITLE_PRESETS,
   applyPresetToOverlay,
   type SubtitlePreset,
+  type ImageOverlay,
 } from "../lib/storage";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
-interface AutoSubtitleChunk {
-  text: string;
-  start: number;
-  end: number;
-}
+
 
 interface Props {
   moment: ViralMoment;
@@ -38,7 +36,7 @@ interface Props {
   onAutoSubtitle?: () => Promise<{ vtt: string } | null>;
 }
 
-type Tab = "subtitle" | "trim" | "crop" | "color" | "speed";
+type Tab = "subtitle" | "trim" | "crop" | "color" | "speed" | "media";
 
 const ASPECT_RATIOS: { label: string; value: ClipEdits["aspectRatio"]; desc: string }[] = [
   { label: "Original", value: "original", desc: "Keep source dimensions" },
@@ -171,8 +169,8 @@ function PresetCard({
     <button
       onClick={onClick}
       className={`relative w-full rounded-xl overflow-hidden border transition-all duration-200 text-left group ${isActive
-          ? "border-[#1ABC71] shadow-[0_0_12px_rgba(26,188,113,0.35)]"
-          : "border-white/10 hover:border-white/25"
+        ? "border-[#1ABC71] shadow-[0_0_12px_rgba(26,188,113,0.35)]"
+        : "border-white/10 hover:border-white/25"
         }`}
     >
       {/* Preview area */}
@@ -231,6 +229,8 @@ export default function VideoEditor({
   const [currentTime, setCurrentTime] = useState(0);
   const [activeTab, setActiveTab] = useState<Tab>("subtitle");
   const [selectedOverlayId, setSelectedOverlayId] = useState<string | null>(null);
+  const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
+  const [draggingImageId, setDraggingImageId] = useState<string | null>(null);
   const [newText, setNewText] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -277,6 +277,56 @@ export default function VideoEditor({
   const activePresetId = edits.activePresetId ?? "bold-impact";
 
   useEffect(() => { loadAllSubtitleFonts(); }, []);
+
+  // ── Image overlay drag ──────────────────────────────────────────────────────
+  const imageDragStartRef = useRef<{ mouseX: number; mouseY: number; imgX: number; imgY: number } | null>(null);
+
+  function addImageOverlay(file: File) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const src = e.target?.result as string;
+      const overlay = defaultImageOverlay({ id: generateId(), src, name: file.name });
+      updateEdits({ imageOverlays: [...(edits.imageOverlays ?? []), overlay] });
+      setSelectedImageId(overlay.id);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function updateImageOverlay(id: string, changes: Partial<ImageOverlay>) {
+    updateEdits({
+      imageOverlays: (edits.imageOverlays ?? []).map((img) => (img.id === id ? { ...img, ...changes } : img)),
+    });
+  }
+
+  function removeImageOverlay(id: string) {
+    updateEdits({ imageOverlays: (edits.imageOverlays ?? []).filter((img) => img.id !== id) });
+    if (selectedImageId === id) setSelectedImageId(null);
+  }
+
+  const handleImageMouseDown = useCallback((e: React.MouseEvent, id: string) => {
+    e.preventDefault(); e.stopPropagation();
+    setDraggingImageId(id); setSelectedImageId(id);
+    const img = (edits.imageOverlays ?? []).find((i) => i.id === id);
+    if (!img) return;
+    imageDragStartRef.current = { mouseX: e.clientX, mouseY: e.clientY, imgX: img.x, imgY: img.y };
+  }, [edits.imageOverlays]);
+
+  useEffect(() => {
+    if (!draggingImageId) return;
+    const onMouseMove = (e: MouseEvent) => {
+      if (!imageDragStartRef.current || !videoWrapRef.current) return;
+      const rect = videoWrapRef.current.getBoundingClientRect();
+      const dx = (e.clientX - imageDragStartRef.current.mouseX) / rect.width;
+      const dy = (e.clientY - imageDragStartRef.current.mouseY) / rect.height;
+      const newX = Math.min(1, Math.max(0, imageDragStartRef.current.imgX + dx));
+      const newY = Math.min(1, Math.max(0, imageDragStartRef.current.imgY + dy));
+      updateImageOverlay(draggingImageId, { x: newX, y: newY });
+    };
+    const onMouseUp = () => { setDraggingImageId(null); imageDragStartRef.current = null; };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => { window.removeEventListener("mousemove", onMouseMove); window.removeEventListener("mouseup", onMouseUp); };
+  }, [draggingImageId]);
 
   // Video sync
   useEffect(() => {
@@ -780,6 +830,13 @@ export default function VideoEditor({
               { id: "crop", label: "Crop", icon: Crop },
               { id: "color", label: "Color", icon: Sliders },
               { id: "speed", label: "Speed", icon: Zap },
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+              { id: "media", label: "Media", icon: ImageIcon },
+=======
+>>>>>>> 7b587e1 (feat: implement Auto-Generate Subtitle frontend flow)
+>>>>>>> @{-1}
             ] as const).map(({ id, label, icon: Icon }) => (
               <button key={id} onClick={() => setActiveTab(id as Tab)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${activeTab === id ? "bg-[#1ABC71] text-white shadow" : "text-white/50 hover:text-white/80"
@@ -834,6 +891,39 @@ export default function VideoEditor({
                       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-[#1ABC71] bg-transparent" />
                     </div>
                   )}
+
+                  {/* Image overlays on video */}
+                  {(edits.imageOverlays ?? []).map((img) => {
+                    const imgRelTime = currentTime - clipStart;
+                    const imgStart = img.startSec ?? 0;
+                    const imgEnd = img.endSec ?? clipDuration;
+                    const isVisible = imgRelTime >= imgStart && imgRelTime <= imgEnd;
+                    const isSelected = selectedImageId === img.id;
+                    if (!isVisible && !isSelected) return null;
+                    return (
+                      <div key={img.id}
+                        className={`absolute select-none ${draggingImageId === img.id ? "cursor-grabbing" : "cursor-grab"} ${isSelected ? "z-30" : "z-10"}`}
+                        style={{
+                          left: `${img.x * 100}%`,
+                          top: `${img.y * 100}%`,
+                          transform: "translate(-50%, -50%)",
+                          width: `${img.width * 100}%`,
+                          opacity: isVisible ? img.opacity : 0.3,
+                        }}
+                        onMouseDown={(e) => handleImageMouseDown(e, img.id)}
+                        onClick={(e) => { e.stopPropagation(); setSelectedImageId(img.id); }}
+                      >
+                        <img src={img.src} alt={img.name} className="w-full h-auto block pointer-events-none" draggable={false} />
+                        {isSelected && (
+                          <div className="absolute -inset-1 border border-[#1ABC71]/70 rounded pointer-events-none" style={{ borderStyle: "dashed" }}>
+                            <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-[#1ABC71] text-white text-[9px] px-2 py-0.5 rounded font-mono whitespace-nowrap">
+                              {img.name} · {Math.round(img.width * 100)}%
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
 
                   {/* Text overlays on video */}
                   {edits.textOverlays.map((t) => {
@@ -1003,11 +1093,14 @@ export default function VideoEditor({
                           style={{ top: `${index * 36 + 4}px`, left: `${leftPct}%`, width: `${widthPct}%`, height: "28px" }}>
                           <div
                             className={`relative w-full h-full rounded-md flex items-center overflow-hidden border transition-all cursor-grab active:cursor-grabbing ${isSelected
-                                ? "bg-[#1ABC71]/30 border-[#1ABC71] shadow-[0_0_8px_rgba(26,188,113,0.4)]"
-                                : t.isAutoSubtitle
-                                  ? "bg-purple-500/15 border-purple-500/40 hover:bg-purple-500/25"
-                                  : "bg-[#1ABC71]/15 border-[#1ABC71]/40 hover:bg-[#1ABC71]/25"
-                              }`}
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+                              ? "bg-[#1ABC71]/30 border-[#1ABC71] shadow-[0_0_8px_rgba(26,188,113,0.4)]"
+                              : t.isAutoSubtitle
+                                ? "bg-purple-500/15 border-purple-500/40 hover:bg-purple-500/25"
+                                : "bg-[#1ABC71]/15 border-[#1ABC71]/40 hover:bg-[#1ABC71]/25"
+                              }`
                             onMouseDown={(e) => { e.stopPropagation(); handleTimelineMouseDown(e, t.id, "move"); }}
                             onClick={(e) => { e.stopPropagation(); setSelectedOverlayId(t.id); setExpandedId(t.id); setSubtitleSubTab("layers"); }}>
                             <div className="flex-1 px-2 truncate flex items-center gap-1">
@@ -1239,58 +1332,187 @@ export default function VideoEditor({
                     {ASPECT_RATIOS.map((ar) => (
                       <button key={ar.value} onClick={() => updateEdits({ aspectRatio: ar.value })}
                         className={`w-full px-3 py-2.5 rounded-xl text-xs font-medium text-left transition-all flex items-center justify-between ${edits.aspectRatio === ar.value
-                            ? "bg-[#1ABC71]/20 border border-[#1ABC71]/40 text-[#1ABC71]"
-                            : "bg-white/5 border border-white/10 text-white/50 hover:text-white hover:border-white/20"
-                          }`}>
-                        <span>{ar.label}</span>
-                        <span className={`text-[10px] ${edits.aspectRatio === ar.value ? "text-[#1ABC71]/60" : "text-white/25"}`}>{ar.desc}</span>
+<<<<<<< HEAD
+                          ? "bg-[#1ABC71]/20 border border-[#1ABC71]/40 text-[#1ABC71]"
+                          : "bg-white/5 border border-white/10 text-white/50 hover:text-white hover:border-white/20"
+=======
+<<<<<<< HEAD
+                          ? "bg-[#1ABC71]/20 border border-[#1ABC71]/40 text-[#1ABC71]"
+                          : "bg-white/5 border border-white/10 text-white/50 hover:text-white hover:border-white/20"
+                              }`}>
+                            <span>{ar.label}</span>
+                            <span className={`text-[10px] ${edits.aspectRatio === ar.value ? "text-[#1ABC71]/60" : "text-white/25"}`}>{ar.desc}</span>
+                          </button>
+                    ))}
+                        </div>
+                </div>
+              )}
+
+                  {/* ── COLOR TAB ── */}
+                  {activeTab === "color" && (
+                    <div className="p-4 space-y-5">
+                      <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Color Adjustments</div>
+                      <SliderField label="Brightness" value={edits.brightness} min={-1} max={1} step={0.05}
+                        format={(v) => (v > 0 ? `+${(v * 100).toFixed(0)}%` : `${(v * 100).toFixed(0)}%`)}
+                        onChange={(v) => updateEdits({ brightness: v })} dark />
+                      <SliderField label="Contrast" value={edits.contrast} min={-1} max={1} step={0.05}
+                        format={(v) => (v > 0 ? `+${(v * 100).toFixed(0)}%` : `${(v * 100).toFixed(0)}%`)}
+                        onChange={(v) => updateEdits({ contrast: v })} dark />
+                      <SliderField label="Saturation" value={edits.saturation} min={-1} max={1} step={0.05}
+                        format={(v) => (v > 0 ? `+${(v * 100).toFixed(0)}%` : `${(v * 100).toFixed(0)}%`)}
+                        onChange={(v) => updateEdits({ saturation: v })} dark />
+                      <button onClick={() => updateEdits({ brightness: 0, contrast: 0, saturation: 0 })}
+                        className="w-full py-2 rounded-xl text-xs text-white/40 hover:text-white border border-white/10 hover:border-white/20 transition-colors flex items-center justify-center gap-2">
+                        <RefreshCw size={12} /> Reset Colors
                       </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+                    </div>
+                  )}
 
-              {/* ── COLOR TAB ── */}
-              {activeTab === "color" && (
-                <div className="p-4 space-y-5">
-                  <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Color Adjustments</div>
-                  <SliderField label="Brightness" value={edits.brightness} min={-1} max={1} step={0.05}
-                    format={(v) => (v > 0 ? `+${(v * 100).toFixed(0)}%` : `${(v * 100).toFixed(0)}%`)}
-                    onChange={(v) => updateEdits({ brightness: v })} dark />
-                  <SliderField label="Contrast" value={edits.contrast} min={-1} max={1} step={0.05}
-                    format={(v) => (v > 0 ? `+${(v * 100).toFixed(0)}%` : `${(v * 100).toFixed(0)}%`)}
-                    onChange={(v) => updateEdits({ contrast: v })} dark />
-                  <SliderField label="Saturation" value={edits.saturation} min={-1} max={1} step={0.05}
-                    format={(v) => (v > 0 ? `+${(v * 100).toFixed(0)}%` : `${(v * 100).toFixed(0)}%`)}
-                    onChange={(v) => updateEdits({ saturation: v })} dark />
-                  <button onClick={() => updateEdits({ brightness: 0, contrast: 0, saturation: 0 })}
-                    className="w-full py-2 rounded-xl text-xs text-white/40 hover:text-white border border-white/10 hover:border-white/20 transition-colors flex items-center justify-center gap-2">
-                    <RefreshCw size={12} /> Reset Colors
-                  </button>
-                </div>
-              )}
+                  {/* ── SPEED TAB ── */}
+                  {activeTab === "speed" && (
+                    <div className="p-4 space-y-4">
+                      <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Playback Speed</div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {SPEED_OPTIONS.map((s) => (
+                          <button key={s} onClick={() => updateEdits({ speed: s })}
+                            className={`py-2.5 rounded-xl text-xs font-bold transition-colors border ${edits.speed === s
+                              ? "bg-[#1ABC71]/30 border-[#1ABC71]/50 text-[#1ABC71]"
+                              : "bg-white/5 border-white/10 text-white/40 hover:text-white"
+                              }`}>{s}×</button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-white/30 leading-relaxed">
+                        {edits.speed < 1 && "🐢 Slow motion effect"}
+                        {edits.speed === 1 && "▶ Normal speed"}
+                        {edits.speed > 1 && "⚡ Timelapse / fast-forward"}
+                      </p>
+                    </div>
+                  )}
 
-              {/* ── SPEED TAB ── */}
-              {activeTab === "speed" && (
-                <div className="p-4 space-y-4">
-                  <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Playback Speed</div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {SPEED_OPTIONS.map((s) => (
-                      <button key={s} onClick={() => updateEdits({ speed: s })}
-                        className={`py-2.5 rounded-xl text-xs font-bold transition-colors border ${edits.speed === s
-                            ? "bg-[#1ABC71]/30 border-[#1ABC71]/50 text-[#1ABC71]"
-                            : "bg-white/5 border-white/10 text-white/40 hover:text-white"
-                          }`}>{s}×</button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-white/30 leading-relaxed">
-                    {edits.speed < 1 && "🐢 Slow motion effect"}
-                    {edits.speed === 1 && "▶ Normal speed"}
-                    {edits.speed > 1 && "⚡ Timelapse / fast-forward"}
-                  </p>
+                  {/* ── MEDIA TAB ── */}
+                  {activeTab === "media" && (
+                    <div className="p-4 space-y-4">
+                      <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Insert Media Overlay</div>
+
+                      {/* Upload area */}
+                      <label className="block cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/gif,image/svg+xml,image/webp"
+                          className="hidden"
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) addImageOverlay(f); e.target.value = ""; }}
+                        />
+                        <div className="flex flex-col items-center gap-2 py-6 rounded-xl border-2 border-dashed border-white/15 hover:border-[#1ABC71]/50 hover:bg-[#1ABC71]/5 transition-all text-center">
+                          <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center">
+                            <ImageIcon size={20} className="text-white/30" />
+                          </div>
+                          <p className="text-xs text-white/50 font-medium">Upload Image / Watermark</p>
+                          <p className="text-[10px] text-white/25">PNG · JPG · SVG · WebP · GIF</p>
+                        </div>
+                      </label>
+
+                      {/* Layers list */}
+                      {(edits.imageOverlays ?? []).length === 0 ? (
+                        <div className="py-6 text-center">
+                          <ImageIcon size={24} className="text-white/10 mx-auto mb-2" />
+                          <p className="text-xs text-white/20">Upload an image to overlay on video</p>
+                          <p className="text-[10px] text-white/15 mt-1">Great for watermarks, logos &amp; stickers</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">
+                              Layers ({(edits.imageOverlays ?? []).length})
+                            </div>
+                            <button
+                              onClick={() => updateEdits({ imageOverlays: [] })}
+                              className="text-[9px] text-red-400/50 hover:text-red-400 transition-colors"
+                            >
+                              Clear all
+                            </button>
+                          </div>
+
+                          {(edits.imageOverlays ?? []).map((img) => {
+                            const isSelected = selectedImageId === img.id;
+                            return (
+                              <div key={img.id} className={`rounded-xl border transition-all overflow-hidden ${isSelected ? "border-[#1ABC71]/50 bg-[#1ABC71]/10" : "border-white/10 bg-white/3 hover:border-white/20"
+                                }`}>
+                                <div className="flex items-center gap-2 px-3 py-2.5 cursor-pointer"
+                                  onClick={() => setSelectedImageId(isSelected ? null : img.id)}>
+                                  <div className="w-8 h-8 rounded-md overflow-hidden shrink-0 border border-white/10 bg-black/30">
+                                    <img src={img.src} alt={img.name} className="w-full h-full object-contain" />
+                                  </div>
+                                  <span className="text-xs text-white/80 truncate flex-1">{img.name}</span>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); removeImageOverlay(img.id); }}
+                                    className="p-1 rounded hover:bg-red-500/20 text-white/20 hover:text-red-400 transition-colors shrink-0">
+                                    <Trash2 size={11} />
+                                  </button>
+                                  <div className="text-white/20">{isSelected ? <ChevronUp size={11} /> : <ChevronDown size={11} />}</div>
+                                </div>
+
+                                {isSelected && (
+                                  <div className="border-t border-white/10 p-3 space-y-3">
+                                    <div>
+                                      <div className="text-[9px] text-white/25 mb-1">Size: {Math.round(img.width * 100)}%</div>
+                                      <input type="range" min={0.02} max={1} step={0.01} value={img.width}
+                                        onChange={(e) => updateImageOverlay(img.id, { width: +e.target.value })}
+                                        className="w-full accent-[#1ABC71]" />
+                                    </div>
+                                    <div>
+                                      <div className="text-[9px] text-white/25 mb-1">Opacity: {Math.round(img.opacity * 100)}%</div>
+                                      <input type="range" min={0.05} max={1} step={0.05} value={img.opacity}
+                                        onChange={(e) => updateImageOverlay(img.id, { opacity: +e.target.value })}
+                                        className="w-full accent-[#1ABC71]" />
+                                    </div>
+                                    <div>
+                                      <div className="text-[9px] text-white/25 mb-1">Position</div>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                          <div className="text-[9px] text-white/20 mb-0.5">X: {Math.round(img.x * 100)}%</div>
+                                          <input type="range" min={0} max={1} step={0.01} value={img.x}
+                                            onChange={(e) => updateImageOverlay(img.id, { x: +e.target.value })}
+                                            className="w-full accent-[#1ABC71]" />
+                                        </div>
+                                        <div>
+                                          <div className="text-[9px] text-white/20 mb-0.5">Y: {Math.round(img.y * 100)}%</div>
+                                          <input type="range" min={0} max={1} step={0.01} value={img.y}
+                                            onChange={(e) => updateImageOverlay(img.id, { y: +e.target.value })}
+                                            className="w-full accent-[#1ABC71]" />
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="text-[9px] text-white/25 mb-1">Visible Duration</div>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                          <div className="text-[9px] text-white/20 mb-0.5">Start: {(img.startSec ?? 0).toFixed(1)}s</div>
+                                          <input type="range" min={0} max={Math.max(0, clipDuration - 0.5)} step={0.1}
+                                            value={img.startSec ?? 0}
+                                            onChange={(e) => updateImageOverlay(img.id, { startSec: +e.target.value })}
+                                            className="w-full accent-[#1ABC71]" />
+                                        </div>
+                                        <div>
+                                          <div className="text-[9px] text-white/20 mb-0.5">End: {(img.endSec ?? clipDuration).toFixed(1)}s</div>
+                                          <input type="range" min={0.5} max={clipDuration} step={0.1}
+                                            value={img.endSec ?? clipDuration}
+                                            onChange={(e) => updateImageOverlay(img.id, { endSec: +e.target.value })}
+                                            className="w-full accent-[#1ABC71]" />
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <p className="text-[9px] text-white/20">Drag image directly on video to reposition</p>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </div>
           </div>
         </div>
       </div>
