@@ -53,6 +53,8 @@ import {
   Instagram,
   Youtube,
   Heart,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -88,7 +90,7 @@ const TextGradient = ({ children, className = "" }: { children: React.ReactNode;
 );
 
 const CardElevated = ({ children, className = "", hover = true }: { children: React.ReactNode; className?: string; hover?: boolean }) => (
-  <div className={`bg-white rounded-2xl border border-gray-200 shadow-sm ${hover ? 'hover:shadow-lg hover:border-[#1ABC71]/30' : ''} transition-all duration-300 ${className}`}>
+  <div className={`bg-white dark:bg-gray-800/80 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm ${hover ? 'hover:shadow-lg hover:border-[#1ABC71]/30 dark:hover:border-[#1ABC71]/30' : ''} transition-all duration-300 ${className}`}>
     {children}
   </div>
 );
@@ -131,7 +133,7 @@ const ButtonSecondary = ({ children, to, onClick, className = "", icon }: {
   className?: string;
   icon?: React.ReactNode;
 }) => {
-  const baseClasses = "inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-gray-800 font-bold rounded-2xl border-2 border-gray-200 hover:border-[#1ABC71]/40 hover:bg-[#1ABC71]/5 transition-all duration-300";
+  const baseClasses = "inline-flex items-center justify-center gap-2 px-8 py-4 bg-white dark:bg-transparent text-gray-800 dark:text-gray-200 font-bold rounded-2xl border-2 border-gray-200 dark:border-gray-700 hover:border-[#1ABC71]/40 dark:hover:border-[#1ABC71]/40 hover:bg-[#1ABC71]/5 transition-all duration-300";
 
   const content = (
     <>
@@ -159,6 +161,24 @@ const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("");
+  const [theme, setTheme] = useState<"light" | "dark">(
+    () => (localStorage.getItem("theme") as "light" | "dark") || "light"
+  );
+
+  // Apply theme to document
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (theme === "dark") {
+      root.classList.add("dark");
+    } else {
+      root.classList.remove("dark");
+    }
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === "light" ? "dark" : "light");
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -230,18 +250,18 @@ const Navbar = () => {
   ];
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? "bg-white/80 backdrop-blur-xl border-b border-gray-200 shadow-sm" : "bg-transparent"
+    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? "bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 shadow-sm" : "bg-transparent dark:bg-transparent"
       }`}>
       <div className="container mx-auto flex items-center justify-between px-5 py-4">
         <Link to="/" onClick={(e) => scrollToSection(e, "/")} className="flex items-center gap-2 font-bold text-xl cursor-pointer">
           <div className="h-9 w-9 rounded-xl bg-[#1ABC71] flex items-center justify-center">
             <Scissors className="h-5 w-5 text-white" />
           </div>
-          <span>AI Viral <TextGradient>Clipper</TextGradient></span>
+          <span className="dark:text-white">AI Viral <TextGradient>Clipper</TextGradient></span>
         </Link>
 
         {/* Desktop Nav */}
-        <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600">
+        <div className="hidden md:flex items-center gap-6 lg:gap-8 text-sm font-medium text-gray-600 dark:text-gray-300">
           {navLinks.map((link) => {
             const isActive = activeSection === link.href.substring(1);
             return (
@@ -249,30 +269,48 @@ const Navbar = () => {
                 key={link.href}
                 href={link.href}
                 onClick={(e) => scrollToSection(e, link.href)}
-                className={`transition-colors cursor-pointer ${isActive ? "text-[#1ABC71] font-bold" : "hover:text-[#1ABC71]"
+                className={`transition-colors cursor-pointer ${isActive ? "text-[#1ABC71] font-bold" : "hover:text-[#1ABC71] dark:hover:text-[#1ABC71]"
                   }`}
               >
                 {link.label}
               </a>
             );
           })}
-          <ButtonPrimary to="/app" className="px-6 py-2.5 text-sm" icon={<Rocket className="h-4 w-4" />}>
-            Coba Sekarang
-          </ButtonPrimary>
+
+          <div className="flex items-center gap-3 border-l border-gray-200 dark:border-gray-700 pl-6 lg:pl-8">
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
+              aria-label="Toggle Dark Mode"
+            >
+              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </button>
+            <ButtonPrimary to="/app" className="px-6 py-2.5 text-sm whitespace-nowrap" icon={<Rocket className="h-4 w-4" />}>
+              Coba Sekarang
+            </ButtonPrimary>
+          </div>
         </div>
 
         {/* Mobile Menu Button */}
-        <button
-          className="md:hidden text-gray-700 p-2"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        >
-          <Menu className="h-6 w-6" />
-        </button>
+        <div className="md:hidden flex items-center gap-2">
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
+          >
+            {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </button>
+          <button
+            className="text-gray-700 dark:text-gray-200 p-2"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
+            <Menu className="h-6 w-6" />
+          </button>
+        </div>
       </div>
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-white border-t border-gray-200 px-5 py-4 space-y-4">
+        <div className="md:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 px-5 py-4 space-y-4">
           {navLinks.map((link) => {
             const isActive = activeSection === link.href.substring(1);
             return (
@@ -298,7 +336,7 @@ const Navbar = () => {
 
 const HeroSection = () => {
   return (
-    <section className="relative min-h-screen flex items-center pt-20 overflow-hidden bg-gradient-to-b from-white to-gray-50">
+    <section className="relative min-h-screen flex items-center pt-20 overflow-hidden bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-950">
       {/* Background Decorations */}
       <div className="absolute top-20 right-0 w-[500px] h-[500px] bg-[#1ABC71]/5 rounded-full blur-3xl animate-pulse" />
       <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-[#1ABC71]/5 rounded-full blur-3xl" />
@@ -318,23 +356,23 @@ const HeroSection = () => {
           </div>
 
           {/* Heading */}
-          <h1 className="text-4xl sm:text-5xl lg:text-7xl font-extrabold leading-[1.1] mb-6 tracking-tight text-gray-900">
+          <h1 className="text-4xl sm:text-5xl lg:text-7xl font-extrabold leading-[1.1] mb-6 tracking-tight text-gray-900 dark:text-white">
             Video Panjang? <TextGradient>Otomatis Jadi Clip</TextGradient> Siap Upload
           </h1>
 
           {/* Subheading */}
-          <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto mb-5 leading-relaxed">
+          <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto mb-5 leading-relaxed">
             Tinggal upload, pilih gaya, AI yang kerjain sisanya. Langsung siap buat TikTok, Reels &amp; Shorts
           </p>
 
           {/* Tags */}
-          <div className="flex flex-wrap justify-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600 mb-8">
+          <div className="flex flex-wrap justify-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600 dark:text-gray-300 mb-8">
             {[
               { icon: Zap, text: "Simpel banget" },
               { icon: Timer, text: "Hemat waktu berjam-jam" },
               { icon: CreditCard, text: "Mulai dari Rp 1.500" },
             ].map((tag, i) => (
-              <span key={i} className="flex items-center gap-1.5 bg-gray-100 rounded-full px-4 py-1.5 font-medium hover:bg-[#1ABC71]/10 hover:text-[#1ABC71] transition-colors cursor-default">
+              <span key={i} className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-800 rounded-full px-4 py-1.5 font-medium hover:bg-[#1ABC71]/10 dark:hover:bg-[#1ABC71]/20 hover:text-[#1ABC71] transition-colors cursor-default">
                 <tag.icon className="h-4 w-4 text-[#1ABC71]" />
                 {tag.text}
               </span>
@@ -368,13 +406,13 @@ const HeroSection = () => {
 
 const IntegrationsSection = () => {
   return (
-    <section className="py-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
+    <section className="py-10 border-b border-gray-100 dark:border-gray-800 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm">
       <div className="container mx-auto px-5">
-        <p className="text-center text-sm font-bold text-gray-400 mb-6 tracking-widest uppercase">
+        <p className="text-center text-sm font-bold text-gray-400 dark:text-gray-500 mb-6 tracking-widest uppercase">
           Siap Upload Ke & Didukung Oleh
         </p>
-        <div className="flex flex-wrap justify-center items-center gap-10 sm:gap-16 opacity-60 grayscale hover:grayscale-0 cursor-default transition-all duration-500">
-          <div className="flex items-center gap-2 hover:text-black transition-colors">
+        <div className="flex flex-wrap justify-center items-center gap-10 sm:gap-16 opacity-60 dark:opacity-40 grayscale hover:grayscale-0 dark:hover:grayscale-0 focus-within:grayscale-0 cursor-default transition-all duration-500">
+          <div className="flex items-center gap-2 hover:text-black dark:hover:text-white transition-colors">
             <Video className="h-7 w-7" />
             <span className="text-2xl font-extrabold tracking-tighter">TikTok</span>
           </div>
@@ -386,7 +424,7 @@ const IntegrationsSection = () => {
             <Youtube className="h-8 w-8" />
             <span className="text-2xl font-extrabold tracking-tighter">Shorts</span>
           </div>
-          <div className="hidden sm:block h-8 w-px bg-gray-300"></div>
+          <div className="hidden sm:block h-8 w-px bg-gray-300 dark:bg-gray-700"></div>
           <div className="flex items-center gap-2 hover:text-[#10a37f] transition-colors">
             <Brain className="h-7 w-7" />
             <span className="text-2xl font-extrabold tracking-tight">OpenAI</span>
@@ -406,14 +444,14 @@ const ProblemSection = () => {
   ];
 
   return (
-    <section className="py-20 sm:py-28 relative bg-white">
+    <section className="py-20 sm:py-28 relative bg-white dark:bg-gray-900">
       <div className="container mx-auto px-5">
         <div className="max-w-3xl mx-auto text-center">
-          <span className="inline-flex items-center gap-2 text-sm font-bold text-red-600 bg-red-50 px-4 py-1.5 rounded-full mb-5">
+          <span className="inline-flex items-center gap-2 text-sm font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 px-4 py-1.5 rounded-full mb-5">
             <Flame className="h-4 w-4" />
             Masalah Umum
           </span>
-          <h2 className="text-3xl sm:text-5xl font-extrabold mb-6 tracking-tight text-gray-900">
+          <h2 className="text-3xl sm:text-5xl font-extrabold mb-6 tracking-tight text-gray-900 dark:text-white">
             Masih Potong Video <TextGradient>Manual?</TextGradient>
           </h2>
 
@@ -428,15 +466,15 @@ const ProblemSection = () => {
           <div className="grid sm:grid-cols-2 gap-3 sm:gap-4 mb-10">
             {problems.map((problem, i) => (
               <CardElevated key={i} className="p-4 sm:p-5 flex items-center gap-3 text-left">
-                <div className="h-10 w-10 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
-                  <problem.icon className="h-5 w-5 text-red-500" />
+                <div className="h-10 w-10 rounded-xl bg-red-50 dark:bg-red-500/10 flex items-center justify-center shrink-0">
+                  <problem.icon className="h-5 w-5 text-red-500 dark:text-red-400" />
                 </div>
-                <span className="text-gray-800 font-medium text-sm sm:text-base">{problem.text}</span>
+                <span className="text-gray-800 dark:text-gray-200 font-medium text-sm sm:text-base">{problem.text}</span>
               </CardElevated>
             ))}
           </div>
 
-          <p className="text-gray-600 text-lg flex items-center justify-center gap-2">
+          <p className="text-gray-600 dark:text-gray-400 text-lg flex items-center justify-center gap-2">
             <TrendingUp className="h-5 w-5 text-[#1ABC71]" />
             Waktunya kerja lebih <span className="text-[#1ABC71] font-bold">pintar</span>, bukan lebih lama
           </p>
@@ -512,7 +550,7 @@ const FeaturesSection = () => {
             <Zap className="h-4 w-4" />
             Fitur Lengkap
           </span>
-          <h2 className="text-3xl sm:text-5xl font-extrabold max-w-3xl mx-auto tracking-tight text-gray-900">
+          <h2 className="text-3xl sm:text-5xl font-extrabold max-w-3xl mx-auto tracking-tight text-gray-900 dark:text-white">
             Semua Yang Kamu Butuh Buat <TextGradient>Clip Viral</TextGradient>
           </h2>
           <div className="w-48 sm:w-64 mx-auto mt-6">
@@ -531,14 +569,14 @@ const FeaturesSection = () => {
               <Anchor className="h-6 w-6 text-[#1ABC71]" />
             </div>
             <div>
-              <h3 className="font-bold text-xl text-gray-900 flex items-center gap-2">
+              <h3 className="font-bold text-xl text-gray-900 dark:text-white flex items-center gap-2">
                 Headline Hook Otomatis
                 <Anchor className="h-4 w-4 text-[#1ABC71]" />
               </h3>
               <p className="text-[#1ABC71] text-xs font-bold">AI pasang headline yang bikin orang berhenti scroll.</p>
             </div>
           </div>
-          <p className="text-gray-600 text-sm mb-5 max-w-2xl">
+          <p className="text-gray-600 dark:text-gray-400 text-sm mb-5 max-w-2xl">
             Pilih style yang cocok, dari fun penuh emoji, profesional, gaya berita, sampai clean.
           </p>
           <div className="space-y-4">
@@ -550,7 +588,7 @@ const FeaturesSection = () => {
                 </span>
                 <div className="flex flex-wrap gap-2">
                   {style.examples.map((example, j) => (
-                    <span key={j} className="inline-flex items-center px-3 sm:px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-700 text-xs sm:text-sm font-medium cursor-pointer hover:border-[#1ABC71]/40 hover:bg-[#1ABC71]/5 transition-all select-none">
+                    <span key={j} className="inline-flex items-center px-3 sm:px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs sm:text-sm font-medium cursor-pointer hover:border-[#1ABC71]/40 dark:hover:border-[#1ABC71]/40 hover:bg-[#1ABC71]/5 transition-all select-none">
                       {example}
                     </span>
                   ))}
@@ -567,9 +605,9 @@ const FeaturesSection = () => {
               <div className="flex items-center gap-3 mb-3">
                 {feature.icon}
               </div>
-              <h3 className="font-bold text-lg text-gray-900 mb-1">{feature.title}</h3>
+              <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-1">{feature.title}</h3>
               <p className="text-[#1ABC71] text-xs font-bold mb-2">{feature.highlight}</p>
-              <p className="text-gray-600 text-sm leading-relaxed">{feature.description}</p>
+              <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">{feature.description}</p>
             </CardElevated>
           ))}
         </div>
@@ -581,11 +619,11 @@ const FeaturesSection = () => {
               <Video className="h-6 w-6 text-[#1ABC71]" />
             </div>
             <div>
-              <h3 className="font-bold text-xl text-gray-900">Simpan Sebagai Template Clip</h3>
+              <h3 className="font-bold text-xl text-gray-900 dark:text-white">Simpan Sebagai Template Clip</h3>
               <p className="text-[#1ABC71] text-xs font-bold flex items-center gap-1"><Repeat className="h-3 w-3" /> Atur sekali, pakai selamanya</p>
             </div>
           </div>
-          <p className="text-gray-600 text-sm mb-5 max-w-2xl">
+          <p className="text-gray-600 dark:text-gray-400 text-sm mb-5 max-w-2xl">
             Bikin template clip lengkap: headline hook, logo, watermark, gaya teks, warna. Tinggal pilih video, pilih template, langsung jadi!
           </p>
           <div className="flex flex-wrap gap-2">
@@ -617,7 +655,7 @@ const WhyDifferentSection = () => {
   ];
 
   return (
-    <section className="py-20 sm:py-28 relative bg-white">
+    <section className="py-20 sm:py-28 relative bg-white dark:bg-gray-900">
       <div className="container mx-auto px-5">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-10">
@@ -625,7 +663,7 @@ const WhyDifferentSection = () => {
               <Gem className="h-4 w-4" />
               Kenapa Beda
             </span>
-            <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-gray-900">
+            <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-gray-900 dark:text-white">
               Kenapa <TextGradient>Beda</TextGradient> Dari Yang Lain?
             </h2>
             <div className="w-48 sm:w-56 mx-auto mt-6">
@@ -646,7 +684,7 @@ const WhyDifferentSection = () => {
                 <div className="h-8 w-8 rounded-full bg-[#1ABC71]/15 flex items-center justify-center shrink-0">
                   <Check className="h-4 w-4 text-[#1ABC71]" />
                 </div>
-                <span className="text-base sm:text-lg font-medium text-gray-800">{benefit.text}</span>
+                <span className="text-base sm:text-lg font-medium text-gray-800 dark:text-gray-200">{benefit.text}</span>
               </div>
             ))}
           </CardElevated>
@@ -713,8 +751,8 @@ const PricingSection = () => {
   ];
 
   return (
-    <section id="harga" className="py-20 sm:py-28 relative bg-gray-50">
-      <div className="absolute inset-0 opacity-30" style={{
+    <section id="harga" className="py-20 sm:py-28 relative bg-gray-50 dark:bg-gray-950">
+      <div className="absolute inset-0 opacity-30 dark:opacity-10" style={{
         backgroundImage: "radial-gradient(circle, #1ABC71 1px, transparent 1px)",
         backgroundSize: "24px 24px"
       }} />
@@ -725,10 +763,10 @@ const PricingSection = () => {
             <DollarSign className="h-4 w-4" />
             Bayar Sesuai Pakai
           </span>
-          <h2 className="text-3xl sm:text-5xl font-extrabold mb-4 tracking-tight text-gray-900">
+          <h2 className="text-3xl sm:text-5xl font-extrabold mb-4 tracking-tight text-gray-900 dark:text-white">
             Mulai dari <TextGradient>Rp 1.500</TextGradient> per Video
           </h2>
-          <p className="text-gray-600 max-w-xl mx-auto text-base sm:text-lg">
+          <p className="text-gray-600 dark:text-gray-400 max-w-xl mx-auto text-base sm:text-lg">
             Gak ada langganan bulanan. Beli credit sesuai kebutuhan, pakai kapan aja. Semakin banyak, semakin hemat.
           </p>
         </div>
@@ -761,11 +799,11 @@ const PricingSection = () => {
                 {plan.icon}
               </div>
 
-              <h3 className="font-bold text-lg sm:text-2xl text-gray-900 mb-1">{plan.name}</h3>
+              <h3 className="font-bold text-lg sm:text-2xl text-gray-900 dark:text-white mb-1">{plan.name}</h3>
               <p className="text-[#1ABC71] font-extrabold text-2xl sm:text-3xl mb-1">
-                {plan.credits} <span className="text-sm sm:text-lg text-gray-600 font-medium">Credit</span>
+                {plan.credits} <span className="text-sm sm:text-lg text-gray-600 dark:text-gray-400 font-medium">Credit</span>
               </p>
-              <p className="text-gray-600 text-xs sm:text-sm mb-1">{plan.price}</p>
+              <p className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm mb-1">{plan.price}</p>
               <p className="text-xs text-gray-500 mb-4 sm:mb-6 flex items-center justify-center gap-1">
                 <CreditCard className="h-3 w-3" />
                 {plan.perCredit}
@@ -773,7 +811,7 @@ const PricingSection = () => {
 
               <ButtonPrimary
                 to="/app"
-                className={`w-full py-2.5 sm:py-3 text-sm sm:text-base ${plan.popular ? '' : 'bg-gray-100 text-gray-700 hover:bg-[#1ABC71]/10 hover:text-[#1ABC71] shadow-none'}`}
+                className={`w-full py-2.5 sm:py-3 text-sm sm:text-base ${plan.popular ? '' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-[#1ABC71]/10 dark:hover:bg-[#1ABC71]/20 hover:text-[#1ABC71] dark:hover:text-[#1ABC71] shadow-none border-none'}`}
                 icon={<ShoppingCart className="h-4 w-4" />}
               >
                 Beli Credit
@@ -790,14 +828,14 @@ const PricingSection = () => {
         {/* Features Breakdown */}
         <div className="grid md:grid-cols-2 gap-5 sm:gap-6 max-w-5xl mx-auto mt-16 sm:mt-20">
           <CardElevated className="p-6 sm:p-8">
-            <h3 className="font-bold text-xl text-gray-900 mb-1 flex items-center gap-2">
+            <h3 className="font-bold text-xl text-gray-900 dark:text-white mb-1 flex items-center gap-2">
               <Check className="h-5 w-5 text-[#1ABC71]" />
               Base Processing
             </h3>
             <p className="text-gray-500 text-sm mb-5">Termasuk di setiap 1 credit / menit video</p>
             <ul className="space-y-2.5">
               {baseFeatures.map((feature, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                <li key={i} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
                   <Check className="h-4 w-4 text-[#1ABC71] shrink-0 mt-0.5" />
                   <span>{feature}</span>
                 </li>
@@ -806,7 +844,7 @@ const PricingSection = () => {
           </CardElevated>
 
           <CardElevated className="p-6 sm:p-8">
-            <h3 className="font-bold text-xl text-gray-900 mb-1 flex items-center gap-2">
+            <h3 className="font-bold text-xl text-gray-900 dark:text-white mb-1 flex items-center gap-2">
               <Plus className="h-5 w-5 text-[#1ABC71]" />
               Add-on Features
             </h3>
@@ -815,8 +853,8 @@ const PricingSection = () => {
               {addOns.map((addon, i) => (
                 <li key={i} className="flex items-start justify-between gap-3 text-sm">
                   <div>
-                    <span className="text-gray-800 font-semibold">{addon.name}</span>
-                    <p className="text-gray-500 text-xs">{addon.desc}</p>
+                    <span className="text-gray-800 dark:text-gray-200 font-semibold">{addon.name}</span>
+                    <p className="text-gray-500 dark:text-gray-400 text-xs">{addon.desc}</p>
                   </div>
                   <span className="shrink-0 text-[#1ABC71] font-bold text-xs bg-[#1ABC71]/10 px-2 py-1 rounded-lg whitespace-nowrap">
                     {addon.credit}
@@ -829,16 +867,16 @@ const PricingSection = () => {
 
         {/* Calculation Example */}
         <CardElevated className="max-w-md mx-auto mt-12 sm:mt-14 p-6 text-center">
-          <p className="text-sm font-bold text-gray-900 mb-3 flex items-center justify-center gap-2">
+          <p className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-3 flex items-center justify-center gap-2">
             <Lightbulb className="h-4 w-4 text-yellow-500" />
             Contoh Kalkulasi
           </p>
-          <div className="text-sm text-gray-600 space-y-1">
-            <p>Video 10 menit = <span className="text-gray-900 font-medium">10 credit (base)</span></p>
+          <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+            <p>Video 10 menit = <span className="text-gray-900 dark:text-white font-medium">10 credit (base)</span></p>
             <p>+ Auto Detect Viral = <span className="text-[#1ABC71] font-bold">+5 credit</span></p>
             <p>+ Emoji Subtitle = <span className="text-[#1ABC71] font-bold">+2 credit</span></p>
-            <div className="border-t border-gray-200 mt-3 pt-3">
-              <p className="text-gray-900 font-extrabold text-lg flex items-center justify-center gap-2">
+            <div className="border-t border-gray-200 dark:border-gray-700 mt-3 pt-3">
+              <p className="text-gray-900 dark:text-white font-extrabold text-lg flex items-center justify-center gap-2">
                 <Sparkles className="h-5 w-5 text-[#1ABC71]" />
                 Total: 17 Credit
               </p>
@@ -862,14 +900,14 @@ const AudienceSection = () => {
   ];
 
   return (
-    <section className="py-20 sm:py-28 relative overflow-hidden bg-white">
+    <section className="py-20 sm:py-28 relative overflow-hidden bg-white dark:bg-gray-900">
       <div className="container mx-auto px-5">
         <div className="text-center mb-8 sm:mb-10">
           <span className="inline-flex items-center gap-2 text-sm font-bold text-[#1ABC71] bg-[#1ABC71]/10 px-4 py-1.5 rounded-full mb-5">
             <Target className="h-4 w-4" />
             Untuk Siapa
           </span>
-          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-gray-900">
+          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-gray-900 dark:text-white">
             Siapa Yang Cocok Pakai Ini?
           </h2>
           <div className="w-56 sm:w-72 mx-auto mt-6">
@@ -890,7 +928,7 @@ const AudienceSection = () => {
               <div className="h-7 w-7 rounded-full bg-[#1ABC71]/10 flex items-center justify-center">
                 <audience.icon className="h-4 w-4 text-[#1ABC71]" />
               </div>
-              <span className="text-sm font-semibold text-gray-800">{audience.label}</span>
+              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{audience.label}</span>
             </CardElevated>
           ))}
         </div>
@@ -900,15 +938,15 @@ const AudienceSection = () => {
           {audiences.map((audience, i) => (
             <div
               key={i}
-              className="bg-white rounded-full px-4 py-2 border border-gray-200 shadow-sm flex items-center gap-2"
+              className="bg-white dark:bg-gray-800 rounded-full px-4 py-2 border border-gray-200 dark:border-gray-700 shadow-sm flex items-center gap-2"
             >
               <audience.icon className="h-4 w-4 text-[#1ABC71]" />
-              <span className="text-sm font-medium text-gray-700">{audience.label}</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{audience.label}</span>
             </div>
           ))}
         </div>
 
-        <p className="text-center text-gray-600 text-lg flex items-center justify-center gap-2">
+        <p className="text-center text-gray-600 dark:text-gray-400 text-lg flex items-center justify-center gap-2">
           Kalau kamu bikin konten panjang → <span className="text-[#1ABC71] font-bold">ini wajib punya.</span>
           <Check className="h-5 w-5 text-[#1ABC71]" />
         </p>
@@ -919,7 +957,7 @@ const AudienceSection = () => {
 
 const ImagineSection = () => {
   return (
-    <section className="py-20 sm:py-28 relative overflow-hidden">
+    <section className="py-20 sm:py-28 relative overflow-hidden dark:bg-gray-950">
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#1ABC71]/5 rounded-full blur-[100px]" />
 
       <div className="container mx-auto px-5 relative z-10">
@@ -928,7 +966,7 @@ const ImagineSection = () => {
             <Brain className="h-4 w-4" />
             Bayangkan Ini
           </span>
-          <h2 className="text-3xl sm:text-5xl font-extrabold mb-4 tracking-tight text-gray-900">
+          <h2 className="text-3xl sm:text-5xl font-extrabold mb-4 tracking-tight text-gray-900 dark:text-white">
             Konten panjang tanpa distribusi = <TextGradient>potensi terbuang</TextGradient>
           </h2>
 
@@ -941,13 +979,13 @@ const ImagineSection = () => {
           </div>
 
 
-          <p className="text-gray-600 text-lg mb-8 flex items-center justify-center gap-2">
+          <p className="text-gray-600 dark:text-gray-400 text-lg mb-8 flex items-center justify-center gap-2">
             <Sparkles className="h-5 w-5 text-[#1ABC71]" />
             AI Viral Clipper bantu kamu maksimalkan setiap menit jadi peluang exposure
           </p>
 
           <CardElevated className="p-6 sm:p-8 mb-6">
-            <p className="text-lg sm:text-xl mb-6 text-gray-900 font-semibold flex items-center justify-center gap-2 flex-wrap">
+            <p className="text-lg sm:text-xl mb-6 text-gray-900 dark:text-white font-semibold flex items-center justify-center gap-2 flex-wrap">
               <Mic className="h-5 w-5 text-[#1ABC71]" />
               1 podcast <span className="text-[#1ABC71] font-extrabold">1 jam</span> → Bisa jadi <span className="text-[#1ABC71] font-extrabold">20–40 short clip</span>
             </p>
@@ -957,7 +995,7 @@ const ImagineSection = () => {
                 { icon: Eye, text: "Lebih banyak exposure" },
                 { icon: DollarSign, text: "Lebih banyak peluang cuan" },
               ].map((item, i) => (
-                <div key={i} className="flex items-center justify-center gap-2 text-gray-600 bg-gray-100 rounded-xl py-3 px-3">
+                <div key={i} className="flex items-center justify-center gap-2 text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800/50 rounded-xl py-3 px-3">
                   <item.icon className="h-5 w-5 text-[#1ABC71]" />
                   <span className="text-sm font-medium">{item.text}</span>
                 </div>
@@ -966,7 +1004,7 @@ const ImagineSection = () => {
           </CardElevated>
 
           <CardElevated className="p-5 sm:p-6 space-y-3 text-left">
-            <h3 className="font-bold text-lg text-center text-gray-900 mb-4 flex items-center justify-center gap-2">
+            <h3 className="font-bold text-lg text-center text-gray-900 dark:text-white mb-4 flex items-center justify-center gap-2">
               <Shield className="h-5 w-5 text-[#1ABC71]" />
               Tanpa Risiko Ribet
             </h3>
@@ -979,7 +1017,7 @@ const ImagineSection = () => {
                 <div className="h-8 w-8 rounded-lg bg-[#1ABC71]/10 flex items-center justify-center shrink-0">
                   <item.icon className="h-4 w-4 text-[#1ABC71]" />
                 </div>
-                <span className="text-gray-800 font-medium">{item.text}</span>
+                <span className="text-gray-800 dark:text-gray-300 font-medium">{item.text}</span>
               </div>
             ))}
           </CardElevated>
@@ -991,15 +1029,15 @@ const ImagineSection = () => {
 
 const CTASection = () => {
   return (
-    <section className="py-20 sm:py-28 relative bg-white">
-      <div className="absolute inset-0 opacity-20" style={{
+    <section className="py-20 sm:py-28 relative bg-white dark:bg-gray-900">
+      <div className="absolute inset-0 opacity-20 dark:opacity-10" style={{
         backgroundImage: "radial-gradient(circle, #1ABC71 1px, transparent 1px)",
         backgroundSize: "24px 24px"
       }} />
 
       <div className="container mx-auto px-5 relative z-10">
         <div className="max-w-3xl mx-auto text-center mb-16 sm:mb-20">
-          <h2 className="text-3xl sm:text-5xl font-extrabold mb-4 tracking-tight text-gray-900">
+          <h2 className="text-3xl sm:text-5xl font-extrabold mb-4 tracking-tight text-gray-900 dark:text-white">
             Udah Capek Edit Manual? <TextGradient>Coba Aja Dulu</TextGradient>
           </h2>
 
@@ -1011,7 +1049,7 @@ const CTASection = () => {
             />
           </div>
 
-          <p className="text-gray-600 text-lg mb-8">
+          <p className="text-gray-600 dark:text-gray-400 text-lg mb-8">
             Upload 1 video, lihat hasilnya sendiri. Gak cocok? Gak masalah, gak ada langganan.
           </p>
 
@@ -1025,11 +1063,11 @@ const CTASection = () => {
             <div className="h-14 w-14 rounded-2xl bg-[#1ABC71]/10 flex items-center justify-center mx-auto mb-4">
               <Gift className="h-7 w-7 text-[#1ABC71]" />
             </div>
-            <h3 className="font-bold text-2xl text-gray-900 mb-2 flex items-center justify-center gap-2">
+            <h3 className="font-bold text-2xl text-gray-900 dark:text-white mb-2 flex items-center justify-center gap-2">
               <Handshake className="h-6 w-6 text-[#1ABC71]" />
               Partner Resmi AI Viral Clipper
             </h3>
-            <p className="text-gray-600 mb-6">
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
               Jadi bagian dari ekosistem kreator dan dapatkan komisi dari setiap user yang kamu referensikan<br />
               Simple. Transparan. Scalable.
             </p>
@@ -1070,14 +1108,14 @@ const FAQSection = () => {
   ];
 
   return (
-    <section id="faq" className="py-20 sm:py-28 relative bg-gray-50">
+    <section id="faq" className="py-20 sm:py-28 relative bg-gray-50 dark:bg-gray-950">
       <div className="container mx-auto px-5">
         <div className="text-center mb-10">
           <span className="inline-flex items-center gap-2 text-sm font-bold text-[#1ABC71] bg-[#1ABC71]/10 px-4 py-1.5 rounded-full mb-5">
             <HelpCircle className="h-4 w-4" />
             FAQ
           </span>
-          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-gray-900 flex items-center justify-center gap-3">
+          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-gray-900 dark:text-white flex items-center justify-center gap-3">
             <MessageCircle className="h-8 w-8 text-[#1ABC71]" />
             Pertanyaan Umum
           </h2>
@@ -1085,10 +1123,10 @@ const FAQSection = () => {
 
         <div className="max-w-2xl mx-auto space-y-3">
           {faqs.map((faq, i) => (
-            <CardElevated key={i} className="border rounded-2xl overflow-hidden">
+            <CardElevated key={i} className="border border-gray-200 dark:border-gray-800 rounded-2xl overflow-hidden">
               <button
                 onClick={() => setOpenIndex(openIndex === i ? null : i)}
-                className="w-full flex items-center justify-between px-5 sm:px-6 py-4 sm:py-5 text-left font-bold hover:text-[#1ABC71] transition-colors"
+                className="w-full flex items-center justify-between px-5 sm:px-6 py-4 sm:py-5 text-left font-bold text-gray-900 dark:text-gray-200 hover:text-[#1ABC71] dark:hover:text-[#1ABC71] transition-colors"
               >
                 <span className="text-sm sm:text-base flex items-center gap-2">
                   {faq.icon}
@@ -1099,7 +1137,7 @@ const FAQSection = () => {
                 />
               </button>
               {openIndex === i && (
-                <div className="px-5 sm:px-6 pb-4 sm:pb-5 text-sm text-gray-600 leading-relaxed border-t border-gray-100 pt-3">
+                <div className="px-5 sm:px-6 pb-4 sm:pb-5 text-sm text-gray-600 dark:text-gray-400 leading-relaxed border-t border-gray-100 dark:border-gray-800 pt-3">
                   {faq.answer}
                 </div>
               )}
@@ -1196,7 +1234,7 @@ const Footer = () => {
 // --- Main Landing Page Component ---
 const LandingPage = () => {
   return (
-    <div className="min-h-screen bg-white text-gray-900 font-sans selection:bg-[#1ABC71]/20">
+    <div className="min-h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100 font-sans selection:bg-[#1ABC71]/20">
       <Navbar />
       <main>
         <HeroSection />
