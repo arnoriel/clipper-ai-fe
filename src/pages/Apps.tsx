@@ -28,7 +28,7 @@ type Step = "input" | "analyzing" | "moments";
 
 function ProgressToast({ message }: { message: string }) {
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 bg-white border border-[#1ABC71]/30 rounded-2xl shadow-xl shadow-[#1ABC71]/10 text-sm text-gray-700 whitespace-nowrap">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 bg-white dark:bg-gray-900 border border-[#1ABC71]/30 dark:border-[#1ABC71]/20 rounded-2xl shadow-xl shadow-[#1ABC71]/10 text-sm text-gray-700 dark:text-gray-200 whitespace-nowrap">
       <Loader2 size={14} className="animate-spin text-[#1ABC71] shrink-0" />
       {message}
     </div>
@@ -378,7 +378,7 @@ export default function App() {
 
       {/* Error banner */}
       {error && (
-        <div className="mx-6 mt-4 flex items-center gap-3 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs">
+        <div className="mx-6 mt-4 flex items-center gap-3 p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 text-red-600 dark:text-red-400 text-xs">
           <AlertCircle size={14} className="shrink-0" />
           <span className="flex-1">{error}</span>
           <button onClick={() => setError("")} className="text-red-400 hover:text-red-600 ml-2">✕</button>

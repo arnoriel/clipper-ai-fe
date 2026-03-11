@@ -17,13 +17,13 @@ interface Props {
 }
 
 const CATEGORY_CONFIG = {
-  funny:       { icon: Flame,         color: "text-orange-500",  bg: "bg-orange-50",   border: "border-orange-200",  label: "Funny" },
-  emotional:   { icon: Heart,         color: "text-pink-500",    bg: "bg-pink-50",     border: "border-pink-200",    label: "Emotional" },
-  educational: { icon: Brain,         color: "text-blue-500",    bg: "bg-blue-50",     border: "border-blue-200",    label: "Educational" },
-  shocking:    { icon: AlertTriangle, color: "text-yellow-500",  bg: "bg-yellow-50",   border: "border-yellow-200",  label: "Shocking" },
-  satisfying:  { icon: Star,          color: "text-emerald-500", bg: "bg-emerald-50",  border: "border-emerald-200", label: "Satisfying" },
-  drama:       { icon: Drama,         color: "text-red-500",     bg: "bg-red-50",      border: "border-red-200",     label: "Drama" },
-  highlight:   { icon: Zap,           color: "text-[#1ABC71]",   bg: "bg-[#1ABC71]/10",border: "border-[#1ABC71]/20",label: "Highlight" },
+  funny: { icon: Flame, color: "text-orange-500", bg: "bg-orange-50", border: "border-orange-200", label: "Funny" },
+  emotional: { icon: Heart, color: "text-pink-500", bg: "bg-pink-50", border: "border-pink-200", label: "Emotional" },
+  educational: { icon: Brain, color: "text-blue-500", bg: "bg-blue-50", border: "border-blue-200", label: "Educational" },
+  shocking: { icon: AlertTriangle, color: "text-yellow-500", bg: "bg-yellow-50", border: "border-yellow-200", label: "Shocking" },
+  satisfying: { icon: Star, color: "text-emerald-500", bg: "bg-emerald-50", border: "border-emerald-200", label: "Satisfying" },
+  drama: { icon: Drama, color: "text-red-500", bg: "bg-red-50", border: "border-red-200", label: "Drama" },
+  highlight: { icon: Zap, color: "text-[#1ABC71]", bg: "bg-[#1ABC71]/10", border: "border-[#1ABC71]/20", label: "Highlight" },
 };
 
 export default function MomentsList({
@@ -35,9 +35,8 @@ export default function MomentsList({
     <div className="flex items-center gap-2">
       <div className="flex gap-0.5">
         {Array.from({ length: 10 }).map((_, i) => (
-          <div key={i} className={`h-1.5 w-3 rounded-full transition-colors ${
-            i < score ? score >= 8 ? "bg-red-500" : score >= 6 ? "bg-orange-500" : "bg-[#1ABC71]" : "bg-gray-200"
-          }`} />
+          <div key={i} className={`h-1.5 w-3 rounded-full transition-colors ${i < score ? score >= 8 ? "bg-red-500" : score >= 6 ? "bg-orange-500" : "bg-[#1ABC71]" : "bg-gray-200"
+            }`} />
         ))}
       </div>
       <span className="text-xs font-bold text-gray-500">{score}/10</span>
@@ -66,22 +65,22 @@ export default function MomentsList({
           <div className="flex items-center gap-2">
             <Clock size={14} className="text-[#1ABC71]" />
             <span className="text-xs text-gray-500">Durasi</span>
-            <span className="text-sm font-bold text-black font-mono">{formatTime(videoDuration)}</span>
+            <span className="text-sm font-bold text-black dark:text-white font-mono">{formatTime(videoDuration)}</span>
           </div>
           <div className="flex items-center gap-2">
             <TrendingUp size={14} className="text-[#1ABC71]" />
             <span className="text-xs text-gray-500">Viral Score</span>
-            <span className="text-sm font-bold text-black">{result.totalViralPotential}/10</span>
+            <span className="text-sm font-bold text-black dark:text-white">{result.totalViralPotential}/10</span>
           </div>
           <div className="flex items-center gap-2">
             <Zap size={14} className="text-[#1ABC71]" />
             <span className="text-xs text-gray-500">Momen</span>
-            <span className="text-sm font-bold text-black">{result.moments.length}</span>
+            <span className="text-sm font-bold text-black dark:text-white">{result.moments.length}</span>
           </div>
           <div className="flex items-center gap-2">
             <CheckCircle2 size={14} className="text-[#1ABC71]" />
             <span className="text-xs text-gray-500">Dipilih</span>
-            <span className="text-sm font-bold text-black">{selectedIds.length}</span>
+            <span className="text-sm font-bold text-black dark:text-white">{selectedIds.length}</span>
           </div>
         </div>
       </div>
@@ -106,11 +105,10 @@ export default function MomentsList({
             <div key={moment.id}
               onMouseEnter={() => setHoveredId(moment.id)}
               onMouseLeave={() => setHoveredId(null)}
-              className={`group relative rounded-2xl border transition-all duration-200 overflow-hidden cursor-pointer ${
-                isSelected
+              className={`group relative rounded-2xl border transition-all duration-200 overflow-hidden cursor-pointer ${isSelected
                   ? "bg-[#1ABC71]/10 border-[#1ABC71]/40 shadow-lg shadow-[#1ABC71]/10"
-                  : "bg-gray-50 border-gray-200 hover:bg-gray-100 hover:border-gray-300"
-              }`}
+                  : "bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800/70 hover:border-gray-300 dark:hover:border-gray-700"
+                }`}
               onClick={() => onToggleSelect(moment)}>
 
               {/* Viral score bar */}
@@ -128,7 +126,7 @@ export default function MomentsList({
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <h3 className="text-sm font-semibold text-black truncate">{moment.label}</h3>
+                      <h3 className="text-sm font-semibold text-black dark:text-white truncate">{moment.label}</h3>
                       <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.border} ${cfg.color} border`}>
                         <Icon size={10} />{cfg.label}
                       </span>

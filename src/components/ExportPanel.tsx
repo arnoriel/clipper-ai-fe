@@ -15,8 +15,8 @@ interface Props {
 const AR_LABELS: Record<string, string> = {
   "9:16": "9:16 Vertical",
   "16:9": "16:9 Wide",
-  "1:1":  "1:1 Square",
-  "4:3":  "4:3 Classic",
+  "1:1": "1:1 Square",
+  "4:3": "4:3 Classic",
 };
 
 export default function ExportPanel({
@@ -46,7 +46,7 @@ export default function ExportPanel({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-700">
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
           {clips.length} Clip{clips.length > 1 ? "s" : ""} Ready
         </h3>
         {exportedCount > 0 && (
@@ -57,23 +57,23 @@ export default function ExportPanel({
       </div>
 
       {clips.map((clip) => {
-        const isExporting  = exportingId === clip.momentId;
-        const exportedUrl  = exportedUrls[clip.momentId];
+        const isExporting = exportingId === clip.momentId;
+        const exportedUrl = exportedUrls[clip.momentId];
         const effectiveStart = clip.moment.startTime + clip.edits.trimStart;
-        const effectiveEnd   = clip.moment.endTime   + clip.edits.trimEnd;
-        const duration       = effectiveEnd - effectiveStart;
-        const autoSubCount   = clip.edits.textOverlays.filter((t) => t.isAutoSubtitle).length;
+        const effectiveEnd = clip.moment.endTime + clip.edits.trimEnd;
+        const duration = effectiveEnd - effectiveStart;
+        const autoSubCount = clip.edits.textOverlays.filter((t) => t.isAutoSubtitle).length;
         const manualSubCount = clip.edits.textOverlays.filter((t) => !t.isAutoSubtitle).length;
 
         return (
-          <div key={clip.momentId} className="bg-gray-50 border border-gray-200 rounded-2xl p-4 space-y-3">
+          <div key={clip.momentId} className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 rounded-2xl p-4 space-y-3">
             {/* Clip info */}
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-lg bg-[#1ABC71]/10 border border-[#1ABC71]/20 flex items-center justify-center shrink-0">
                 <Film size={14} className="text-[#1ABC71]" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-black truncate">{clip.moment.label}</p>
+                <p className="text-sm font-medium text-black dark:text-white truncate">{clip.moment.label}</p>
                 <p className="text-xs text-gray-500 font-mono mt-0.5">
                   {formatTime(effectiveStart)} → {formatTime(effectiveEnd)}
                   <span className="ml-2 text-gray-400">({Math.round(duration)}s)</span>
@@ -123,7 +123,7 @@ export default function ExportPanel({
             {/* Action buttons */}
             <div className="flex gap-2 pt-1">
               <button onClick={() => onEditClip(clip)}
-                className="flex-1 py-2 rounded-xl text-xs border border-gray-200 text-gray-600 hover:text-black hover:border-gray-300 transition-colors">
+                className="flex-1 py-2 rounded-xl text-xs border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white hover:border-gray-300 dark:hover:border-gray-600 transition-colors">
                 Edit
               </button>
 

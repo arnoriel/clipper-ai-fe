@@ -21,7 +21,7 @@ import {
   Flame,
   Building2,
   Gem,
-  Infinity,
+  Infinity as InfinityIcon,
   Cloud,
   Handshake,
   HelpCircle,
@@ -55,6 +55,7 @@ import {
   Heart,
   Sun,
   Moon,
+  Compass,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -184,29 +185,21 @@ const Navbar = () => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
 
-      // Scrollspy logic
-      const sections = ["fitur", "harga", "faq"];
+      // Scrollspy — the section whose top most recently passed the navbar line is active
+      const sections = ["cara-kerja", "fitur", "harga", "faq"];
+      const NAVBAR_HEIGHT = 90;
       let current = "";
 
-      for (const section of sections) {
-        const element = document.getElementById(section);
-        if (element) {
-          const rect = element.getBoundingClientRect();
-          // Adjust threshold - if top is within upper half of screen
-          if (rect.top <= window.innerHeight * 0.4 && rect.bottom >= window.innerHeight * 0.2) {
-            current = section;
-          }
+      for (const sectionId of sections) {
+        const el = document.getElementById(sectionId);
+        if (!el) continue;
+        if (el.getBoundingClientRect().top <= NAVBAR_HEIGHT) {
+          current = sectionId; // keep overwriting → last one wins = deepest section in view
         }
       }
 
-      // If we are at the very bottom of the page, force the last section to be active
-      if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 50) {
-        current = sections[sections.length - 1];
-      }
-      // If we're at the very top, clear active section
-      else if (window.scrollY < 100) {
-        current = "";
-      }
+      // If we haven't scrolled past any section yet, clear active state
+      if (window.scrollY < 80) current = "";
 
       setActiveSection(current);
     };
@@ -244,6 +237,8 @@ const Navbar = () => {
   };
 
   const navLinks = [
+    { href: "/", label: "Home" },
+    { href: "#cara-kerja", label: "Cara Kerja" },
     { href: "#fitur", label: "Fitur" },
     { href: "#harga", label: "Harga" },
     { href: "#faq", label: "FAQ" },
@@ -542,116 +537,182 @@ const FeaturesSection = () => {
   ];
 
   return (
-    <section id="fitur" className="py-20 sm:py-28 relative">
-
-      <div className="container mx-auto px-5 relative z-10">
-        <div className="text-center mb-14">
-          <span className="inline-flex items-center gap-2 text-sm font-bold text-[#1ABC71] bg-[#1ABC71]/10 px-4 py-1.5 rounded-full mb-5">
-            <Zap className="h-4 w-4" />
-            Fitur Lengkap
-          </span>
-          <h2 className="text-3xl sm:text-5xl font-extrabold max-w-3xl mx-auto tracking-tight text-gray-900 dark:text-white">
-            Semua Yang Kamu Butuh Buat <TextGradient>Clip Viral</TextGradient>
-          </h2>
-          <div className="w-48 sm:w-64 mx-auto mt-6">
-            <img
-              src="https://short-clip-lab.lovable.app/assets/illust-solution-CyNhw-ht.png"
-              alt="AI robot mengedit video otomatis"
-              className="w-full h-auto"
-            />
+    <>
+      <section id="cara-kerja" className="py-20 bg-gray-50 dark:bg-gray-900/50">
+        <div className="container mx-auto px-5">
+          <div className="text-center mb-16">
+            <span className="inline-flex items-center gap-2 text-sm font-bold text-[#1ABC71] bg-[#1ABC71]/10 px-4 py-1.5 rounded-full mb-5">
+              <Compass className="h-4 w-4" />
+              Cara Kerja
+            </span>
+            <h2 className="text-3xl sm:text-5xl font-extrabold text-gray-900 dark:text-white mb-6 tracking-tight">
+              3 Langkah Mudah Menuju <TextGradient>Viral</TextGradient>
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto text-lg">
+              Nggak perlu jago ngedit. Biarkan AI yang bekerja, kamu tinggal terima beres.
+            </p>
           </div>
-        </div>
 
-        {/* Headline Hook Feature */}
-        <CardElevated className="p-6 sm:p-8 mb-6 max-w-5xl mx-auto">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="h-12 w-12 rounded-2xl bg-[#1ABC71]/10 flex items-center justify-center shrink-0">
-              <Anchor className="h-6 w-6 text-[#1ABC71]" />
-            </div>
-            <div>
-              <h3 className="font-bold text-xl text-gray-900 dark:text-white flex items-center gap-2">
-                Headline Hook Otomatis
-                <Anchor className="h-4 w-4 text-[#1ABC71]" />
-              </h3>
-              <p className="text-[#1ABC71] text-xs font-bold">AI pasang headline yang bikin orang berhenti scroll.</p>
-            </div>
-          </div>
-          <p className="text-gray-600 dark:text-gray-400 text-sm mb-5 max-w-2xl">
-            Pilih style yang cocok, dari fun penuh emoji, profesional, gaya berita, sampai clean.
-          </p>
-          <div className="space-y-4">
-            {headlineStyles.map((style, i) => (
-              <div key={i}>
-                <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-[#1ABC71]/10 text-[#1ABC71] mb-2">
-                  {style.labelIcon}
-                  {style.label}
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  {style.examples.map((example, j) => (
-                    <span key={j} className="inline-flex items-center px-3 sm:px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs sm:text-sm font-medium cursor-pointer hover:border-[#1ABC71]/40 dark:hover:border-[#1ABC71]/40 hover:bg-[#1ABC71]/5 transition-all select-none">
-                      {example}
-                    </span>
-                  ))}
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto relative">
+            {/* Connecting Line (Desktop only) */}
+            <div className="hidden md:block absolute top-12 left-[15%] right-[15%] h-0.5 bg-gradient-to-r from-[#1ABC71]/10 via-[#1ABC71]/30 to-[#1ABC71]/10 z-0"></div>
+
+            {/* Step 1 */}
+            <div className="relative z-10 text-center">
+              <div className="w-24 h-24 mx-auto bg-white dark:bg-gray-800 rounded-full border-4 border-gray-50 dark:border-gray-900 shadow-xl flex items-center justify-center mb-6 relative">
+                <div className="absolute inset-0 rounded-full bg-[#1ABC71]/10 animate-ping opacity-20"></div>
+                <div className="h-14 w-14 rounded-full bg-gradient-to-br from-[#1ABC71] to-[#16a085] flex items-center justify-center text-white text-2xl font-black shadow-inner shadow-white/20">
+                  1
                 </div>
               </div>
-            ))}
-          </div>
-        </CardElevated>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">Upload Video</h3>
+              <p className="text-gray-600 dark:text-gray-400 text-sm">
+                Tarik &amp; lepas file rekamanmu atau langsung *paste* link YouTube berdurasi panjang kesini.
+              </p>
+            </div>
 
-        {/* Feature Grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 max-w-5xl mx-auto mb-6">
-          {features.map((feature, i) => (
-            <CardElevated key={i} className="p-5 sm:p-6 group">
-              <div className="flex items-center gap-3 mb-3">
-                {feature.icon}
+            {/* Step 2 */}
+            <div className="relative z-10 text-center">
+              <div className="w-24 h-24 mx-auto bg-white dark:bg-gray-800 rounded-full border-4 border-gray-50 dark:border-gray-900 shadow-xl flex items-center justify-center mb-6 relative">
+                <div className="absolute inset-0 rounded-full bg-[#1ABC71]/10 animate-ping opacity-20 delay-100"></div>
+                <div className="h-14 w-14 rounded-full bg-gradient-to-br from-[#1ABC71] to-[#16a085] flex items-center justify-center text-white text-2xl font-black shadow-inner shadow-white/20">
+                  2
+                </div>
               </div>
-              <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-1">{feature.title}</h3>
-              <p className="text-[#1ABC71] text-xs font-bold mb-2">{feature.highlight}</p>
-              <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">{feature.description}</p>
-            </CardElevated>
-          ))}
-        </div>
-
-        {/* Template Feature */}
-        <CardElevated className="p-6 sm:p-8 max-w-5xl mx-auto">
-          <div className="flex items-start gap-3 mb-3">
-            <div className="h-12 w-12 rounded-2xl bg-[#1ABC71]/10 flex items-center justify-center shrink-0">
-              <Video className="h-6 w-6 text-[#1ABC71]" />
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">Biarkan AI Bekerja</h3>
+              <p className="text-gray-600 dark:text-gray-400 text-sm">
+                AI akan secara otomatis memindai percakapan dan mencari momen-momen paling seru &amp; *engaging*.
+              </p>
             </div>
-            <div>
-              <h3 className="font-bold text-xl text-gray-900 dark:text-white">Simpan Sebagai Template Clip</h3>
-              <p className="text-[#1ABC71] text-xs font-bold flex items-center gap-1"><Repeat className="h-3 w-3" /> Atur sekali, pakai selamanya</p>
+
+            {/* Step 3 */}
+            <div className="relative z-10 text-center">
+              <div className="w-24 h-24 mx-auto bg-white dark:bg-gray-800 rounded-full border-4 border-gray-50 dark:border-gray-900 shadow-xl flex items-center justify-center mb-6 relative">
+                <div className="absolute inset-0 rounded-full bg-[#1ABC71]/10 animate-ping opacity-20 delay-200"></div>
+                <div className="h-14 w-14 rounded-full bg-gradient-to-br from-[#1ABC71] to-[#16a085] flex items-center justify-center text-white text-2xl font-black shadow-inner shadow-white/20">
+                  3
+                </div>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">Export &amp; Upload</h3>
+              <p className="text-gray-600 dark:text-gray-400 text-sm">
+                Dapatkan belasan video *portrait* dengan subtitle super keren yang siap di-*post* ke TikTok/Reels!
+              </p>
             </div>
           </div>
-          <p className="text-gray-600 dark:text-gray-400 text-sm mb-5 max-w-2xl">
-            Bikin template clip lengkap: headline hook, logo, watermark, gaya teks, warna. Tinggal pilih video, pilih template, langsung jadi!
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { icon: <Anchor className="h-3 w-3" />, label: "Headline Hook" },
-              { icon: <Image className="h-3 w-3" />, label: "Logo & Watermark" },
-              { icon: <Palette className="h-3 w-3" />, label: "Gaya Teks" },
-              { icon: <Droplets className="h-3 w-3" />, label: "Warna Teks" },
-            ].map((tag, i) => (
-              <span key={i} className="inline-flex items-center gap-1.5 text-xs px-4 py-2 rounded-full bg-[#1ABC71]/10 text-[#1ABC71] font-bold cursor-default">
-                {tag.icon}
-                {tag.label}
-              </span>
+        </div>
+      </section>
+
+      <section id="fitur" className="py-20 sm:py-28 relative">
+
+        <div className="container mx-auto px-5 relative z-10">
+          <div className="text-center mb-14">
+            <span className="inline-flex items-center gap-2 text-sm font-bold text-[#1ABC71] bg-[#1ABC71]/10 px-4 py-1.5 rounded-full mb-5">
+              <Zap className="h-4 w-4" />
+              Fitur Lengkap
+            </span>
+            <h2 className="text-3xl sm:text-5xl font-extrabold max-w-3xl mx-auto tracking-tight text-gray-900 dark:text-white">
+              Semua Yang Kamu Butuh Buat <TextGradient>Clip Viral</TextGradient>
+            </h2>
+            <div className="w-48 sm:w-64 mx-auto mt-6">
+              <img
+                src="https://short-clip-lab.lovable.app/assets/illust-solution-CyNhw-ht.png"
+                alt="AI robot mengedit video otomatis"
+                className="w-full h-auto"
+              />
+            </div>
+          </div>
+
+          {/* Headline Hook Feature */}
+          <CardElevated className="p-6 sm:p-8 mb-6 max-w-5xl mx-auto">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-12 w-12 rounded-2xl bg-[#1ABC71]/10 flex items-center justify-center shrink-0">
+                <Anchor className="h-6 w-6 text-[#1ABC71]" />
+              </div>
+              <div>
+                <h3 className="font-bold text-xl text-gray-900 dark:text-white flex items-center gap-2">
+                  Headline Hook Otomatis
+                  <Anchor className="h-4 w-4 text-[#1ABC71]" />
+                </h3>
+                <p className="text-[#1ABC71] text-xs font-bold">AI pasang headline yang bikin orang berhenti scroll.</p>
+              </div>
+            </div>
+            <p className="text-gray-600 dark:text-gray-400 text-sm mb-5 max-w-2xl">
+              Pilih style yang cocok, dari fun penuh emoji, profesional, gaya berita, sampai clean.
+            </p>
+            <div className="space-y-4">
+              {headlineStyles.map((style, i) => (
+                <div key={i}>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-[#1ABC71]/10 text-[#1ABC71] mb-2">
+                    {style.labelIcon}
+                    {style.label}
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {style.examples.map((example, j) => (
+                      <span key={j} className="inline-flex items-center px-3 sm:px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs sm:text-sm font-medium cursor-pointer hover:border-[#1ABC71]/40 dark:hover:border-[#1ABC71]/40 hover:bg-[#1ABC71]/5 transition-all select-none">
+                        {example}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardElevated>
+
+          {/* Feature Grid */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 max-w-5xl mx-auto mb-6">
+            {features.map((feature, i) => (
+              <CardElevated key={i} className="p-5 sm:p-6 group">
+                <div className="flex items-center gap-3 mb-3">
+                  {feature.icon}
+                </div>
+                <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-1">{feature.title}</h3>
+                <p className="text-[#1ABC71] text-xs font-bold mb-2">{feature.highlight}</p>
+                <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">{feature.description}</p>
+              </CardElevated>
             ))}
           </div>
-        </CardElevated>
-      </div>
-    </section>
+
+          {/* Template Feature */}
+          <CardElevated className="p-6 sm:p-8 max-w-5xl mx-auto">
+            <div className="flex items-start gap-3 mb-3">
+              <div className="h-12 w-12 rounded-2xl bg-[#1ABC71]/10 flex items-center justify-center shrink-0">
+                <Video className="h-6 w-6 text-[#1ABC71]" />
+              </div>
+              <div>
+                <h3 className="font-bold text-xl text-gray-900 dark:text-white">Simpan Sebagai Template Clip</h3>
+                <p className="text-[#1ABC71] text-xs font-bold flex items-center gap-1"><Repeat className="h-3 w-3" /> Atur sekali, pakai selamanya</p>
+              </div>
+            </div>
+            <p className="text-gray-600 dark:text-gray-400 text-sm mb-5 max-w-2xl">
+              Bikin template clip lengkap: headline hook, logo, watermark, gaya teks, warna. Tinggal pilih video, pilih template, langsung jadi!
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { icon: <Anchor className="h-3 w-3" />, label: "Headline Hook" },
+                { icon: <Image className="h-3 w-3" />, label: "Logo & Watermark" },
+                { icon: <Palette className="h-3 w-3" />, label: "Gaya Teks" },
+                { icon: <Droplets className="h-3 w-3" />, label: "Warna Teks" },
+              ].map((tag, i) => (
+                <span key={i} className="inline-flex items-center gap-1.5 text-xs px-4 py-2 rounded-full bg-[#1ABC71]/10 text-[#1ABC71] font-bold cursor-default">
+                  {tag.icon}
+                  {tag.label}
+                </span>
+              ))}
+            </div>
+          </CardElevated>
+        </div>
+      </section>
+    </>
   );
 };
 
 const WhyDifferentSection = () => {
   const benefits = [
-    { icon: Infinity, text: "Sekali beli, pakai selamanya (bukan langganan)" },
-    { icon: Target, text: "1 credit = 1 menit video, simpel" },
-    { icon: Cloud, text: "Upload dari file, YouTube, atau Google Drive" },
-    { icon: Handshake, text: "Ajak teman, dapet komisi (affiliate)" },
-    { icon: Zap, text: "Server cepat & stabil, gak nge-lag" },
+    { icon: <InfinityIcon className="h-6 w-6 text-[#1ABC71]" />, text: "Sekali beli, pakai selamanya (bukan langganan)" },
+    { icon: <Target className="h-6 w-6 text-[#1ABC71]" />, text: "1 credit = 1 menit video, simpel" },
+    { icon: <Cloud className="h-6 w-6 text-[#1ABC71]" />, text: "Upload dari file, YouTube, atau Google Drive" },
+    { icon: <Handshake className="h-6 w-6 text-[#1ABC71]" />, text: "Ajak teman, dapet komisi (affiliate)" },
+    { icon: <Zap className="h-6 w-6 text-[#1ABC71]" />, text: "Server cepat & stabil, gak nge-lag" },
   ];
 
   return (
@@ -679,7 +740,7 @@ const WhyDifferentSection = () => {
             {benefits.map((benefit, i) => (
               <div key={i} className="flex items-center gap-4">
                 <div className="h-10 w-10 rounded-xl bg-[#1ABC71]/10 flex items-center justify-center shrink-0">
-                  <benefit.icon className="h-5 w-5 text-[#1ABC71]" />
+                  {benefit.icon}
                 </div>
                 <div className="h-8 w-8 rounded-full bg-[#1ABC71]/15 flex items-center justify-center shrink-0">
                   <Check className="h-4 w-4 text-[#1ABC71]" />

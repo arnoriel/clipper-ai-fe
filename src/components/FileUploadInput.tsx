@@ -20,8 +20,8 @@ interface YoutubeInfo {
   title: string;
   duration: number;
   thumbnail: string;
-  author: string;
-  streams: { resolution: string; filesize_mb: number }[];
+  author?: string;
+  streams?: { resolution: string; filesize_mb: number }[];
 }
 
 const ACCEPTED_TYPES = [
@@ -263,14 +263,16 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center p-6 relative overflow-hidden">
-      {/* Background grid */}
+      {/* Background grid - light mode uses dark lines, dark mode uses light lines */}
       <div
-        className="absolute inset-0 opacity-[0.03]"
-        style={{
-          backgroundImage: `linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)`,
+        className="absolute inset-0 opacity-[0.04] dark:opacity-[0.06]"
+        style={{}}
+      >
+        <div className="absolute inset-0" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M 60 0 L 0 0 0 60' fill='none' stroke='%23888' stroke-width='0.5'/%3E%3C/svg%3E")`,
           backgroundSize: "60px 60px",
-        }}
-      />
+        }} />
+      </div>
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#1ABC71]/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-[#1ABC71]/5 rounded-full blur-[100px] pointer-events-none" />
 
@@ -500,13 +502,13 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
                     </p>
                     <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
                       <span className="flex items-center gap-1">
-                        <User size={10} /> {ytInfo.author}
+                        <User size={10} /> {ytInfo.author || "YouTube Creator"}
                       </span>
                       <span className="flex items-center gap-1 text-[#1ABC71] font-mono font-semibold">
                         <Clock size={10} /> {formatDuration(ytInfo.duration)}
                       </span>
                     </div>
-                    {ytInfo.streams.length > 0 && (
+                    {ytInfo.streams && ytInfo.streams.length > 0 && (
                       <div className="flex gap-1.5 mt-2 flex-wrap">
                         {ytInfo.streams.slice(-3).reverse().map((s, i) => (
                           <span
