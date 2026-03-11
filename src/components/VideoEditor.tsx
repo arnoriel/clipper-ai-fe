@@ -416,96 +416,41 @@ export default function VideoEditor({
 
   // ── Auto-subtitle: call backend, create overlays ──────────────────────────
 
-  // VTT Parser Utility
-  function parseVttToOverlays(vttText: string, preset: SubtitlePreset): TextOverlay[] {
-    const lines = vttText.split(/\r?\n/).map(l => l.trim());
-    const overlays: TextOverlay[] = [];
-    let currentOverlay: Partial<TextOverlay> | null = null;
-    let isParsingText = false;
-
-    // Helper to parse VTT time format (HH:MM:SS.mmm or MM:SS.mmm) to seconds
-    const parseTime = (timeStr: string) => {
-      const parts = timeStr.trim().split(':');
-      let seconds = 0;
-      if (parts.length === 3) {
-        seconds += parseInt(parts[0], 10) * 3600; // Hours
-        seconds += parseInt(parts[1], 10) * 60;   // Minutes
-        seconds += parseFloat(parts[2]);          // Seconds + Ms
-      } else if (parts.length === 2) {
-        seconds += parseInt(parts[0], 10) * 60;   // Minutes
-        seconds += parseFloat(parts[1]);          // Seconds + Ms
-      }
-      return seconds;
-    };
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-
-      // Skip WEBVTT header and empty lines
-      if (line === "WEBVTT" || line === "") {
-        if (currentOverlay && isParsingText) {
-          // Finish current overlay on empty space
-          overlays.push(applyPresetToOverlay(currentOverlay as TextOverlay, preset));
-          currentOverlay = null;
-          isParsingText = false;
-        }
-        continue;
-      }
-
-      // Detect timestamp line (e.g. 00:00:00.000 --> 00:00:05.000)
-      if (line.includes("-->")) {
-        const [startStr, endStr] = line.split("-->");
-        currentOverlay = defaultTextOverlay({
-          id: generateId(),
-          startSec: parseFloat(parseTime(startStr).toFixed(3)),
-          endSec: parseFloat(parseTime(endStr).toFixed(3)),
-          isAutoSubtitle: true,
-          text: "", // Will be filled in next lines
-        });
-        isParsingText = true;
-        continue;
-      }
-
-      // Not a timestamp, not empty, must be text or cue identifier
-      if (currentOverlay && isParsingText) {
-        if (currentOverlay.text) {
-          currentOverlay.text += " " + line; // Multi-line Subtitle
-        } else {
-          currentOverlay.text = line;
-        }
-      } else {
-        // If we are not parsing text and it's not a timestamp, it's likely a Cue Identifier (like "1", "2").
-        // We can safely ignore it.
-      }
-    }
-
-    // Push the last one if EOF reached
-    if (currentOverlay && isParsingText && currentOverlay.text) {
-      overlays.push(applyPresetToOverlay(currentOverlay as TextOverlay, preset));
-    }
-
-    return overlays;
-  }
-
-  async function handleAutoSubtitle() {
+    async function handleAutoSubtitle() {
     if (!onAutoSubtitle) return;
     setIsTranscribing(true);
     setTranscribeError("");
-
     try {
       const result = await onAutoSubtitle();
-      if (!result || !result.vtt) {
-        setTranscribeError("No speech detected or generation failed.");
-        return;
+      
+      // Backend returns { chunks: [{text, start, end}], ok, ... }
+      if (!result) { 
+        setTranscribeError("No response from server."); 
+        return; 
+      }
+
+      const chunks = (result as any).chunks as { text: string; start: number; end: number }[] | undefined;
+      
+      if (!chunks || chunks.length === 0) { 
+        setTranscribeError("No speech detected or generation failed."); 
+        return; 
       }
 
       const preset = SUBTITLE_PRESETS.find((p) => p.id === activePresetId) ?? SUBTITLE_PRESETS[0];
-
-      // Remove existing auto subtitles
       const manual = edits.textOverlays.filter((t) => !t.isAutoSubtitle);
-
-      // Create overlays by parsing VTT
-      const newOverlays = parseVttToOverlays(result.vtt, preset);
+      
+      const newOverlays: TextOverlay[] = chunks.map((chunk) =>
+        applyPresetToOverlay(
+          defaultTextOverlay({
+            id: generateId(),
+            text: chunk.text,
+            startSec: parseFloat(chunk.start.toFixed(3)),
+            endSec: parseFloat(chunk.end.toFixed(3)),
+            isAutoSubtitle: true,
+          }),
+          preset,
+        )
+      );
 
       updateEdits({ textOverlays: [...manual, ...newOverlays] });
       setSubtitleSubTab("layers");

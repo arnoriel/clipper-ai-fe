@@ -245,35 +245,29 @@ export default function App() {
   }
 
   // ── Auto-subtitle ─────────────────────────────────────────────────────────
-  async function handleAutoSubtitle(): Promise<{ vtt: string } | null> {
+  async function handleAutoSubtitle(): Promise<any | null> {
     if (!project?.id || !editingMoment) return null;
-
     const videoBlob = await getSourceVideoBlob(project.id);
-    if (!videoBlob) {
-      setError("Video tidak ditemukan di IndexedDB.");
-      return null;
-    }
-
+    if (!videoBlob) { setError("Video tidak ditemukan di IndexedDB."); return null; }
+    
     const edits = clipEdits[editingMoment.id] || defaultEdits();
     const startTime = editingMoment.startTime + edits.trimStart;
-    const endTime   = editingMoment.endTime   + edits.trimEnd;
-    const duration  = endTime - startTime;
-
+    const endTime = editingMoment.endTime + edits.trimEnd;  // ← tambah ini
+    
     const formData = new FormData();
-    formData.append("video",      videoBlob, "source.mp4");
-    formData.append("start_sec",  startTime.toString());
-    formData.append("duration",   duration.toString());
+    formData.append("video", videoBlob, "source.mp4");
+    formData.append("start_time", startTime.toString());
+    formData.append("end_time", endTime.toString());
 
-    const resp = await fetch(`${API_BASE}/api/generate-subtitle`, {
-      method: "POST",
-      body:   formData,
+    const resp = await fetch(`${API_BASE}/api/auto-subtitle`, { 
+      method: "POST", 
+      body: formData 
     });
-
-    if (!resp.ok) {
-      const body = await resp.json().catch(() => ({}));
-      throw new Error(body.detail || body.error || "Transcription failed");
+    
+    if (!resp.ok) { 
+      const body = await resp.json().catch(() => ({})); 
+      throw new Error(body.detail || body.error || "Transcription failed"); 
     }
-
     return await resp.json();
   }
 
