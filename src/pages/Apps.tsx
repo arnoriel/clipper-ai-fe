@@ -328,6 +328,17 @@ export default function App() {
           startSec:          t.startSec,
           endSec:            t.endSec,
         })),
+        imageOverlays: (edits.imageOverlays ?? []).map((img) => ({
+          id:       img.id,
+          src:      img.src,
+          name:     img.name,
+          x:        img.x,
+          y:        img.y,
+          width:    img.width,
+          opacity:  img.opacity,
+          startSec: img.startSec,
+          endSec:   img.endSec,
+        })),
       };
 
       setProgressMsg("Server memproses clip, harap tunggu…");
