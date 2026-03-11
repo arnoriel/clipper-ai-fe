@@ -121,7 +121,7 @@ function AuthInput({ icon, label, error, rightEl, ...props }: InputProps) {
           {...props}
           onFocus={(e) => { setFocused(true); props.onFocus?.(e); }}
           onBlur={(e)  => { setFocused(false); props.onBlur?.(e); }}
-          className="flex-1 bg-transparent px-3 py-3 text-sm text-gray-800 placeholder-gray-300 outline-none"
+          className="flex-1 bg-transparent px-3 py-3 text-sm text-gray-800 placeholder-gray-300 outline-none min-w-0"
         />
         {rightEl && <span className="pr-3">{rightEl}</span>}
       </div>
@@ -136,7 +136,7 @@ function AuthInput({ icon, label, error, rightEl, ...props }: InputProps) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// Main Auth Page — Light Theme
+// Main Auth Page — Light Theme with Mobile Support
 // ══════════════════════════════════════════════════════════════════════════════
 export default function Auth() {
   const navigate = useNavigate();
@@ -237,7 +237,7 @@ export default function Auth() {
       <div className="relative w-full max-w-md">
 
         {/* Logo */}
-        <div className="flex items-center justify-center gap-2.5 mb-10">
+        <div className="flex items-center justify-center gap-2.5 mb-8 md:mb-10">
           <div className="w-9 h-9 rounded-xl bg-[#1ABC71] flex items-center justify-center shadow-lg shadow-[#1ABC71]/25">
             <Zap size={18} className="text-white fill-white" />
           </div>
@@ -250,7 +250,7 @@ export default function Auth() {
         </div>
 
         {/* Tab switcher */}
-        <div className="flex gap-1 p-1 rounded-2xl bg-white border border-gray-200 mb-8 shadow-sm">
+        <div className="flex gap-1 p-1 rounded-2xl bg-white border border-gray-200 mb-6 md:mb-8 shadow-sm">
           {(["signin", "signup"] as const).map((m) => (
             <button
               key={m}
@@ -267,7 +267,7 @@ export default function Auth() {
         </div>
 
         {/* Form card */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-xl shadow-gray-200/60">
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 md:p-8 shadow-xl shadow-gray-200/60">
 
           {/* Success */}
           {success && (
@@ -322,7 +322,7 @@ export default function Auth() {
                   <button
                     type="button"
                     onClick={() => setSiShowPw((v) => !v)}
-                    className="text-gray-300 hover:text-gray-500 transition-colors"
+                    className="text-gray-300 hover:text-gray-500 transition-colors p-1"
                   >
                     {siShowPw ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
@@ -332,7 +332,7 @@ export default function Auth() {
               <button
                 type="submit"
                 disabled={loading || !!success}
-                className="w-full flex items-center justify-center gap-2.5 py-3 rounded-xl bg-[#1ABC71] text-sm font-semibold text-white hover:bg-[#16a863] disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-[#1ABC71]/20 active:scale-[0.99]"
+                className="w-full flex items-center justify-center gap-2.5 py-3.5 md:py-3 rounded-xl bg-[#1ABC71] text-sm font-semibold text-white hover:bg-[#16a863] disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-[#1ABC71]/20 active:scale-[0.99]"
               >
                 {loading ? (
                   <Loader2 size={16} className="animate-spin" />
@@ -406,7 +406,7 @@ export default function Auth() {
                     <button
                       type="button"
                       onClick={() => setSuShowPw((v) => !v)}
-                      className="text-gray-300 hover:text-gray-500 transition-colors"
+                      className="text-gray-300 hover:text-gray-500 transition-colors p-1"
                     >
                       {suShowPw ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
@@ -428,7 +428,7 @@ export default function Auth() {
                   <button
                     type="button"
                     onClick={() => setSuShowConfirm((v) => !v)}
-                    className="text-gray-300 hover:text-gray-500 transition-colors"
+                    className="text-gray-300 hover:text-gray-500 transition-colors p-1"
                   >
                     {suShowConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
@@ -438,7 +438,7 @@ export default function Auth() {
               <button
                 type="submit"
                 disabled={loading || !!success}
-                className="w-full flex items-center justify-center gap-2.5 py-3 rounded-xl bg-[#1ABC71] text-sm font-semibold text-white hover:bg-[#16a863] disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-[#1ABC71]/20 active:scale-[0.99]"
+                className="w-full flex items-center justify-center gap-2.5 py-3.5 md:py-3 rounded-xl bg-[#1ABC71] text-sm font-semibold text-white hover:bg-[#16a863] disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-[#1ABC71]/20 active:scale-[0.99]"
               >
                 {loading ? (
                   <Loader2 size={16} className="animate-spin" />
@@ -465,8 +465,8 @@ export default function Auth() {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-[10px] text-gray-400 mt-6">
-          Dengan mendaftar, kamu menyetujui syarat & ketentuan kami.
+        <p className="text-center text-[10px] text-gray-400 mt-6 px-4">
+          Dengan mendaftar, kamu menyetujui syarat &amp; ketentuan kami.
         </p>
       </div>
 

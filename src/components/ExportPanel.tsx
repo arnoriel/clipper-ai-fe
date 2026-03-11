@@ -24,8 +24,8 @@ export default function ExportPanel({
 }: Props) {
   if (clips.length === 0) {
     return (
-      <div className="text-center py-16 text-gray-400">
-        <Film size={40} className="mx-auto mb-3 opacity-30" />
+      <div className="text-center py-12 md:py-16 text-gray-400 px-4">
+        <Film size={36} className="mx-auto mb-3 opacity-30" />
         <p className="text-sm">No clips selected yet.</p>
         <p className="text-xs mt-1">Go back and select some viral moments.</p>
       </div>
@@ -44,7 +44,7 @@ export default function ExportPanel({
   const exportedCount = Object.keys(exportedUrls).length;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 md:space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-700">
           {clips.length} Clip{clips.length > 1 ? "s" : ""} Ready
@@ -66,7 +66,7 @@ export default function ExportPanel({
         const manualSubCount = clip.edits.textOverlays.filter((t) => !t.isAutoSubtitle).length;
 
         return (
-          <div key={clip.momentId} className="bg-gray-50 border border-gray-200 rounded-2xl p-4 space-y-3">
+          <div key={clip.momentId} className="bg-gray-50 border border-gray-200 rounded-2xl p-3 md:p-4 space-y-3">
             {/* Clip info */}
             <div className="flex items-start gap-3">
               <div className="w-8 h-8 rounded-lg bg-[#1ABC71]/10 border border-[#1ABC71]/20 flex items-center justify-center shrink-0">
@@ -80,7 +80,7 @@ export default function ExportPanel({
                 </p>
               </div>
               <button onClick={() => onRemoveClip(clip.momentId)}
-                className="text-gray-400 hover:text-red-500 transition-colors p-1 shrink-0" title="Remove clip">
+                className="text-gray-400 hover:text-red-500 transition-colors p-1.5 shrink-0 active:scale-90" title="Remove clip">
                 <Trash2 size={14} />
               </button>
             </div>
@@ -120,22 +120,22 @@ export default function ExportPanel({
               )}
             </div>
 
-            {/* Action buttons */}
+            {/* Action buttons — full width on mobile */}
             <div className="flex gap-2 pt-1">
               <button onClick={() => onEditClip(clip)}
-                className="flex-1 py-2 rounded-xl text-xs border border-gray-200 text-gray-600 hover:text-black hover:border-gray-300 transition-colors">
+                className="flex-1 py-2.5 md:py-2 rounded-xl text-xs border border-gray-200 text-gray-600 hover:text-black hover:border-gray-300 transition-colors active:scale-95">
                 Edit
               </button>
 
               {exportedUrl ? (
                 <button
                   onClick={() => downloadFile(exportedUrl, `${clip.moment.label.replace(/\s+/g, "_")}.mp4`)}
-                  className="flex-1 py-2 rounded-xl text-xs bg-[#1ABC71]/20 border border-[#1ABC71]/30 text-[#1ABC71] hover:bg-[#1ABC71]/30 transition-colors flex items-center justify-center gap-1.5">
+                  className="flex-1 py-2.5 md:py-2 rounded-xl text-xs bg-[#1ABC71]/20 border border-[#1ABC71]/30 text-[#1ABC71] hover:bg-[#1ABC71]/30 transition-colors flex items-center justify-center gap-1.5 active:scale-95">
                   <Download size={12} /> Download
                 </button>
               ) : (
                 <button onClick={() => onExportClip(clip)} disabled={isExporting}
-                  className="flex-1 py-2 rounded-xl text-xs bg-[#1ABC71] text-white hover:bg-[#16a085] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1.5">
+                  className="flex-1 py-2.5 md:py-2 rounded-xl text-xs bg-[#1ABC71] text-white hover:bg-[#16a085] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1.5 active:scale-95">
                   {isExporting
                     ? <><Loader2 size={12} className="animate-spin" /> Processing...</>
                     : <><Zap size={12} /> Export</>

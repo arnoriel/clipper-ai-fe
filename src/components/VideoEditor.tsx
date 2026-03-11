@@ -1,11 +1,13 @@
 // src/components/VideoEditor.tsx
 // CapCut-style video editor with AI auto-subtitle system (2short.ai inspired)
+// Mobile-responsive: stacked layout on mobile, side-by-side on desktop
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
   X, Play, Pause, SkipBack, SkipForward, Type, Crop,
   Sliders, Zap, Download, Loader2, Plus, Trash2, Clock, RefreshCw,
   AlignCenter, AlignLeft, AlignRight, Bold, Italic, ChevronDown, ChevronUp,
   Eye, EyeOff, CaseSensitive, Sparkles, Wand2, Check, Image as ImageIcon,
+  ChevronLeft,
 } from "lucide-react";
 import type { ViralMoment } from "../lib/AI";
 import { formatTime } from "../lib/AI";
@@ -23,8 +25,6 @@ import {
 } from "../lib/storage";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
-
-
 interface Props {
   moment: ViralMoment;
   edits: ClipEdits;
@@ -49,8 +49,6 @@ const ASPECT_RATIOS: { label: string; value: ClipEdits["aspectRatio"]; desc: str
 const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const SNAP_THRESHOLD = 0.03;
 
-// ── Font size disimpan sebagai "px di referensi 1080px lebar" ─────────────────
-// Preview akan scale: actualPx = storedPx * (previewWidth / 1080)
 const FONT_REFERENCE_WIDTH = 1080;
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -72,7 +70,6 @@ function hexToRgba(hex: string, alpha: number): string {
 function buildTextShadow(t: TextOverlay, scale: number): string {
   if (!t.shadowEnabled) return "none";
   const color = hexToRgba(t.shadowColor || "#000000", 0.85);
-  // Scale shadow offset supaya proporsional dengan ukuran preview
   const sx = (t.shadowX ?? 2) * scale;
   const sy = (t.shadowY ?? 2) * scale;
   const blur = (t.shadowBlur ?? 8) * scale;
@@ -107,7 +104,7 @@ function FontPicker({ value, onChange }: { value: string; onChange: (v: string) 
       </button>
       {open && (
         <div className="absolute z-50 mt-1 left-0 right-0 bg-[#181818] border border-white/15 rounded-xl shadow-2xl overflow-hidden">
-          <div className="overflow-y-auto" style={{ maxHeight: "260px" }}>
+          <div className="overflow-y-auto" style={{ maxHeight: "200px" }}>
             {categories.map((cat) => {
               const fonts = SUBTITLE_FONTS.filter((f) => f.category === cat);
               if (!fonts.length) return null;
@@ -120,8 +117,7 @@ function FontPicker({ value, onChange }: { value: string; onChange: (v: string) 
                     <button
                       key={font.name}
                       onClick={() => { onChange(font.name); setOpen(false); }}
-                      className={`w-full px-3 py-2 text-left text-sm transition-colors hover:bg-white/8 ${value === font.name ? "text-[#1ABC71] bg-[#1ABC71]/10" : "text-white/70"
-                        }`}
+                      className={`w-full px-3 py-2 text-left text-sm transition-colors hover:bg-white/8 ${value === font.name ? "text-[#1ABC71] bg-[#1ABC71]/10" : "text-white/70"}`}
                       style={{ fontFamily: `'${font.name}', sans-serif` }}
                     >
                       {font.name}
@@ -157,32 +153,23 @@ function ColorSwatch({ label, value, onChange }: { label: string; value: string;
 
 // ─── Preset card ─────────────────────────────────────────────────────────────
 function PresetCard({
-  preset,
-  isActive,
-  onClick,
+  preset, isActive, onClick,
 }: {
-  preset: SubtitlePreset;
-  isActive: boolean;
-  onClick: () => void;
+  preset: SubtitlePreset; isActive: boolean; onClick: () => void;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`relative w-full rounded-xl overflow-hidden border transition-all duration-200 text-left group ${isActive
-        ? "border-[#1ABC71] shadow-[0_0_12px_rgba(26,188,113,0.35)]"
-        : "border-white/10 hover:border-white/25"
-        }`}
+      className={`relative w-full rounded-xl overflow-hidden border transition-all duration-200 text-left group ${
+        isActive ? "border-[#1ABC71] shadow-[0_0_12px_rgba(26,188,113,0.35)]" : "border-white/10 hover:border-white/25"
+      }`}
     >
-      {/* Preview area */}
-      <div
-        className="h-14 flex items-center justify-center px-2"
-        style={{ backgroundColor: preset.previewBg }}
-      >
-        <span
-          className="text-center leading-tight"
+      <div className="h-12 md:h-14 flex items-center justify-center px-2"
+        style={{ backgroundColor: preset.previewBg }}>
+        <span className="text-center leading-tight"
           style={{
             fontFamily: `'${preset.overrides.fontFamily ?? "Montserrat"}', sans-serif`,
-            fontSize: "14px",
+            fontSize: "13px",
             fontWeight: preset.overrides.bold ? "bold" : "normal",
             color: preset.previewText,
             textTransform: preset.overrides.uppercase ? "uppercase" : "none",
@@ -205,14 +192,31 @@ function PresetCard({
           {preset.emoji} {preset.name}
         </span>
       </div>
-      {/* Label */}
-      <div className={`px-2.5 py-1.5 ${isActive ? "bg-[#1ABC71]/15" : "bg-[#111]"}`}>
+      <div className={`px-2 py-1.5 ${isActive ? "bg-[#1ABC71]/15" : "bg-[#111]"}`}>
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-semibold text-white/80 truncate">{preset.name}</span>
           {isActive && <Check size={10} className="text-[#1ABC71] shrink-0" />}
         </div>
       </div>
     </button>
+  );
+}
+
+// ─── SliderField ──────────────────────────────────────────────────────────────
+function SliderField({ label, value, min, max, step, format, onChange, dark }: {
+  label: string; value: number; min: number; max: number; step: number;
+  format: (v: number) => string; onChange: (v: number) => void; dark?: boolean;
+}) {
+  return (
+    <div>
+      <div className="flex justify-between mb-2">
+        <label className={`text-xs ${dark ? "text-white/50" : "text-gray-600"}`}>{label}</label>
+        <span className="text-xs font-mono text-[#1ABC71]">{format(value)}</span>
+      </div>
+      <input type="range" min={min} max={max} step={step} value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        className="w-full accent-[#1ABC71]" />
+    </div>
   );
 }
 
@@ -234,12 +238,15 @@ export default function VideoEditor({
   const [newText, setNewText] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // Mobile: whether right panel is showing (bottom sheet)
+  const [mobileShowPanel, setMobileShowPanel] = useState(false);
+
   // Auto-subtitle state
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcribeError, setTranscribeError] = useState("");
   const [subtitleSubTab, setSubtitleSubTab] = useState<"presets" | "layers" | "add">("presets");
 
-  // ── Preview video wrapper actual pixel width (untuk scale font) ───────────
+  // Preview video wrapper actual pixel width
   const [previewWidth, setPreviewWidth] = useState(0);
 
   useEffect(() => {
@@ -252,9 +259,6 @@ export default function VideoEditor({
     return () => obs.disconnect();
   }, []);
 
-  // Scale factor: berapa kali lebih kecil preview dibanding referensi 1080px
-  // Contoh: preview 400px wide → scale = 400/1080 = 0.37
-  // Sehingga fontSize 44 (stored) → 44 * 0.37 = ~16px di preview → proporsional
   const fontPreviewScale = previewWidth > 0 ? previewWidth / FONT_REFERENCE_WIDTH : 1;
 
   // Drag state
@@ -358,7 +362,6 @@ export default function VideoEditor({
   // ── Spacebar play/pause ───────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Jangan trigger saat user sedang mengetik di input/textarea
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (e.code === "Space") {
@@ -383,6 +386,21 @@ export default function VideoEditor({
     e.preventDefault();
     setIsDraggingProgress(true);
     seekToClientX(e.clientX);
+  }
+
+  // Touch support for progress bar
+  function handleProgressTouchStart(e: React.TouchEvent) {
+    const touch = e.touches[0];
+    const bar = progressBarRef.current;
+    if (!bar || !videoRef.current) return;
+    const rect = bar.getBoundingClientRect();
+    const pct = Math.min(1, Math.max(0, (touch.clientX - rect.left) / rect.width));
+    videoRef.current.currentTime = clipStart + pct * clipDuration;
+  }
+
+  function handleProgressTouchMove(e: React.TouchEvent) {
+    const touch = e.touches[0];
+    seekToClientX(touch.clientX);
   }
 
   useEffect(() => {
@@ -414,16 +432,14 @@ export default function VideoEditor({
     updateEdits({ textOverlays: updated, activePresetId: presetId });
   }
 
-  // ── Auto-subtitle: call backend, create overlays ──────────────────────────
-
-    async function handleAutoSubtitle() {
+  // ── Auto-subtitle ──────────────────────────────────────────────────────────
+  async function handleAutoSubtitle() {
     if (!onAutoSubtitle) return;
     setIsTranscribing(true);
     setTranscribeError("");
     try {
       const result = await onAutoSubtitle();
       
-      // Backend returns { chunks: [{text, start, end}], ok, ... }
       if (!result) { 
         setTranscribeError("No response from server."); 
         return; 
@@ -587,8 +603,6 @@ export default function VideoEditor({
   function renderOverlayControls(t: TextOverlay) {
     const s = t.startSec ?? 0;
     const en = t.endSec ?? clipDuration;
-
-    // Tampilkan font size dalam px "nyata" di preview untuk UX yang intuitif
     const previewPx = Math.round(t.fontSize * fontPreviewScale);
 
     return (
@@ -609,7 +623,7 @@ export default function VideoEditor({
             <label className="block text-[10px] text-white/40 mb-1.5 font-medium uppercase tracking-wider">
               Size: {t.fontSize}
               {fontPreviewScale < 0.99 && (
-                <span className="text-white/20 ml-1">(~{previewPx}px preview)</span>
+                <span className="text-white/20 ml-1">(~{previewPx}px)</span>
               )}
             </label>
             <input type="range" min={12} max={120} value={t.fontSize} onChange={(e) => updateOverlay(t.id, { fontSize: +e.target.value })} className="w-full accent-[#1ABC71]" />
@@ -633,7 +647,7 @@ export default function VideoEditor({
               <Italic size={11} /> Italic</button>
             <button onClick={() => updateOverlay(t.id, { uppercase: !t.uppercase })}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all border ${t.uppercase ? "bg-[#1ABC71]/20 border-[#1ABC71]/40 text-[#1ABC71]" : "bg-white/5 border-white/10 text-white/40 hover:text-white/70"}`}>
-              <CaseSensitive size={11} /> ALL CAPS</button>
+              <CaseSensitive size={11} /> CAPS</button>
           </div>
         </div>
 
@@ -644,8 +658,7 @@ export default function VideoEditor({
               const Icon = align === "left" ? AlignLeft : align === "center" ? AlignCenter : AlignRight;
               return (
                 <button key={align} onClick={() => updateOverlay(t.id, { textAlign: align })}
-                  className={`flex-1 py-1.5 rounded-lg flex items-center justify-center transition-all border ${(t.textAlign || "center") === align ? "bg-[#1ABC71]/20 border-[#1ABC71]/40 text-[#1ABC71]" : "bg-white/5 border-white/10 text-white/40 hover:text-white/60"
-                    }`}>
+                  className={`flex-1 py-1.5 rounded-lg flex items-center justify-center transition-all border ${(t.textAlign || "center") === align ? "bg-[#1ABC71]/20 border-[#1ABC71]/40 text-[#1ABC71]" : "bg-white/5 border-white/10 text-white/40 hover:text-white/60"}`}>
                   <Icon size={13} />
                 </button>
               );
@@ -750,57 +763,450 @@ export default function VideoEditor({
     );
   }
 
+  // ── Tab icon labels for mobile bottom bar ─────────────────────────────────
+  const TABS: { id: Tab; label: string; icon: typeof Type }[] = [
+    { id: "subtitle", label: "Sub", icon: Type },
+    { id: "trim",     label: "Trim", icon: Clock },
+    { id: "crop",     label: "Crop", icon: Crop },
+    { id: "color",    label: "Color", icon: Sliders },
+    { id: "speed",    label: "Speed", icon: Zap },
+    { id: "media",    label: "Media", icon: ImageIcon },
+  ];
+
+  // ── Right panel content (shared between desktop sidebar and mobile sheet) ──
+  function renderPanelContent() {
+    return (
+      <>
+        {/* ── SUBTITLE TAB ── */}
+        {activeTab === "subtitle" && (
+          <div className="flex flex-col h-full">
+            {/* Sub-tab bar */}
+            <div className="flex border-b border-white/10 shrink-0">
+              {(["presets", "add", "layers"] as const).map((tab) => (
+                <button key={tab} onClick={() => setSubtitleSubTab(tab)}
+                  className={`flex-1 py-2.5 text-[10px] font-semibold uppercase tracking-wider transition-colors ${subtitleSubTab === tab ? "text-[#1ABC71] border-b-2 border-[#1ABC71]" : "text-white/30 hover:text-white/60"}`}>
+                  {tab === "presets" ? "Styles" : tab === "add" ? "+ Add" : `Layers (${edits.textOverlays.length})`}
+                </button>
+              ))}
+            </div>
+
+            {/* ─── PRESETS sub-tab ─── */}
+            {subtitleSubTab === "presets" && (
+              <div className="p-4 space-y-4 overflow-y-auto flex-1">
+                <div className="rounded-xl border border-[#1ABC71]/20 bg-[#1ABC71]/5 p-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Wand2 size={13} className="text-[#1ABC71]" />
+                    <span className="text-xs font-bold text-white">AI Auto Subtitle</span>
+                    <span className="ml-auto text-[9px] text-[#1ABC71]/60 font-mono">3 words/line</span>
+                  </div>
+                  <p className="text-[10px] text-white/40 leading-relaxed">
+                    AI listens to speech in your clip and generates synced subtitles — 3 words at a time.
+                  </p>
+
+                  {transcribeError && (
+                    <p className="text-[10px] text-red-400 bg-red-500/10 rounded-lg px-2 py-1.5">{transcribeError}</p>
+                  )}
+
+                  <button
+                    onClick={handleAutoSubtitle}
+                    disabled={isTranscribing || !onAutoSubtitle}
+                    className="w-full py-2.5 rounded-xl bg-[#1ABC71] text-white text-xs font-bold hover:bg-[#16a085] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#1ABC71]/20"
+                  >
+                    {isTranscribing ? (
+                      <><Loader2 size={13} className="animate-spin" /> Transcribing speech…</>
+                    ) : (
+                      <><Sparkles size={13} /> Generate Auto Subtitles</>
+                    )}
+                  </button>
+
+                  {!onAutoSubtitle && (
+                    <p className="text-[9px] text-white/20 text-center">Requires OPENAI_API_KEY on backend</p>
+                  )}
+
+                  {autoCount > 0 && (
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="text-[#1ABC71]/70 flex items-center gap-1"><Sparkles size={9} />{autoCount} subtitles generated</span>
+                      <button onClick={clearAutoSubtitles} className="text-red-400/60 hover:text-red-400 transition-colors flex items-center gap-1">
+                        <Trash2 size={10} /> Clear
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium mb-2">Style Presets</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {SUBTITLE_PRESETS.map((preset) => (
+                      <PresetCard
+                        key={preset.id}
+                        preset={preset}
+                        isActive={activePresetId === preset.id}
+                        onClick={() => applyPresetToAllAuto(preset.id)}
+                      />
+                    ))}
+                  </div>
+                  {autoCount > 0 && (
+                    <p className="text-[9px] text-white/20 text-center mt-2">
+                      Click a style to apply to all {autoCount} auto subtitles
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ─── ADD sub-tab ─── */}
+            {subtitleSubTab === "add" && (
+              <div className="p-4 space-y-4">
+                <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Add Manual Subtitle</div>
+                <div className="flex flex-col gap-2">
+                  <textarea value={newText} onChange={(e) => setNewText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addTextOverlay(); } }}
+                    placeholder="Type subtitle text…" rows={3}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-[#1ABC71]/50 resize-none" />
+                  <button onClick={addTextOverlay}
+                    className="w-full py-2 bg-[#1ABC71]/20 border border-[#1ABC71]/30 rounded-xl text-[#1ABC71] text-xs font-medium hover:bg-[#1ABC71]/30 transition-colors flex items-center justify-center gap-2">
+                    <Plus size={13} />
+                    Add at {formatTime(Math.max(0, currentTime - clipStart))}
+                  </button>
+                </div>
+                <div className="text-[9px] text-white/20 leading-relaxed">
+                  Uses active style preset. Edit text, timing &amp; style in the Layers tab.
+                </div>
+                <div className="rounded-xl border border-white/10 overflow-hidden">
+                  <div className="text-[9px] text-white/25 px-3 pt-2 pb-1 uppercase tracking-wider">Active Style</div>
+                  <PresetCard preset={currentPreset} isActive onClick={() => setSubtitleSubTab("presets")} />
+                </div>
+              </div>
+            )}
+
+            {/* ─── LAYERS sub-tab ─── */}
+            {subtitleSubTab === "layers" && (
+              <div className="p-4 space-y-2 overflow-y-auto flex-1">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">
+                    All Layers ({edits.textOverlays.length})
+                  </div>
+                  {edits.textOverlays.length > 0 && (
+                    <button onClick={() => updateEdits({ textOverlays: [] })}
+                      className="text-[9px] text-red-400/50 hover:text-red-400 transition-colors">
+                      Clear all
+                    </button>
+                  )}
+                </div>
+
+                {edits.textOverlays.length === 0 && (
+                  <div className="py-10 text-center">
+                    <Type size={24} className="text-white/10 mx-auto mb-2" />
+                    <p className="text-xs text-white/20">No subtitles yet</p>
+                    <button onClick={() => setSubtitleSubTab("presets")}
+                      className="mt-2 text-[10px] text-[#1ABC71]/60 hover:text-[#1ABC71] transition-colors">
+                      Generate auto subtitles →
+                    </button>
+                  </div>
+                )}
+
+                {edits.textOverlays.map((t) => {
+                  const isSelected = selectedOverlayId === t.id;
+                  const isExpanded = expandedId === t.id;
+                  const s = t.startSec ?? 0;
+                  const en = t.endSec ?? clipDuration;
+
+                  return (
+                    <div key={t.id}
+                      className={`rounded-xl border transition-all overflow-hidden ${isSelected ? "border-[#1ABC71]/50 bg-[#1ABC71]/10" : "border-white/10 bg-white/3 hover:border-white/20"}`}>
+                      <div className="flex items-center gap-2 px-3 py-2.5 cursor-pointer"
+                        onClick={() => { setSelectedOverlayId(t.id); setExpandedId(isExpanded ? null : t.id); }}>
+                        <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                          {t.isAutoSubtitle
+                            ? <Sparkles size={10} className="text-purple-400 shrink-0" />
+                            : <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
+                          }
+                          <span className="text-xs text-white/80 truncate"
+                            style={{ fontFamily: `'${t.fontFamily || "Montserrat"}', sans-serif` }}>
+                            {t.uppercase ? t.text.toUpperCase() : t.text}
+                          </span>
+                        </div>
+                        <span className="text-[9px] text-white/25 font-mono shrink-0">{s.toFixed(1)}–{en.toFixed(1)}s</span>
+                        <button onClick={(ev) => { ev.stopPropagation(); removeOverlay(t.id); }}
+                          className="p-1 rounded hover:bg-red-500/20 text-white/20 hover:text-red-400 transition-colors shrink-0">
+                          <Trash2 size={11} />
+                        </button>
+                        <div className="text-white/20">{isExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}</div>
+                      </div>
+                      {isExpanded && renderOverlayControls(t)}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── TRIM TAB ── */}
+        {activeTab === "trim" && (
+          <div className="p-4 space-y-5">
+            <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Trim Clip</div>
+            <SliderField label="Trim Start" value={edits.trimStart}
+              min={0} max={Math.max(0, Math.floor((moment.endTime - moment.startTime) * 0.8))}
+              step={1} format={(v) => `+${v}s`} dark onChange={(v) => updateEdits({ trimStart: v })} />
+            <SliderField label="Trim End" value={edits.trimEnd}
+              min={-Math.max(0, Math.floor((moment.endTime - moment.startTime) * 0.8))} max={0}
+              step={1} format={(v) => `${v}s`} dark onChange={(v) => updateEdits({ trimEnd: v })} />
+            <div className="bg-white/5 rounded-xl p-3 text-xs text-white/50 space-y-1.5 border border-white/10">
+              <div className="flex justify-between"><span>New Start</span><span className="font-mono text-white">{formatTime(clipStart)}</span></div>
+              <div className="flex justify-between"><span>New End</span><span className="font-mono text-white">{formatTime(clipEnd)}</span></div>
+              <div className="flex justify-between border-t border-white/10 pt-1.5"><span>Duration</span><span className="font-mono text-[#1ABC71]">{Math.round(clipDuration)}s</span></div>
+            </div>
+          </div>
+        )}
+
+        {/* ── CROP TAB ── */}
+        {activeTab === "crop" && (
+          <div className="p-4 space-y-4">
+            <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Aspect Ratio</div>
+            <div className="space-y-1.5">
+              {ASPECT_RATIOS.map((ar) => (
+                <button key={ar.value} onClick={() => updateEdits({ aspectRatio: ar.value })}
+                  className={`w-full px-3 py-2.5 rounded-xl text-xs font-medium text-left transition-all flex items-center justify-between ${edits.aspectRatio === ar.value
+                    ? "bg-[#1ABC71]/20 border border-[#1ABC71]/40 text-[#1ABC71]"
+                    : "bg-white/5 border border-white/10 text-white/50 hover:text-white hover:border-white/20"
+                    }`}>
+                  <span>{ar.label}</span>
+                  <span className={`text-[10px] ${edits.aspectRatio === ar.value ? "text-[#1ABC71]/60" : "text-white/25"}`}>{ar.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── COLOR TAB ── */}
+        {activeTab === "color" && (
+          <div className="p-4 space-y-5">
+            <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Color Adjustments</div>
+            <SliderField label="Brightness" value={edits.brightness} min={-1} max={1} step={0.05}
+              format={(v) => (v > 0 ? `+${(v * 100).toFixed(0)}%` : `${(v * 100).toFixed(0)}%`)}
+              onChange={(v) => updateEdits({ brightness: v })} dark />
+            <SliderField label="Contrast" value={edits.contrast} min={-1} max={1} step={0.05}
+              format={(v) => (v > 0 ? `+${(v * 100).toFixed(0)}%` : `${(v * 100).toFixed(0)}%`)}
+              onChange={(v) => updateEdits({ contrast: v })} dark />
+            <SliderField label="Saturation" value={edits.saturation} min={-1} max={1} step={0.05}
+              format={(v) => (v > 0 ? `+${(v * 100).toFixed(0)}%` : `${(v * 100).toFixed(0)}%`)}
+              onChange={(v) => updateEdits({ saturation: v })} dark />
+            <button onClick={() => updateEdits({ brightness: 0, contrast: 0, saturation: 0 })}
+              className="w-full py-2 rounded-xl text-xs text-white/40 hover:text-white border border-white/10 hover:border-white/20 transition-colors flex items-center justify-center gap-2">
+              <RefreshCw size={12} /> Reset Colors
+            </button>
+          </div>
+        )}
+
+        {/* ── SPEED TAB ── */}
+        {activeTab === "speed" && (
+          <div className="p-4 space-y-4">
+            <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Playback Speed</div>
+            <div className="grid grid-cols-3 gap-2">
+              {SPEED_OPTIONS.map((s) => (
+                <button key={s} onClick={() => updateEdits({ speed: s })}
+                  className={`py-2.5 rounded-xl text-xs font-bold transition-colors border ${edits.speed === s
+                    ? "bg-[#1ABC71]/30 border-[#1ABC71]/50 text-[#1ABC71]"
+                    : "bg-white/5 border-white/10 text-white/40 hover:text-white"
+                    }`}>{s}×</button>
+              ))}
+            </div>
+            <p className="text-xs text-white/30 leading-relaxed">
+              {edits.speed < 1 && "🐢 Slow motion effect"}
+              {edits.speed === 1 && "▶ Normal speed"}
+              {edits.speed > 1 && "⚡ Timelapse / fast-forward"}
+            </p>
+          </div>
+        )}
+
+        {/* ── MEDIA TAB ── */}
+        {activeTab === "media" && (
+          <div className="p-4 space-y-4">
+            <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Insert Media Overlay</div>
+
+            <label className="block cursor-pointer">
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/svg+xml,image/webp"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) addImageOverlay(f); e.target.value = ""; }}
+              />
+              <div className="flex flex-col items-center gap-2 py-6 rounded-xl border-2 border-dashed border-white/15 hover:border-[#1ABC71]/50 hover:bg-[#1ABC71]/5 transition-all text-center">
+                <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center">
+                  <ImageIcon size={20} className="text-white/30" />
+                </div>
+                <p className="text-xs text-white/50 font-medium">Upload Image / Watermark</p>
+                <p className="text-[10px] text-white/25">PNG · JPG · SVG · WebP · GIF</p>
+              </div>
+            </label>
+
+            {(edits.imageOverlays ?? []).length === 0 ? (
+              <div className="py-6 text-center">
+                <ImageIcon size={24} className="text-white/10 mx-auto mb-2" />
+                <p className="text-xs text-white/20">Upload an image to overlay on video</p>
+                <p className="text-[10px] text-white/15 mt-1">Great for watermarks, logos &amp; stickers</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">
+                    Layers ({(edits.imageOverlays ?? []).length})
+                  </div>
+                  <button onClick={() => updateEdits({ imageOverlays: [] })}
+                    className="text-[9px] text-red-400/50 hover:text-red-400 transition-colors">
+                    Clear all
+                  </button>
+                </div>
+
+                {(edits.imageOverlays ?? []).map((img) => {
+                  const isSelected = selectedImageId === img.id;
+                  return (
+                    <div key={img.id} className={`rounded-xl border transition-all overflow-hidden ${isSelected ? "border-[#1ABC71]/50 bg-[#1ABC71]/10" : "border-white/10 bg-white/3 hover:border-white/20"}`}>
+                      <div className="flex items-center gap-2 px-3 py-2.5 cursor-pointer"
+                        onClick={() => setSelectedImageId(isSelected ? null : img.id)}>
+                        <div className="w-8 h-8 rounded-md overflow-hidden shrink-0 border border-white/10 bg-black/30">
+                          <img src={img.src} alt={img.name} className="w-full h-full object-contain" />
+                        </div>
+                        <span className="text-xs text-white/80 truncate flex-1">{img.name}</span>
+                        <button onClick={(e) => { e.stopPropagation(); removeImageOverlay(img.id); }}
+                          className="p-1 rounded hover:bg-red-500/20 text-white/20 hover:text-red-400 transition-colors shrink-0">
+                          <Trash2 size={11} />
+                        </button>
+                        <div className="text-white/20">{isSelected ? <ChevronUp size={11} /> : <ChevronDown size={11} />}</div>
+                      </div>
+
+                      {isSelected && (
+                        <div className="border-t border-white/10 p-3 space-y-3">
+                          <div>
+                            <div className="text-[9px] text-white/25 mb-1">Size: {Math.round(img.width * 100)}%</div>
+                            <input type="range" min={0.02} max={1} step={0.01} value={img.width}
+                              onChange={(e) => updateImageOverlay(img.id, { width: +e.target.value })}
+                              className="w-full accent-[#1ABC71]" />
+                          </div>
+                          <div>
+                            <div className="text-[9px] text-white/25 mb-1">Opacity: {Math.round(img.opacity * 100)}%</div>
+                            <input type="range" min={0.05} max={1} step={0.05} value={img.opacity}
+                              onChange={(e) => updateImageOverlay(img.id, { opacity: +e.target.value })}
+                              className="w-full accent-[#1ABC71]" />
+                          </div>
+                          <div>
+                            <div className="text-[9px] text-white/25 mb-1">Position</div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <div className="text-[9px] text-white/20 mb-0.5">X: {Math.round(img.x * 100)}%</div>
+                                <input type="range" min={0} max={1} step={0.01} value={img.x}
+                                  onChange={(e) => updateImageOverlay(img.id, { x: +e.target.value })}
+                                  className="w-full accent-[#1ABC71]" />
+                              </div>
+                              <div>
+                                <div className="text-[9px] text-white/20 mb-0.5">Y: {Math.round(img.y * 100)}%</div>
+                                <input type="range" min={0} max={1} step={0.01} value={img.y}
+                                  onChange={(e) => updateImageOverlay(img.id, { y: +e.target.value })}
+                                  className="w-full accent-[#1ABC71]" />
+                              </div>
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-[9px] text-white/25 mb-1">Visible Duration</div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <div className="text-[9px] text-white/20 mb-0.5">Start: {(img.startSec ?? 0).toFixed(1)}s</div>
+                                <input type="range" min={0} max={Math.max(0, clipDuration - 0.5)} step={0.1}
+                                  value={img.startSec ?? 0}
+                                  onChange={(e) => updateImageOverlay(img.id, { startSec: +e.target.value })}
+                                  className="w-full accent-[#1ABC71]" />
+                              </div>
+                              <div>
+                                <div className="text-[9px] text-white/20 mb-0.5">End: {(img.endSec ?? clipDuration).toFixed(1)}s</div>
+                                <input type="range" min={0.5} max={clipDuration} step={0.1}
+                                  value={img.endSec ?? clipDuration}
+                                  onChange={(e) => updateImageOverlay(img.id, { endSec: +e.target.value })}
+                                  className="w-full accent-[#1ABC71]" />
+                              </div>
+                            </div>
+                          </div>
+                          <p className="text-[9px] text-white/20">Drag image directly on video to reposition</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-2">
-      <div className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-[1300px] h-[95vh] overflow-hidden flex flex-col shadow-2xl">
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center md:p-2">
+      {/* 
+        Desktop: floating modal (max-w-[1300px], 95vh)
+        Mobile: full screen 
+      */}
+      <div className="bg-[#111] border-0 md:border md:border-white/10 rounded-none md:rounded-2xl w-full h-full md:max-w-[1300px] md:h-[95vh] overflow-hidden flex flex-col shadow-2xl">
 
         {/* ── Header ── */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-white/10 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-[#1ABC71] flex items-center justify-center">
-              <Type size={13} className="text-white" />
+        <div className="flex items-center justify-between px-3 md:px-5 py-2.5 md:py-3 border-b border-white/10 shrink-0">
+          <div className="flex items-center gap-2 md:gap-3">
+            {/* Mobile: back button */}
+            <button onClick={onClose} className="p-1.5 md:hidden rounded-xl hover:bg-white/10 text-white/60 hover:text-white transition-colors">
+              <ChevronLeft size={20} />
+            </button>
+            <div className="w-6 h-6 md:w-7 md:h-7 rounded-lg bg-[#1ABC71] flex items-center justify-center shrink-0">
+              <Type size={11} className="text-white md:hidden" />
+              <Type size={13} className="text-white hidden md:block" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white leading-tight">{moment.label}</h2>
-              <p className="text-[10px] text-white/40 font-mono">
+              <h2 className="text-xs md:text-sm font-bold text-white leading-tight truncate max-w-[150px] md:max-w-none">{moment.label}</h2>
+              <p className="text-[9px] md:text-[10px] text-white/40 font-mono">
                 {formatTime(clipStart)} → {formatTime(clipEnd)} · {Math.round(clipDuration)}s
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1 bg-white/5 rounded-xl p-1">
-            {([
-              { id: "subtitle", label: "Subtitle", icon: Type },
-              { id: "trim", label: "Trim", icon: Clock },
-              { id: "crop", label: "Crop", icon: Crop },
-              { id: "color", label: "Color", icon: Sliders },
-              { id: "speed", label: "Speed", icon: Zap },
-              { id: "media", label: "Media", icon: ImageIcon },
-            ] as const).map(({ id, label, icon: Icon }) => (
-              <button key={id} onClick={() => setActiveTab(id as Tab)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${activeTab === id ? "bg-[#1ABC71] text-white shadow" : "text-white/50 hover:text-white/80"
-                  }`}>
+          {/* Desktop: tab switcher in header */}
+          <div className="hidden md:flex items-center gap-1 bg-white/5 rounded-xl p-1">
+            {TABS.map(({ id, label, icon: Icon }) => (
+              <button key={id} onClick={() => setActiveTab(id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${activeTab === id ? "bg-[#1ABC71] text-white shadow" : "text-white/50 hover:text-white/80"}`}>
                 <Icon size={11} />{label}
               </button>
             ))}
           </div>
 
-          <div className="flex items-center gap-2">
-            <button onClick={() => onExport(moment, edits)} disabled={isExporting || !videoSrc}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1ABC71] text-white text-xs font-bold hover:bg-[#16a085] disabled:opacity-40 transition-all shadow-lg">
-              {isExporting ? <><Loader2 size={13} className="animate-spin" /> Exporting...</> : <><Download size={13} /> Export</>}
+          <div className="flex items-center gap-1.5 md:gap-2">
+            {/* Mobile: toggle panel button */}
+            <button
+              onClick={() => setMobileShowPanel(!mobileShowPanel)}
+              className="md:hidden flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 text-white text-xs font-medium"
+            >
+              <Sliders size={13} />
+              Edit
             </button>
-            <button onClick={onClose} className="p-2 rounded-xl hover:bg-white/10 text-white/50 hover:text-white transition-colors">
+
+            <button onClick={() => onExport(moment, edits)} disabled={isExporting || !videoSrc}
+              className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 rounded-xl bg-[#1ABC71] text-white text-xs font-bold hover:bg-[#16a085] disabled:opacity-40 transition-all shadow-lg">
+              {isExporting ? <><Loader2 size={13} className="animate-spin" /><span className="hidden sm:inline">Exporting...</span></> : <><Download size={13} /><span className="hidden sm:inline">Export</span></>}
+            </button>
+
+            {/* Desktop: close button */}
+            <button onClick={onClose} className="hidden md:flex p-2 rounded-xl hover:bg-white/10 text-white/50 hover:text-white transition-colors">
               <X size={18} />
             </button>
           </div>
         </div>
 
         {/* ── Body ── */}
-        <div className="flex flex-1 overflow-hidden min-h-0">
+        <div className="flex flex-1 overflow-hidden min-h-0 flex-col md:flex-row">
 
           {/* ── Video area ── */}
-          <div className="flex-1 flex flex-col min-w-0 bg-black">
+          <div className={`flex flex-col min-w-0 bg-black ${mobileShowPanel ? "hidden md:flex md:flex-1" : "flex flex-1"}`}>
             <div className="flex-1 relative flex items-center justify-center overflow-hidden">
               {videoSrc ? (
                 <div ref={videoWrapRef} className="relative"
@@ -817,6 +1223,7 @@ export default function VideoEditor({
                     }}
                     onPlay={() => setIsPlaying(true)}
                     onPause={() => setIsPlaying(false)}
+                    playsInline
                   />
 
                   {/* Snap guides */}
@@ -871,8 +1278,6 @@ export default function VideoEditor({
                     if (!isVisible && !isSelected) return null;
                     const displayText = t.uppercase ? t.text.toUpperCase() : t.text;
                     const fontFamily = `'${t.fontFamily || "Montserrat"}', sans-serif`;
-
-                    // ── Scale font size & stroke proporsional ke ukuran preview ──────
                     const scaledFontSize = t.fontSize * fontPreviewScale;
                     const scaledOutline = (t.outlineWidth ?? 0) * fontPreviewScale;
                     const scaledLetterSpace = (t.letterSpacing ?? 0) * fontPreviewScale;
@@ -895,7 +1300,6 @@ export default function VideoEditor({
 
                         <div style={{
                           position: "relative", zIndex: 1,
-                          // ↓ Font size di-scale sesuai ukuran preview wrapper
                           fontSize: `${scaledFontSize}px`,
                           fontFamily,
                           color: t.color,
@@ -905,11 +1309,9 @@ export default function VideoEditor({
                           textAlign: t.textAlign || "center",
                           letterSpacing: `${scaledLetterSpace}px`,
                           lineHeight: t.lineHeight || 1.2,
-                          // ↓ Outline di-scale juga
                           WebkitTextStroke: scaledOutline > 0
                             ? `${scaledOutline}px ${t.outlineColor || "#000000"}`
                             : undefined,
-                          // ↓ Shadow offset & blur di-scale
                           textShadow: buildTextShadow(t, fontPreviewScale),
                           whiteSpace: "nowrap",
                         }}>
@@ -940,46 +1342,43 @@ export default function VideoEditor({
             </div>
 
             {/* Playback controls */}
-            <div className="shrink-0 px-4 py-3 bg-[#0a0a0a] border-t border-white/10">
-              {/* ── Progress bar — click + drag ── */}
+            <div className="shrink-0 px-3 md:px-4 py-3 bg-[#0a0a0a] border-t border-white/10">
+              {/* Progress bar */}
               <div
                 ref={progressBarRef}
-                className={`h-2 bg-white/10 rounded-full mb-3 relative group select-none ${isDraggingProgress ? "cursor-grabbing" : "cursor-pointer"}`}
+                className={`h-2.5 md:h-2 bg-white/10 rounded-full mb-3 relative group select-none ${isDraggingProgress ? "cursor-grabbing" : "cursor-pointer"}`}
                 onMouseDown={handleProgressMouseDown}
+                onTouchStart={handleProgressTouchStart}
+                onTouchMove={handleProgressTouchMove}
               >
                 <div className="absolute inset-y-0 left-0 bg-[#1ABC71] rounded-full pointer-events-none" style={{ width: `${progressPct}%` }} />
-                {/* Thumb — always visible while dragging, hover otherwise */}
                 <div
                   className={`absolute top-1/2 w-4 h-4 rounded-full bg-[#1ABC71] border-2 border-white shadow-lg pointer-events-none transition-opacity ${isDraggingProgress ? "opacity-100 scale-110" : "opacity-0 group-hover:opacity-100"}`}
                   style={{ left: `${progressPct}%`, transform: "translate(-50%, -50%)" }}
                 />
               </div>
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <button onClick={() => seek(-5)} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-white/50 hover:text-white"><SkipBack size={14} /></button>
+                <div className="flex items-center gap-1.5 md:gap-2">
+                  <button onClick={() => seek(-5)} className="p-2 md:p-1.5 hover:bg-white/10 rounded-lg transition-colors text-white/50 hover:text-white"><SkipBack size={14} /></button>
                   <button onClick={togglePlay} className="p-2.5 bg-[#1ABC71] rounded-xl hover:bg-[#16a085] transition-colors text-white">
                     {isPlaying ? <Pause size={16} /> : <Play size={16} fill="white" />}
                   </button>
-                  <button onClick={() => seek(5)} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-white/50 hover:text-white"><SkipForward size={14} /></button>
+                  <button onClick={() => seek(5)} className="p-2 md:p-1.5 hover:bg-white/10 rounded-lg transition-colors text-white/50 hover:text-white"><SkipForward size={14} /></button>
                   <span className="text-[11px] font-mono text-white/40 ml-1">
                     {formatTime(Math.max(0, currentTime - clipStart))} / {formatTime(clipDuration)}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-[10px] text-white/30 font-mono">
-                  {autoCount > 0 && <span className="flex items-center gap-1 text-[#1ABC71]/60"><Sparkles size={9} />{autoCount} auto</span>}
+                  {autoCount > 0 && <span className="flex items-center gap-1 text-[#1ABC71]/60"><Sparkles size={9} />{autoCount}</span>}
                   {edits.speed !== 1 && <span>{edits.speed}×</span>}
                   {edits.aspectRatio !== "original" && <span>{edits.aspectRatio}</span>}
                 </div>
               </div>
             </div>
 
-            {/* Subtitle Timeline — fixed max height, inner content scrollable */}
+            {/* Subtitle Timeline — desktop only */}
             {activeTab === "subtitle" && (
-              <div
-                className="shrink-0 bg-[#0d0d0d] border-t border-white/10 flex flex-col"
-                style={{ minHeight: "120px", maxHeight: "220px" }}
-              >
-                {/* ── Header (always visible, never scrolls) ── */}
+              <div className="shrink-0 bg-[#0d0d0d] border-t border-white/10 flex-col hidden md:flex" style={{ minHeight: "120px", maxHeight: "220px" }}>
                 <div className="flex items-center gap-2 px-4 py-2 border-b border-white/5 shrink-0">
                   <Type size={11} className="text-[#1ABC71]" />
                   <span className="text-[10px] text-white/40 font-medium uppercase tracking-wider">Subtitle Timeline</span>
@@ -990,7 +1389,6 @@ export default function VideoEditor({
                   )}
                 </div>
 
-                {/* ── Ruler (always visible, never scrolls) ── */}
                 <div className="px-4 pt-1 shrink-0">
                   <div className="relative h-5">
                     {Array.from({ length: Math.ceil(clipDuration) + 1 }).map((_, i) => (
@@ -999,14 +1397,12 @@ export default function VideoEditor({
                         <span className="text-[8px] text-white/25 font-mono mt-0.5">{i}s</span>
                       </div>
                     ))}
-                    {/* Playhead on ruler */}
                     <div className="absolute top-0 bottom-0 w-px bg-[#1ABC71] z-10 pointer-events-none" style={{ left: `${progressPct}%` }}>
                       <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-[#1ABC71]" />
                     </div>
                   </div>
                 </div>
 
-                {/* ── Track lanes — scrollable ── */}
                 <div className="flex-1 overflow-y-auto px-4 pb-2 min-h-0">
                   <div
                     ref={timelineRef}
@@ -1032,7 +1428,6 @@ export default function VideoEditor({
                           style={{ top: `${index * 36 + 4}px`, left: `${leftPct}%`, width: `${widthPct}%`, height: "28px" }}>
                           <div
                             className={`relative w-full h-full rounded-md flex items-center overflow-hidden border transition-all cursor-grab active:cursor-grabbing ${isSelected
-
                               ? "bg-[#1ABC71]/30 border-[#1ABC71] shadow-[0_0_8px_rgba(26,188,113,0.4)]"
                               : t.isAutoSubtitle
                                 ? "bg-purple-500/15 border-purple-500/40 hover:bg-purple-500/25"
@@ -1060,410 +1455,77 @@ export default function VideoEditor({
                       );
                     })}
 
-                    {/* Playhead on tracks */}
                     <div className="absolute top-0 bottom-0 w-px bg-[#1ABC71]/60 pointer-events-none z-20" style={{ left: `${progressPct}%` }} />
                   </div>
                 </div>
               </div>
             )}
-          </div>
 
-          {/* ── Right panel ── */}
-          <div className="w-80 border-l border-white/10 flex flex-col overflow-hidden shrink-0 bg-[#0e0e0e]">
-            <div className="flex-1 overflow-y-auto">
-
-              {/* ── SUBTITLE TAB ── */}
-              {activeTab === "subtitle" && (
-                <div className="flex flex-col h-full">
-                  {/* Sub-tab bar */}
-                  <div className="flex border-b border-white/10 shrink-0">
-                    {(["presets", "add", "layers"] as const).map((tab) => (
-                      <button key={tab} onClick={() => setSubtitleSubTab(tab)}
-                        className={`flex-1 py-2.5 text-[10px] font-semibold uppercase tracking-wider transition-colors ${subtitleSubTab === tab ? "text-[#1ABC71] border-b-2 border-[#1ABC71]" : "text-white/30 hover:text-white/60"
-                          }`}>
-                        {tab === "presets" ? "Styles" : tab === "add" ? "+ Add" : `Layers (${edits.textOverlays.length})`}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* ─── PRESETS sub-tab ─── */}
-                  {subtitleSubTab === "presets" && (
-                    <div className="p-4 space-y-4 overflow-y-auto flex-1">
-                      {/* Auto-generate section */}
-                      <div className="rounded-xl border border-[#1ABC71]/20 bg-[#1ABC71]/5 p-3 space-y-3">
-                        <div className="flex items-center gap-2">
-                          <Wand2 size={13} className="text-[#1ABC71]" />
-                          <span className="text-xs font-bold text-white">AI Auto Subtitle</span>
-                          <span className="ml-auto text-[9px] text-[#1ABC71]/60 font-mono">3 words/line</span>
-                        </div>
-                        <p className="text-[10px] text-white/40 leading-relaxed">
-                          AI listens to speech in your clip and generates synced subtitles — 3 words at a time, like 2short.ai.
-                        </p>
-
-                        {transcribeError && (
-                          <p className="text-[10px] text-red-400 bg-red-500/10 rounded-lg px-2 py-1.5">{transcribeError}</p>
-                        )}
-
-                        <button
-                          onClick={handleAutoSubtitle}
-                          disabled={isTranscribing || !onAutoSubtitle}
-                          className="w-full py-2.5 rounded-xl bg-[#1ABC71] text-white text-xs font-bold hover:bg-[#16a085] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#1ABC71]/20"
-                        >
-                          {isTranscribing ? (
-                            <><Loader2 size={13} className="animate-spin" /> Transcribing speech…</>
-                          ) : (
-                            <><Sparkles size={13} /> Generate Auto Subtitles</>
-                          )}
-                        </button>
-
-                        {!onAutoSubtitle && (
-                          <p className="text-[9px] text-white/20 text-center">Requires OPENAI_API_KEY on backend</p>
-                        )}
-
-                        {autoCount > 0 && (
-                          <div className="flex items-center justify-between text-[10px]">
-                            <span className="text-[#1ABC71]/70 flex items-center gap-1"><Sparkles size={9} />{autoCount} subtitles generated</span>
-                            <button onClick={clearAutoSubtitles} className="text-red-400/60 hover:text-red-400 transition-colors flex items-center gap-1">
-                              <Trash2 size={10} /> Clear
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Style presets grid */}
-                      <div>
-                        <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium mb-2">Style Presets</div>
-                        <div className="grid grid-cols-2 gap-2">
-                          {SUBTITLE_PRESETS.map((preset) => (
-                            <PresetCard
-                              key={preset.id}
-                              preset={preset}
-                              isActive={activePresetId === preset.id}
-                              onClick={() => applyPresetToAllAuto(preset.id)}
-                            />
-                          ))}
-                        </div>
-                        {autoCount > 0 && (
-                          <p className="text-[9px] text-white/20 text-center mt-2">
-                            Click a style to apply to all {autoCount} auto subtitles
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ─── ADD sub-tab ─── */}
-                  {subtitleSubTab === "add" && (
-                    <div className="p-4 space-y-4">
-                      <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Add Manual Subtitle</div>
-                      <div className="flex flex-col gap-2">
-                        <textarea value={newText} onChange={(e) => setNewText(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addTextOverlay(); } }}
-                          placeholder="Type subtitle text…" rows={3}
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-[#1ABC71]/50 resize-none" />
-                        <button onClick={addTextOverlay}
-                          className="w-full py-2 bg-[#1ABC71]/20 border border-[#1ABC71]/30 rounded-xl text-[#1ABC71] text-xs font-medium hover:bg-[#1ABC71]/30 transition-colors flex items-center justify-center gap-2">
-                          <Plus size={13} />
-                          Add at {formatTime(Math.max(0, currentTime - clipStart))}
-                        </button>
-                      </div>
-                      <div className="text-[9px] text-white/20 leading-relaxed">
-                        Uses active style preset. Edit text, timing & style in the Layers tab.
-                      </div>
-
-                      {/* Current preset preview */}
-                      <div className="rounded-xl border border-white/10 overflow-hidden">
-                        <div className="text-[9px] text-white/25 px-3 pt-2 pb-1 uppercase tracking-wider">Active Style</div>
-                        <PresetCard preset={currentPreset} isActive onClick={() => setSubtitleSubTab("presets")} />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ─── LAYERS sub-tab ─── */}
-                  {subtitleSubTab === "layers" && (
-                    <div className="p-4 space-y-2 overflow-y-auto flex-1">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">
-                          All Layers ({edits.textOverlays.length})
-                        </div>
-                        {edits.textOverlays.length > 0 && (
-                          <button onClick={() => updateEdits({ textOverlays: [] })}
-                            className="text-[9px] text-red-400/50 hover:text-red-400 transition-colors">
-                            Clear all
-                          </button>
-                        )}
-                      </div>
-
-                      {edits.textOverlays.length === 0 && (
-                        <div className="py-10 text-center">
-                          <Type size={24} className="text-white/10 mx-auto mb-2" />
-                          <p className="text-xs text-white/20">No subtitles yet</p>
-                          <button onClick={() => setSubtitleSubTab("presets")}
-                            className="mt-2 text-[10px] text-[#1ABC71]/60 hover:text-[#1ABC71] transition-colors">
-                            Generate auto subtitles →
-                          </button>
-                        </div>
-                      )}
-
-                      {edits.textOverlays.map((t) => {
-                        const isSelected = selectedOverlayId === t.id;
-                        const isExpanded = expandedId === t.id;
-                        const s = t.startSec ?? 0;
-                        const en = t.endSec ?? clipDuration;
-
-                        return (
-                          <div key={t.id}
-                            className={`rounded-xl border transition-all overflow-hidden ${isSelected ? "border-[#1ABC71]/50 bg-[#1ABC71]/10" : "border-white/10 bg-white/3 hover:border-white/20"
-                              }`}>
-                            <div className="flex items-center gap-2 px-3 py-2.5 cursor-pointer"
-                              onClick={() => { setSelectedOverlayId(t.id); setExpandedId(isExpanded ? null : t.id); }}>
-                              <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                                {t.isAutoSubtitle
-                                  ? <Sparkles size={10} className="text-purple-400 shrink-0" />
-                                  : <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
-                                }
-                                <span className="text-xs text-white/80 truncate"
-                                  style={{ fontFamily: `'${t.fontFamily || "Montserrat"}', sans-serif` }}>
-                                  {t.uppercase ? t.text.toUpperCase() : t.text}
-                                </span>
-                              </div>
-                              <span className="text-[9px] text-white/25 font-mono shrink-0">{s.toFixed(1)}–{en.toFixed(1)}s</span>
-                              <button onClick={(ev) => { ev.stopPropagation(); removeOverlay(t.id); }}
-                                className="p-1 rounded hover:bg-red-500/20 text-white/20 hover:text-red-400 transition-colors shrink-0">
-                                <Trash2 size={11} />
-                              </button>
-                              <div className="text-white/20">{isExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}</div>
-                            </div>
-                            {isExpanded && renderOverlayControls(t)}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ── TRIM TAB ── */}
-              {activeTab === "trim" && (
-                <div className="p-4 space-y-5">
-                  <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Trim Clip</div>
-                  <SliderField label="Trim Start" value={edits.trimStart}
-                    min={0} max={Math.max(0, Math.floor((moment.endTime - moment.startTime) * 0.8))}
-                    step={1} format={(v) => `+${v}s`} dark onChange={(v) => updateEdits({ trimStart: v })} />
-                  <SliderField label="Trim End" value={edits.trimEnd}
-                    min={-Math.max(0, Math.floor((moment.endTime - moment.startTime) * 0.8))} max={0}
-                    step={1} format={(v) => `${v}s`} dark onChange={(v) => updateEdits({ trimEnd: v })} />
-                  <div className="bg-white/5 rounded-xl p-3 text-xs text-white/50 space-y-1.5 border border-white/10">
-                    <div className="flex justify-between"><span>New Start</span><span className="font-mono text-white">{formatTime(clipStart)}</span></div>
-                    <div className="flex justify-between"><span>New End</span><span className="font-mono text-white">{formatTime(clipEnd)}</span></div>
-                    <div className="flex justify-between border-t border-white/10 pt-1.5"><span>Duration</span><span className="font-mono text-[#1ABC71]">{Math.round(clipDuration)}s</span></div>
-                  </div>
-                </div>
-              )}
-
-              {/* ── CROP TAB ── */}
-              {activeTab === "crop" && (
-                <div className="p-4 space-y-4">
-                  <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Aspect Ratio</div>
-                  <div className="space-y-1.5">
-                    {ASPECT_RATIOS.map((ar) => (
-                      <button key={ar.value} onClick={() => updateEdits({ aspectRatio: ar.value })}
-                        className={`w-full px-3 py-2.5 rounded-xl text-xs font-medium text-left transition-all flex items-center justify-between ${edits.aspectRatio === ar.value
-                          ? "bg-[#1ABC71]/20 border border-[#1ABC71]/40 text-[#1ABC71]"
-                          : "bg-white/5 border border-white/10 text-white/50 hover:text-white hover:border-white/20"
-                          }`}>
-                        <span>{ar.label}</span>
-                        <span className={`text-[10px] ${edits.aspectRatio === ar.value ? "text-[#1ABC71]/60" : "text-white/25"}`}>{ar.desc}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* ── COLOR TAB ── */}
-              {activeTab === "color" && (
-                <div className="p-4 space-y-5">
-                  <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Color Adjustments</div>
-                  <SliderField label="Brightness" value={edits.brightness} min={-1} max={1} step={0.05}
-                    format={(v) => (v > 0 ? `+${(v * 100).toFixed(0)}%` : `${(v * 100).toFixed(0)}%`)}
-                    onChange={(v) => updateEdits({ brightness: v })} dark />
-                  <SliderField label="Contrast" value={edits.contrast} min={-1} max={1} step={0.05}
-                    format={(v) => (v > 0 ? `+${(v * 100).toFixed(0)}%` : `${(v * 100).toFixed(0)}%`)}
-                    onChange={(v) => updateEdits({ contrast: v })} dark />
-                  <SliderField label="Saturation" value={edits.saturation} min={-1} max={1} step={0.05}
-                    format={(v) => (v > 0 ? `+${(v * 100).toFixed(0)}%` : `${(v * 100).toFixed(0)}%`)}
-                    onChange={(v) => updateEdits({ saturation: v })} dark />
-                  <button onClick={() => updateEdits({ brightness: 0, contrast: 0, saturation: 0 })}
-                    className="w-full py-2 rounded-xl text-xs text-white/40 hover:text-white border border-white/10 hover:border-white/20 transition-colors flex items-center justify-center gap-2">
-                    <RefreshCw size={12} /> Reset Colors
-                  </button>
-                </div>
-              )}
-
-              {/* ── SPEED TAB ── */}
-              {activeTab === "speed" && (
-                <div className="p-4 space-y-4">
-                  <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Playback Speed</div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {SPEED_OPTIONS.map((s) => (
-                      <button key={s} onClick={() => updateEdits({ speed: s })}
-                        className={`py-2.5 rounded-xl text-xs font-bold transition-colors border ${edits.speed === s
-                          ? "bg-[#1ABC71]/30 border-[#1ABC71]/50 text-[#1ABC71]"
-                          : "bg-white/5 border-white/10 text-white/40 hover:text-white"
-                          }`}>{s}×</button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-white/30 leading-relaxed">
-                    {edits.speed < 1 && "🐢 Slow motion effect"}
-                    {edits.speed === 1 && "▶ Normal speed"}
-                    {edits.speed > 1 && "⚡ Timelapse / fast-forward"}
-                  </p>
-                </div>
-              )}
-
-              {/* ── MEDIA TAB ── */}
-              {activeTab === "media" && (
-                <div className="p-4 space-y-4">
-                  <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Insert Media Overlay</div>
-
-                  {/* Upload area */}
-                  <label className="block cursor-pointer">
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg,image/gif,image/svg+xml,image/webp"
-                      className="hidden"
-                      onChange={(e) => { const f = e.target.files?.[0]; if (f) addImageOverlay(f); e.target.value = ""; }}
-                    />
-                    <div className="flex flex-col items-center gap-2 py-6 rounded-xl border-2 border-dashed border-white/15 hover:border-[#1ABC71]/50 hover:bg-[#1ABC71]/5 transition-all text-center">
-                      <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center">
-                        <ImageIcon size={20} className="text-white/30" />
-                      </div>
-                      <p className="text-xs text-white/50 font-medium">Upload Image / Watermark</p>
-                      <p className="text-[10px] text-white/25">PNG · JPG · SVG · WebP · GIF</p>
-                    </div>
-                  </label>
-
-                  {/* Layers list */}
-                  {(edits.imageOverlays ?? []).length === 0 ? (
-                    <div className="py-6 text-center">
-                      <ImageIcon size={24} className="text-white/10 mx-auto mb-2" />
-                      <p className="text-xs text-white/20">Upload an image to overlay on video</p>
-                      <p className="text-[10px] text-white/15 mt-1">Great for watermarks, logos &amp; stickers</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">
-                          Layers ({(edits.imageOverlays ?? []).length})
-                        </div>
-                        <button
-                          onClick={() => updateEdits({ imageOverlays: [] })}
-                          className="text-[9px] text-red-400/50 hover:text-red-400 transition-colors"
-                        >
-                          Clear all
-                        </button>
-                      </div>
-
-                      {(edits.imageOverlays ?? []).map((img) => {
-                        const isSelected = selectedImageId === img.id;
-                        return (
-                          <div key={img.id} className={`rounded-xl border transition-all overflow-hidden ${isSelected ? "border-[#1ABC71]/50 bg-[#1ABC71]/10" : "border-white/10 bg-white/3 hover:border-white/20"
-                            }`}>
-                            <div className="flex items-center gap-2 px-3 py-2.5 cursor-pointer"
-                              onClick={() => setSelectedImageId(isSelected ? null : img.id)}>
-                              <div className="w-8 h-8 rounded-md overflow-hidden shrink-0 border border-white/10 bg-black/30">
-                                <img src={img.src} alt={img.name} className="w-full h-full object-contain" />
-                              </div>
-                              <span className="text-xs text-white/80 truncate flex-1">{img.name}</span>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); removeImageOverlay(img.id); }}
-                                className="p-1 rounded hover:bg-red-500/20 text-white/20 hover:text-red-400 transition-colors shrink-0">
-                                <Trash2 size={11} />
-                              </button>
-                              <div className="text-white/20">{isSelected ? <ChevronUp size={11} /> : <ChevronDown size={11} />}</div>
-                            </div>
-
-                            {isSelected && (
-                              <div className="border-t border-white/10 p-3 space-y-3">
-                                <div>
-                                  <div className="text-[9px] text-white/25 mb-1">Size: {Math.round(img.width * 100)}%</div>
-                                  <input type="range" min={0.02} max={1} step={0.01} value={img.width}
-                                    onChange={(e) => updateImageOverlay(img.id, { width: +e.target.value })}
-                                    className="w-full accent-[#1ABC71]" />
-                                </div>
-                                <div>
-                                  <div className="text-[9px] text-white/25 mb-1">Opacity: {Math.round(img.opacity * 100)}%</div>
-                                  <input type="range" min={0.05} max={1} step={0.05} value={img.opacity}
-                                    onChange={(e) => updateImageOverlay(img.id, { opacity: +e.target.value })}
-                                    className="w-full accent-[#1ABC71]" />
-                                </div>
-                                <div>
-                                  <div className="text-[9px] text-white/25 mb-1">Position</div>
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                      <div className="text-[9px] text-white/20 mb-0.5">X: {Math.round(img.x * 100)}%</div>
-                                      <input type="range" min={0} max={1} step={0.01} value={img.x}
-                                        onChange={(e) => updateImageOverlay(img.id, { x: +e.target.value })}
-                                        className="w-full accent-[#1ABC71]" />
-                                    </div>
-                                    <div>
-                                      <div className="text-[9px] text-white/20 mb-0.5">Y: {Math.round(img.y * 100)}%</div>
-                                      <input type="range" min={0} max={1} step={0.01} value={img.y}
-                                        onChange={(e) => updateImageOverlay(img.id, { y: +e.target.value })}
-                                        className="w-full accent-[#1ABC71]" />
-                                    </div>
-                                  </div>
-                                </div>
-                                <div>
-                                  <div className="text-[9px] text-white/25 mb-1">Visible Duration</div>
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                      <div className="text-[9px] text-white/20 mb-0.5">Start: {(img.startSec ?? 0).toFixed(1)}s</div>
-                                      <input type="range" min={0} max={Math.max(0, clipDuration - 0.5)} step={0.1}
-                                        value={img.startSec ?? 0}
-                                        onChange={(e) => updateImageOverlay(img.id, { startSec: +e.target.value })}
-                                        className="w-full accent-[#1ABC71]" />
-                                    </div>
-                                    <div>
-                                      <div className="text-[9px] text-white/20 mb-0.5">End: {(img.endSec ?? clipDuration).toFixed(1)}s</div>
-                                      <input type="range" min={0.5} max={clipDuration} step={0.1}
-                                        value={img.endSec ?? clipDuration}
-                                        onChange={(e) => updateImageOverlay(img.id, { endSec: +e.target.value })}
-                                        className="w-full accent-[#1ABC71]" />
-                                    </div>
-                                  </div>
-                                </div>
-                                <p className="text-[9px] text-white/20">Drag image directly on video to reposition</p>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
+            {/* Mobile: Bottom tab bar */}
+            <div className="md:hidden shrink-0 flex items-center bg-[#0a0a0a] border-t border-white/10 overflow-x-auto">
+              {TABS.map(({ id, label, icon: Icon }) => (
+                <button key={id}
+                  onClick={() => { setActiveTab(id); setMobileShowPanel(true); }}
+                  className={`flex flex-col items-center gap-1 px-4 py-2.5 text-[10px] font-medium transition-colors shrink-0 ${activeTab === id && mobileShowPanel ? "text-[#1ABC71]" : "text-white/40 hover:text-white/70"}`}>
+                  <Icon size={18} />
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
+
+          {/* ── Right panel: Desktop sidebar ── */}
+          <div className="w-80 border-l border-white/10 flex-col overflow-hidden shrink-0 bg-[#0e0e0e] hidden md:flex">
+            <div className="flex-1 overflow-y-auto">
+              {renderPanelContent()}
+            </div>
+          </div>
+
+          {/* ── Mobile: Full-screen panel overlay ── */}
+          {mobileShowPanel && (
+            <div className="md:hidden absolute inset-0 z-10 bg-[#0e0e0e] flex flex-col">
+              {/* Mobile panel header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
+                <div className="flex items-center gap-2">
+                  {(() => {
+                    const tab = TABS.find(t => t.id === activeTab);
+                    const Icon = tab?.icon ?? Type;
+                    return (
+                      <>
+                        <Icon size={14} className="text-[#1ABC71]" />
+                        <span className="text-sm font-semibold text-white capitalize">{tab?.label}</span>
+                      </>
+                    );
+                  })()}
+                </div>
+                <button
+                  onClick={() => setMobileShowPanel(false)}
+                  className="p-2 rounded-xl hover:bg-white/10 text-white/50 hover:text-white transition-colors flex items-center gap-1.5 text-xs"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Panel content */}
+              <div className="flex-1 overflow-y-auto">
+                {renderPanelContent()}
+              </div>
+
+              {/* Mobile panel: tab bar at bottom */}
+              <div className="shrink-0 flex items-center bg-[#0a0a0a] border-t border-white/10 overflow-x-auto">
+                {TABS.map(({ id, label, icon: Icon }) => (
+                  <button key={id}
+                    onClick={() => setActiveTab(id)}
+                    className={`flex flex-col items-center gap-1 px-4 py-2.5 text-[10px] font-medium transition-colors shrink-0 ${activeTab === id ? "text-[#1ABC71]" : "text-white/40 hover:text-white/70"}`}>
+                    <Icon size={18} />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function SliderField({ label, value, min, max, step, format, onChange, dark }: {
-  label: string; value: number; min: number; max: number; step: number;
-  format: (v: number) => string; onChange: (v: number) => void; dark?: boolean;
-}) {
-  return (
-    <div>
-      <div className="flex justify-between mb-2">
-        <label className={`text-xs ${dark ? "text-white/50" : "text-gray-600"}`}>{label}</label>
-        <span className="text-xs font-mono text-[#1ABC71]">{format(value)}</span>
-      </div>
-      <input type="range" min={min} max={max} step={step} value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full accent-[#1ABC71]" />
     </div>
   );
 }

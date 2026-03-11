@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Zap, Film, ChevronRight, Loader2,
-  CheckCircle2, AlertCircle, Sparkles, ArrowLeft, LogOut,
+  CheckCircle2, AlertCircle, Sparkles, ArrowLeft, LogOut, Menu, X as XIcon,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import FileUploadInput from "../components/FileUploadInput";
@@ -50,9 +50,9 @@ type Step = "input" | "analyzing" | "moments";
 
 function ProgressToast({ message }: { message: string }) {
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 bg-white border border-[#1ABC71]/30 rounded-2xl shadow-xl shadow-[#1ABC71]/10 text-sm text-gray-700 whitespace-nowrap">
+    <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 bg-white border border-[#1ABC71]/30 rounded-2xl shadow-xl shadow-[#1ABC71]/10 text-sm text-gray-700 whitespace-nowrap max-w-[90vw]">
       <Loader2 size={14} className="animate-spin text-[#1ABC71] shrink-0" />
-      {message}
+      <span className="truncate">{message}</span>
     </div>
   );
 }
@@ -76,6 +76,9 @@ export default function App() {
 
   // Logout confirm modal
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  // Mobile sidebar drawer
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
   const videoObjectUrlRef = useRef<string | null>(null);
   const currentUser = getStoredUser();
@@ -252,7 +255,7 @@ export default function App() {
     
     const edits = clipEdits[editingMoment.id] || defaultEdits();
     const startTime = editingMoment.startTime + edits.trimStart;
-    const endTime = editingMoment.endTime + edits.trimEnd;  // ← tambah ini
+    const endTime = editingMoment.endTime + edits.trimEnd;
     
     const formData = new FormData();
     formData.append("video", videoBlob, "source.mp4");
@@ -387,9 +390,10 @@ export default function App() {
     <div className="min-h-screen bg-white dark:bg-gray-950 text-black dark:text-gray-100 flex flex-col">
       <div className="h-px bg-gradient-to-r from-transparent via-[#1ABC71] to-transparent" />
 
-      {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800 shrink-0">
-        <div className="flex items-center gap-4">
+      {/* ── Header ── */}
+      <header className="flex items-center justify-between px-3 md:px-6 py-3 md:py-4 border-b border-gray-200 dark:border-gray-800 shrink-0">
+        <div className="flex items-center gap-2 md:gap-4">
+          {/* Back button */}
           <button
             onClick={() => {
               clearSession();
@@ -405,6 +409,7 @@ export default function App() {
           >
             <ArrowLeft size={18} />
           </button>
+
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-lg bg-[#1ABC71] flex items-center justify-center">
               <Zap size={12} className="text-white fill-white" />
@@ -415,6 +420,7 @@ export default function App() {
           </div>
         </div>
 
+        {/* Center: file info — hidden on mobile */}
         <div className="flex-1 max-w-md mx-8 hidden md:block min-w-0">
           <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 truncate">
             <Film size={12} className="text-[#1ABC71] shrink-0" />
@@ -425,38 +431,147 @@ export default function App() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-xs text-[#1ABC71]">
+        <div className="flex items-center gap-2 md:gap-3">
+          {/* Video ready badge — hidden on small mobile */}
+          <div className="hidden sm:flex items-center gap-1.5 text-xs text-[#1ABC71]">
             <CheckCircle2 size={12} />
             <span className="hidden sm:inline">Video siap</span>
           </div>
 
+          {/* Export button — only when clips selected */}
           {selectedClipIds.length > 0 && (
             <button
               onClick={() => setActivePanel("export")}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1ABC71] text-xs font-semibold hover:bg-[#16a085] transition-all shadow-lg shadow-[#1ABC71]/20 text-white"
+              className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 rounded-xl bg-[#1ABC71] text-xs font-semibold hover:bg-[#16a085] transition-all shadow-lg shadow-[#1ABC71]/20 text-white"
             >
               <Film size={12} />
-              Export {selectedClipIds.length} Clip{selectedClipIds.length > 1 ? "s" : ""}
-              <ChevronRight size={12} />
+              <span className="hidden sm:inline">Export</span>
+              <span className="sm:hidden">{selectedClipIds.length}</span>
+              <span className="hidden sm:inline">{selectedClipIds.length} Clip{selectedClipIds.length > 1 ? "s" : ""}</span>
+              <ChevronRight size={12} className="hidden sm:block" />
             </button>
           )}
 
-          {/* ── Logout button ── */}
-          <div className="relative">
+          {/* Mobile: hamburger for sidebar */}
+          <button
+            onClick={() => setShowMobileSidebar(true)}
+            className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 lg:hidden"
+            title="Info"
+          >
+            <Menu size={18} />
+          </button>
+
+          {/* Desktop: logout button */}
+          <div className="relative hidden lg:block">
             <button
               onClick={() => setShowLogoutConfirm(true)}
               className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-red-500 hover:border-red-200 dark:hover:border-red-800 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
               title="Logout"
             >
               <LogOut size={13} />
-              <span className="hidden sm:inline">
-                {currentUser?.name?.split(" ")[0] ?? "Logout"}
-              </span>
+              <span>{currentUser?.name?.split(" ")[0] ?? "Logout"}</span>
             </button>
           </div>
         </div>
       </header>
+
+      {/* ── Mobile Sidebar Drawer ── */}
+      {showMobileSidebar && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
+          onClick={() => setShowMobileSidebar(false)}
+        >
+          <div
+            className="absolute left-0 top-0 bottom-0 w-72 bg-white dark:bg-[#080d1a] border-r border-gray-200 dark:border-gray-800 overflow-y-auto p-5 flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Project Info</span>
+              <button
+                onClick={() => setShowMobileSidebar(false)}
+                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400"
+              >
+                <XIcon size={16} />
+              </button>
+            </div>
+
+            <div className="rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-4 mb-4 shadow-sm">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-lg bg-[#1ABC71]/10 border border-[#1ABC71]/20 flex items-center justify-center shrink-0">
+                  <Film size={18} className="text-[#1ABC71]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-black dark:text-white truncate">
+                    {project.videoFileName}
+                  </p>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 font-mono mt-0.5">
+                    {formatTime(project.videoDuration)} · {(project.videoFileSize / 1_048_576).toFixed(0)}MB
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              {project.analysisResult.moments.length} momen terdeteksi
+            </h2>
+
+            <div className="space-y-2 mb-6">
+              {[
+                { label: "Upload Video",    done: true },
+                { label: "Analisis AI",     done: true },
+                { label: "Pilih Moments",   done: selectedClipIds.length > 0 },
+                {
+                  label: "Edit & Subtitle", done: Object.values(clipEdits).some(
+                    (e) => e.aspectRatio !== "original" || e.textOverlays.length > 0 ||
+                      e.trimStart !== 0 || e.trimEnd !== 0 || e.speed !== 1
+                  ),
+                },
+                { label: "Export & Download", done: Object.keys(exportedUrls).length > 0 },
+              ].map((s, i) => (
+                <div key={i} className="flex items-center gap-2.5 text-xs">
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center border text-[10px] font-bold shrink-0 ${
+                    s.done
+                      ? "bg-[#1ABC71]/20 border-[#1ABC71]/40 text-[#1ABC71]"
+                      : "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-400 dark:text-gray-500"
+                  }`}>
+                    {s.done ? "✓" : i + 1}
+                  </div>
+                  <span className={s.done ? "text-gray-700 dark:text-gray-200" : "text-gray-400 dark:text-gray-500"}>
+                    {s.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* User info + logout */}
+            {currentUser && (
+              <div className="mb-4 px-3 py-2.5 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate">{currentUser.name}</p>
+                  <p className="text-[10px] text-gray-400 truncate">{currentUser.email}</p>
+                </div>
+                <button
+                  onClick={() => { setShowMobileSidebar(false); setShowLogoutConfirm(true); }}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors shrink-0"
+                  title="Logout"
+                >
+                  <LogOut size={13} />
+                </button>
+              </div>
+            )}
+
+            <div className="mt-auto pt-5 border-t border-gray-200 dark:border-gray-800">
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 font-mono">
+                AI Summary
+              </p>
+              <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+                {project.analysisResult.summary}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Logout confirm modal */}
       {showLogoutConfirm && (
@@ -483,13 +598,13 @@ export default function App() {
             <div className="flex gap-2">
               <button
                 onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                className="flex-1 py-3 md:py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
                 Batal
               </button>
               <button
                 onClick={handleLogout}
-                className="flex-1 py-2.5 rounded-xl bg-red-500 text-xs font-semibold text-white hover:bg-red-600 transition-colors"
+                className="flex-1 py-3 md:py-2.5 rounded-xl bg-red-500 text-xs font-semibold text-white hover:bg-red-600 transition-colors"
               >
                 Ya, Logout
               </button>
@@ -500,17 +615,17 @@ export default function App() {
 
       {/* Error banner */}
       {error && (
-        <div className="mx-6 mt-4 flex items-center gap-3 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs">
+        <div className="mx-3 md:mx-6 mt-3 md:mt-4 flex items-center gap-3 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs">
           <AlertCircle size={14} className="shrink-0" />
           <span className="flex-1">{error}</span>
           <button onClick={() => setError("")} className="text-red-400 hover:text-red-600 ml-2">✕</button>
         </div>
       )}
 
-      {/* Main layout */}
+      {/* ── Main layout ── */}
       <div className="flex-1 flex overflow-hidden">
 
-        {/* Left sidebar */}
+        {/* Left sidebar — desktop only */}
         <aside className="w-72 border-r border-gray-200 dark:border-gray-800 overflow-y-auto p-5 hidden lg:flex flex-col shrink-0 bg-gray-50 dark:bg-[#080d1a]">
           <div className="rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-4 mb-4 shadow-sm">
             <div className="flex items-center gap-3 mb-3">
@@ -589,32 +704,36 @@ export default function App() {
 
         {/* Main panel */}
         <main className="flex-1 overflow-y-auto min-w-0 bg-white dark:bg-gray-950">
-          <div className="sticky top-0 z-10 flex items-center gap-1 px-6 py-3 bg-white/90 dark:bg-gray-950/90 backdrop-blur border-b border-gray-100 dark:border-gray-800">
+          {/* Tab bar — sticky */}
+          <div className="sticky top-0 z-10 flex items-center gap-1 px-3 md:px-6 py-2 md:py-3 bg-white/90 dark:bg-gray-950/90 backdrop-blur border-b border-gray-100 dark:border-gray-800">
             <button
               onClick={() => setActivePanel("moments")}
-              className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 ${
+              className={`px-3 md:px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 md:gap-2 ${
                 activePanel === "moments"
                   ? "bg-[#1ABC71] text-white"
                   : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
               }`}
             >
               <Sparkles size={12} />
-              Momen Viral ({project.analysisResult.moments.length})
+              <span className="hidden sm:inline">Momen Viral </span>
+              <span>({project.analysisResult.moments.length})</span>
             </button>
             <button
               onClick={() => setActivePanel("export")}
-              className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 ${
+              className={`px-3 md:px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 md:gap-2 ${
                 activePanel === "export"
                   ? "bg-[#1ABC71] text-white"
                   : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
               }`}
             >
               <Film size={12} />
-              Clips Dipilih ({selectedClipIds.length})
+              <span className="hidden sm:inline">Clips Dipilih </span>
+              <span>({selectedClipIds.length})</span>
             </button>
           </div>
 
-          <div className="p-6">
+          {/* Content area — with bottom padding for mobile so content doesn't hide behind bottom nav area */}
+          <div className="p-3 md:p-6 pb-6">
             {activePanel === "moments" && (
               <MomentsList
                 result={project.analysisResult}
