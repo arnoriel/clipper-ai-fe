@@ -332,15 +332,15 @@ export default function App() {
 
   // ── Render: Main workspace ────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-white text-black flex flex-col">
+    <div className="min-h-screen bg-white dark:bg-gray-950 text-black dark:text-gray-100 flex flex-col">
       <div className="h-px bg-gradient-to-r from-transparent via-[#1ABC71] to-transparent" />
 
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-gray-200 shrink-0">
+      <header className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800 shrink-0">
         <div className="flex items-center gap-4">
           <button
             onClick={() => { setStep("input"); setProject(null); setSelectedClipIds([]); setClipEdits({}); setExportedUrls({}); setError(""); }}
-            className="p-2 rounded-xl hover:bg-gray-100 text-gray-500 hover:text-black transition-colors"
+            className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors"
             title="Kembali ke home">
             <ArrowLeft size={18} />
           </button>
@@ -353,10 +353,10 @@ export default function App() {
         </div>
 
         <div className="flex-1 max-w-md mx-8 hidden md:block min-w-0">
-          <div className="flex items-center gap-2 text-xs text-gray-500 truncate">
+          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 truncate">
             <Film size={12} className="text-[#1ABC71] shrink-0" />
             <span className="truncate">{project.videoFileName}</span>
-            <span className="shrink-0 text-gray-400 font-mono">· {formatTime(project.videoDuration)}</span>
+            <span className="shrink-0 text-gray-400 dark:text-gray-500 font-mono">· {formatTime(project.videoDuration)}</span>
           </div>
         </div>
 
@@ -389,15 +389,15 @@ export default function App() {
       <div className="flex-1 flex overflow-hidden">
 
         {/* Left sidebar */}
-        <aside className="w-72 border-r border-gray-200 overflow-y-auto p-5 hidden lg:flex flex-col shrink-0 bg-gray-50">
-          <div className="rounded-xl bg-white border border-gray-200 p-4 mb-4 shadow-sm">
+        <aside className="w-72 border-r border-gray-200 dark:border-gray-800 overflow-y-auto p-5 hidden lg:flex flex-col shrink-0 bg-gray-50 dark:bg-[#080d1a]">
+          <div className="rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-4 mb-4 shadow-sm">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-lg bg-[#1ABC71]/10 border border-[#1ABC71]/20 flex items-center justify-center shrink-0">
                 <Film size={18} className="text-[#1ABC71]" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-black truncate">{project.videoFileName}</p>
-                <p className="text-[10px] text-gray-500 font-mono mt-0.5">
+                <p className="text-xs font-semibold text-black dark:text-white truncate">{project.videoFileName}</p>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 font-mono mt-0.5">
                   {formatTime(project.videoDuration)} · {(project.videoFileSize / 1_048_576).toFixed(0)}MB
                 </p>
               </div>
@@ -422,32 +422,32 @@ export default function App() {
               { label: "Export & Download", done: Object.keys(exportedUrls).length > 0 },
             ].map((s, i) => (
               <div key={i} className="flex items-center gap-2.5 text-xs">
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center border text-[10px] font-bold shrink-0 ${s.done ? "bg-[#1ABC71]/20 border-[#1ABC71]/40 text-[#1ABC71]" : "bg-gray-100 border-gray-300 text-gray-400"
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center border text-[10px] font-bold shrink-0 ${s.done ? "bg-[#1ABC71]/20 border-[#1ABC71]/40 text-[#1ABC71]" : "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-400 dark:text-gray-500"
                   }`}>
                   {s.done ? "✓" : i + 1}
                 </div>
-                <span className={s.done ? "text-gray-700" : "text-gray-400"}>{s.label}</span>
+                <span className={s.done ? "text-gray-700 dark:text-gray-200" : "text-gray-400 dark:text-gray-500"}>{s.label}</span>
               </div>
             ))}
           </div>
 
-          <div className="mt-auto pt-5 border-t border-gray-200">
-            <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 font-mono">AI Summary</p>
-            <p className="text-xs text-gray-600 leading-relaxed">{project.analysisResult.summary}</p>
+          <div className="mt-auto pt-5 border-t border-gray-200 dark:border-gray-800">
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 font-mono">AI Summary</p>
+            <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">{project.analysisResult.summary}</p>
           </div>
         </aside>
 
         {/* Main panel */}
-        <main className="flex-1 overflow-y-auto min-w-0 bg-white">
-          <div className="sticky top-0 z-10 flex items-center gap-1 px-6 py-3 bg-white/90 backdrop-blur border-b border-gray-100">
+        <main className="flex-1 overflow-y-auto min-w-0 bg-white dark:bg-gray-950">
+          <div className="sticky top-0 z-10 flex items-center gap-1 px-6 py-3 bg-white/90 dark:bg-gray-950/90 backdrop-blur border-b border-gray-100 dark:border-gray-800">
             <button onClick={() => setActivePanel("moments")}
-              className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 ${activePanel === "moments" ? "bg-[#1ABC71] text-white" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+              className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 ${activePanel === "moments" ? "bg-[#1ABC71] text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
                 }`}>
               <Sparkles size={12} />
               Momen Viral ({project.analysisResult.moments.length})
             </button>
             <button onClick={() => setActivePanel("export")}
-              className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 ${activePanel === "export" ? "bg-[#1ABC71] text-white" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+              className={`px-4 py-2 rounded-xl text-xs font-medium transition-colors flex items-center gap-2 ${activePanel === "export" ? "bg-[#1ABC71] text-white" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
                 }`}>
               <Film size={12} />
               Clips Dipilih ({selectedClipIds.length})

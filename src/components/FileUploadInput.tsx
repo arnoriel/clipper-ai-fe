@@ -28,18 +28,18 @@ const ACCEPTED_TYPES = [
   "video/mp4", "video/webm", "video/mov", "video/quicktime",
   "video/avi", "video/x-matroska",
 ];
-const MAX_SIZE_GB    = 4;
+const MAX_SIZE_GB = 4;
 const MAX_SIZE_BYTES = MAX_SIZE_GB * 1024 * 1024 * 1024;
 
 function formatBytes(bytes: number): string {
-  if (bytes < 1024 * 1024)       return `${(bytes / 1024).toFixed(0)} KB`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
 function formatDuration(s: number): string {
-  const h   = Math.floor(s / 3600);
-  const m   = Math.floor((s % 3600) / 60);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
   const sec = Math.floor(s % 60);
   if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
   return `${m}:${String(sec).padStart(2, "0")}`;
@@ -65,19 +65,19 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
   const [mode, setMode] = useState<Mode>("upload");
 
   // ── Upload state ──────────────────────────────────────────────────────────
-  const [file, setFile]                   = useState<File | null>(null);
-  const [duration, setDuration]           = useState<number | null>(null);
-  const [isDragging, setIsDragging]       = useState(false);
-  const [fileError, setFileError]         = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [duration, setDuration] = useState<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [fileError, setFileError] = useState("");
   const [loadingDuration, setLoadingDuration] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // ── YouTube state ─────────────────────────────────────────────────────────
-  const [ytUrl, setYtUrl]             = useState("");
-  const [ytInfo, setYtInfo]           = useState<YoutubeInfo | null>(null);
-  const [ytError, setYtError]         = useState("");
+  const [ytUrl, setYtUrl] = useState("");
+  const [ytInfo, setYtInfo] = useState<YoutubeInfo | null>(null);
+  const [ytError, setYtError] = useState("");
   const [fetchingInfo, setFetchingInfo] = useState(false);
-  const [downloading, setDownloading]   = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0); // 0-100
 
   const apiKeyOk = isApiKeyConfigured();
@@ -101,11 +101,11 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
 
   function readDuration(f: File): Promise<number> {
     return new Promise((resolve, reject) => {
-      const video  = document.createElement("video");
+      const video = document.createElement("video");
       video.preload = "metadata";
-      const url    = URL.createObjectURL(f);
+      const url = URL.createObjectURL(f);
       video.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(video.duration); };
-      video.onerror          = () => { URL.revokeObjectURL(url); reject(new Error("Gagal membaca metadata video")); };
+      video.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Gagal membaca metadata video")); };
       video.src = url;
     });
   }
@@ -197,7 +197,7 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
 
       const resp = await fetch(`${API_BASE}/api/download-youtube`, {
         method: "POST",
-        body:   formData,
+        body: formData,
       });
 
       if (!resp.ok) {
@@ -207,8 +207,8 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
 
       // Read with progress tracking using Content-Length header
       const contentLength = Number(resp.headers.get("Content-Length") ?? "0");
-      const fileName      = resp.headers.get("X-File-Name")      ?? "youtube_video.mp4";
-      const durationStr   = resp.headers.get("X-Video-Duration") ?? String(ytInfo.duration);
+      const fileName = resp.headers.get("X-File-Name") ?? "youtube_video.mp4";
+      const durationStr = resp.headers.get("X-Video-Duration") ?? String(ytInfo.duration);
       const videoDuration = Number(durationStr) || ytInfo.duration;
 
       // Stream body with progress
@@ -262,7 +262,7 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
   const anyError = error || fileError || ytError;
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center p-6 relative overflow-hidden">
       {/* Background grid */}
       <div
         className="absolute inset-0 opacity-[0.03]"
@@ -282,27 +282,26 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
             POWERED BY COBAMULAI
           </div>
           <h1
-            className="text-5xl font-black text-black tracking-tight mb-3"
+            className="text-5xl font-black text-black dark:text-white tracking-tight mb-3"
             style={{ fontFamily: "'Syne', sans-serif" }}
           >
             AI Viral{" "}
             <span className="text-[#1ABC71]">Clipper</span>
           </h1>
-          <p className="text-gray-600 text-base">
+          <p className="text-gray-600 dark:text-gray-400 text-base">
             Upload video kamu. AI mendeteksi momen viral. Kamu edit, auto-subtitle &amp; export.
           </p>
         </div>
 
         {/* Mode toggle */}
-        <div className="flex rounded-2xl border border-gray-200 p-1 mb-5 bg-gray-50">
+        <div className="flex rounded-2xl border border-gray-200 dark:border-gray-800 p-1 mb-5 bg-gray-50 dark:bg-gray-900">
           <button
             type="button"
             onClick={() => handleModeSwitch("upload")}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-              mode === "upload"
-                ? "bg-white text-black shadow-sm border border-gray-200"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${mode === "upload"
+              ? "bg-white dark:bg-gray-800 text-black dark:text-white shadow-sm border border-gray-200 dark:border-gray-700"
+              : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              }`}
           >
             <Upload size={15} />
             Upload File
@@ -310,11 +309,10 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
           <button
             type="button"
             onClick={() => handleModeSwitch("youtube")}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-              mode === "youtube"
-                ? "bg-white text-black shadow-sm border border-gray-200"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${mode === "youtube"
+              ? "bg-white dark:bg-gray-800 text-black dark:text-white shadow-sm border border-gray-200 dark:border-gray-700"
+              : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              }`}
           >
             <Youtube size={15} className={mode === "youtube" ? "text-red-500" : ""} />
             YouTube Link
@@ -330,11 +328,10 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
                 onDragLeave={() => setIsDragging(false)}
                 onDrop={handleDrop}
                 onClick={() => inputRef.current?.click()}
-                className={`relative cursor-pointer rounded-2xl border-2 border-dashed transition-all duration-200 p-10 text-center ${
-                  isDragging
-                    ? "border-[#1ABC71]/70 bg-[#1ABC71]/5 scale-[1.01]"
-                    : "border-gray-300 bg-gray-50 hover:border-[#1ABC71]/50 hover:bg-gray-100"
-                }`}
+                className={`relative cursor-pointer rounded-2xl border-2 border-dashed transition-all duration-200 p-10 text-center ${isDragging
+                  ? "border-[#1ABC71]/70 bg-[#1ABC71]/5 scale-[1.01]"
+                  : "border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 hover:border-[#1ABC71]/50 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  }`}
               >
                 <input
                   ref={inputRef}
@@ -345,21 +342,20 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
                 />
                 <div className="flex flex-col items-center gap-3">
                   <div
-                    className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-colors ${
-                      isDragging ? "bg-[#1ABC71]/20" : "bg-gray-100"
-                    }`}
+                    className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-colors ${isDragging ? "bg-[#1ABC71]/20" : "bg-gray-100 dark:bg-gray-800"
+                      }`}
                   >
                     {loadingDuration ? (
                       <Loader2 size={28} className="text-[#1ABC71] animate-spin" />
                     ) : (
-                      <Upload size={28} className={isDragging ? "text-[#1ABC71]" : "text-gray-400"} />
+                      <Upload size={28} className={isDragging ? "text-[#1ABC71]" : "text-gray-400 dark:text-gray-500"} />
                     )}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-gray-700 mb-1">
+                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
                       {isDragging ? "Lepaskan file di sini" : "Drag & drop video kamu"}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       atau <span className="text-[#1ABC71] underline">browse file</span>
                     </p>
                   </div>
@@ -377,8 +373,8 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
                     <Film size={22} className="text-[#1ABC71]" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-black truncate">{file.name}</p>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 font-mono">
+                    <p className="text-sm font-semibold text-black dark:text-white truncate">{file.name}</p>
+                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400 font-mono">
                       <span>{formatBytes(file.size)}</span>
                       <span>·</span>
                       {duration !== null && (
@@ -391,7 +387,7 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
                   <button
                     type="button"
                     onClick={clearFile}
-                    className="text-gray-500 hover:text-black transition-colors text-xs px-2 py-1 rounded-lg hover:bg-gray-100"
+                    className="text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors text-xs px-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
                   >
                     Ganti
                   </button>
@@ -430,8 +426,8 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
         {mode === "youtube" && (
           <div className="space-y-4">
             {/* URL input */}
-            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 p-4">
+              <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 block">
                 Link YouTube
               </label>
               <div className="flex gap-2">
@@ -453,13 +449,13 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
                     }}
                     placeholder="https://youtube.com/watch?v=..."
                     disabled={downloading}
-                    className="w-full pl-8 pr-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-[#1ABC71]/60 focus:ring-2 focus:ring-[#1ABC71]/10 disabled:opacity-60"
+                    className="w-full pl-8 pr-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:border-[#1ABC71]/60 focus:ring-2 focus:ring-[#1ABC71]/10 disabled:opacity-60"
                   />
                   {ytUrl && !downloading && (
                     <button
                       type="button"
                       onClick={clearYoutube}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                     >
                       <X size={14} />
                     </button>
@@ -499,10 +495,10 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
                   </div>
                   {/* Meta */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-black line-clamp-2 leading-tight mb-1">
+                    <p className="text-sm font-semibold text-black dark:text-white line-clamp-2 leading-tight mb-1">
                       {ytInfo.title}
                     </p>
-                    <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+                    <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
                       <span className="flex items-center gap-1">
                         <User size={10} /> {ytInfo.author}
                       </span>
@@ -515,11 +511,10 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
                         {ytInfo.streams.slice(-3).reverse().map((s, i) => (
                           <span
                             key={i}
-                            className={`text-[10px] px-2 py-0.5 rounded-full border font-mono ${
-                              i === 0
-                                ? "bg-[#1ABC71]/15 border-[#1ABC71]/30 text-[#1ABC71]"
-                                : "bg-gray-100 border-gray-200 text-gray-500"
-                            }`}
+                            className={`text-[10px] px-2 py-0.5 rounded-full border font-mono ${i === 0
+                              ? "bg-[#1ABC71]/15 border-[#1ABC71]/30 text-[#1ABC71]"
+                              : "bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400"
+                              }`}
                           >
                             {s.resolution}
                             {s.filesize_mb > 0 && ` · ${s.filesize_mb}MB`}
@@ -552,10 +547,10 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
                     <Youtube size={18} className="text-red-500" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-black truncate">
+                    <p className="text-sm font-semibold text-black dark:text-white truncate">
                       {ytInfo?.title ?? "Mengunduh video…"}
                     </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                       {downloadProgress < 100
                         ? `Mengunduh dari server… ${downloadProgress > 0 ? `${downloadProgress}%` : ""}`
                         : "Selesai, memproses…"}
@@ -564,7 +559,7 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
                 </div>
 
                 {/* Progress bar */}
-                <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
+                <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-800 overflow-hidden">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-[#1ABC71] to-[#16a085] transition-all duration-300"
                     style={{ width: `${downloadProgress || 5}%` }}
@@ -598,21 +593,21 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
         )}
 
         {/* Info footer */}
-        <div className="mt-8 pt-6 border-t border-gray-200">
-          <div className="flex flex-col gap-3 text-xs text-gray-500">
+        <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
+          <div className="flex flex-col gap-3 text-xs text-gray-500 dark:text-gray-400">
             {(mode === "upload"
               ? [
-                  "Video dianalisis AI berdasarkan durasi dan nama file — tidak perlu koneksi internet untuk video itu sendiri.",
-                  "File video disimpan di browser IndexedDB kamu — tidak diupload ke server sampai kamu klik Export.",
-                  "Auto-subtitle menggunakan OpenAI Whisper — 3 kata per subtitle, tersinkronisasi otomatis.",
-                  `Format didukung: MP4, WebM, MOV, AVI, MKV (maks. ${MAX_SIZE_GB}GB).`,
-                ]
+                "Video dianalisis AI berdasarkan durasi dan nama file — tidak perlu koneksi internet untuk video itu sendiri.",
+                "File video disimpan di browser IndexedDB kamu — tidak diupload ke server sampai kamu klik Export.",
+                "Auto-subtitle menggunakan OpenAI Whisper — 3 kata per subtitle, tersinkronisasi otomatis.",
+                `Format didukung: MP4, WebM, MOV, AVI, MKV (maks. ${MAX_SIZE_GB}GB).`,
+              ]
               : [
-                  "Video YouTube akan diunduh ke server lalu dikirim ke browsermu (maks. resolusi 720p).",
-                  "Setelah download, video disimpan di IndexedDB browser — tidak perlu upload ulang saat Export.",
-                  "Video privat, age-restricted, atau yang dinonaktifkan embed-nya tidak bisa diunduh.",
-                  "Gunakan untuk video yang kamu miliki atau yang bebas digunakan ulang.",
-                ]
+                "Video YouTube akan diunduh ke server lalu dikirim ke browsermu (maks. resolusi 720p).",
+                "Setelah download, video disimpan di IndexedDB browser — tidak perlu upload ulang saat Export.",
+                "Video privat, age-restricted, atau yang dinonaktifkan embed-nya tidak bisa diunduh.",
+                "Gunakan untuk video yang kamu miliki atau yang bebas digunakan ulang.",
+              ]
             ).map((text, i) => (
               <div key={i} className="flex items-start gap-2">
                 <div className="w-1 h-1 rounded-full bg-[#1ABC71]/50 mt-1.5 shrink-0" />
