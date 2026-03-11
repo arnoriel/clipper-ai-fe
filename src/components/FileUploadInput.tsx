@@ -122,6 +122,17 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
           </p>
         </div>
 
+         {/* ⚠️ Session warning banner */}
+        <div className="mb-6 flex items-start gap-3 px-4 py-3.5 rounded-xl bg-green-50 border border-green-200 text-green-800 text-xs leading-relaxed">
+          <span className="text-base shrink-0 mt-0.5">⚠️</span>
+          <div>
+            <p className="font-semibold mb-1">Selesaikan sesi editing sebelum pergi</p>
+            <p className="text-green-700">
+              Setelah upload video, <strong>jangan kembali ke halaman Upload</strong> sampai kamu selesai memilih momen dan export clip. Analisis AI menggunakan kredit — mengulang dari awal akan memotong kredit kamu lagi.
+            </p>
+          </div>
+        </div>
+
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           {!file ? (
