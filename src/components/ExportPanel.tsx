@@ -1,5 +1,5 @@
 // src/components/ExportPanel.tsx
-import { Download, CheckCircle2, Loader2, Film, Trash2, Zap, Sparkles } from "lucide-react";
+import { Download, CheckCircle2, Loader2, Film, Trash2, Zap, Sparkles, Activity, User } from "lucide-react";
 import type { ProjectClip } from "../lib/storage";
 import { formatTime } from "../lib/AI";
 
@@ -57,13 +57,21 @@ export default function ExportPanel({
       </div>
 
       {clips.map((clip) => {
-        const isExporting  = exportingId === clip.momentId;
-        const exportedUrl  = exportedUrls[clip.momentId];
+        const isExporting    = exportingId === clip.momentId;
+        const exportedUrl    = exportedUrls[clip.momentId];
         const effectiveStart = clip.moment.startTime + clip.edits.trimStart;
         const effectiveEnd   = clip.moment.endTime   + clip.edits.trimEnd;
         const duration       = effectiveEnd - effectiveStart;
         const autoSubCount   = clip.edits.textOverlays.filter((t) => t.isAutoSubtitle).length;
         const manualSubCount = clip.edits.textOverlays.filter((t) => !t.isAutoSubtitle).length;
+        const imageCount     = (clip.edits.imageOverlays ?? []).length;
+
+        // Motion tracking state
+        const hasMotionTracking = clip.edits.motionAnalyzed &&
+          clip.edits.motionKeyframes &&
+          clip.edits.motionKeyframes.length > 0 &&
+          !clip.edits.isStaticMotion;
+        const hasStaticFaceCrop = clip.edits.motionAnalyzed && clip.edits.isStaticMotion;
 
         return (
           <div key={clip.momentId} className="bg-gray-50 border border-gray-200 rounded-2xl p-3 md:p-4 space-y-3">
@@ -92,6 +100,23 @@ export default function ExportPanel({
                   {AR_LABELS[clip.edits.aspectRatio] ?? clip.edits.aspectRatio}
                 </span>
               )}
+
+              {/* Motion tracking badge */}
+              {hasMotionTracking && (
+                <span className="px-2 py-0.5 rounded-md bg-[#1ABC71]/10 text-[#1ABC71] text-[10px] border border-[#1ABC71]/20 flex items-center gap-1">
+                  <Activity size={8} />
+                  AI tracking · {clip.edits.motionKeyframes?.length ?? 0} kf
+                </span>
+              )}
+
+              {/* Static face crop badge */}
+              {hasStaticFaceCrop && !hasMotionTracking && (
+                <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-500 text-[10px] border border-blue-200 flex items-center gap-1">
+                  <User size={8} />
+                  face crop
+                </span>
+              )}
+
               {clip.edits.speed !== 1 && (
                 <span className="px-2 py-0.5 rounded-md bg-orange-50 text-orange-500 text-[10px] border border-orange-200">
                   {clip.edits.speed}× speed
@@ -106,6 +131,11 @@ export default function ExportPanel({
               {manualSubCount > 0 && (
                 <span className="px-2 py-0.5 rounded-md bg-[#1ABC71]/10 text-[#1ABC71] text-[10px] border border-[#1ABC71]/20">
                   {manualSubCount} manual text{manualSubCount > 1 ? "s" : ""}
+                </span>
+              )}
+              {imageCount > 0 && (
+                <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-500 text-[10px] border border-indigo-200">
+                  {imageCount} image{imageCount > 1 ? "s" : ""}
                 </span>
               )}
               {(clip.edits.brightness !== 0 || clip.edits.contrast !== 0 || clip.edits.saturation !== 0) && (

@@ -1,5 +1,5 @@
 // src/components/VideoEditor.tsx
-// CapCut-style video editor with AI auto-subtitle system (2short.ai inspired)
+// CapCut-style video editor with AI auto-subtitle + AI Motion Facial Tracking
 // Mobile-responsive: stacked layout on mobile, side-by-side on desktop
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
@@ -7,11 +7,11 @@ import {
   Sliders, Zap, Download, Loader2, Plus, Trash2, Clock, RefreshCw,
   AlignCenter, AlignLeft, AlignRight, Bold, Italic, ChevronDown, ChevronUp,
   Eye, EyeOff, CaseSensitive, Sparkles, Wand2, Check, Image as ImageIcon,
-  ChevronLeft,
+  ChevronLeft, Scan, Activity, User, AlertCircle, Info,
 } from "lucide-react";
 import type { ViralMoment } from "../lib/AI";
 import { formatTime } from "../lib/AI";
-import type { ClipEdits, TextOverlay } from "../lib/storage";
+import type { ClipEdits, TextOverlay, MotionAnalysisResult } from "../lib/storage";
 import {
   generateId,
   defaultTextOverlay,
@@ -33,7 +33,8 @@ interface Props {
   onExport: (moment: ViralMoment, edits: ClipEdits) => void;
   onClose: () => void;
   isExporting: boolean;
-  onAutoSubtitle?: () => Promise<{ vtt: string } | null>;
+  onAutoSubtitle?: () => Promise<any | null>;
+  onAnalyzeMotion?: () => Promise<MotionAnalysisResult | null>;
 }
 
 type Tab = "subtitle" | "trim" | "crop" | "color" | "speed" | "media";
@@ -48,7 +49,6 @@ const ASPECT_RATIOS: { label: string; value: ClipEdits["aspectRatio"]; desc: str
 
 const SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const SNAP_THRESHOLD = 0.03;
-
 const FONT_REFERENCE_WIDTH = 1080;
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -220,9 +220,49 @@ function SliderField({ label, value, min, max, step, format, onChange, dark }: {
   );
 }
 
+// ─── Motion Status Badge ──────────────────────────────────────────────────────
+function MotionStatusBadge({ edits }: { edits: ClipEdits }) {
+  if (!edits.motionAnalyzed) return null;
+
+  if (!edits.motionAvailable) {
+    return (
+      <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-[10px]">
+        <AlertCircle size={10} />
+        <span>OpenCV tidak tersedia di server</span>
+      </div>
+    );
+  }
+
+  if (edits.motionKeyframes && edits.motionKeyframes.length > 1 && !edits.isStaticMotion) {
+    return (
+      <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#1ABC71]/10 border border-[#1ABC71]/20 text-[#1ABC71] text-[10px]">
+        <Activity size={10} className="shrink-0" />
+        <span>AI Tracking aktif · {edits.motionKeyframes.length} keyframes</span>
+      </div>
+    );
+  }
+
+  if (edits.isStaticMotion) {
+    return (
+      <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px]">
+        <User size={10} className="shrink-0" />
+        <span>Wajah ditemukan · crop statis ke posisi orang</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-white/40 text-[10px]">
+      <Info size={10} className="shrink-0" />
+      <span>Tidak ada orang terdeteksi · center crop</span>
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function VideoEditor({
-  moment, edits, videoSrc, onUpdateEdits, onExport, onClose, isExporting, onAutoSubtitle,
+  moment, edits, videoSrc, onUpdateEdits, onExport, onClose, isExporting,
+  onAutoSubtitle, onAnalyzeMotion,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoWrapRef = useRef<HTMLDivElement>(null);
@@ -245,6 +285,12 @@ export default function VideoEditor({
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcribeError, setTranscribeError] = useState("");
   const [subtitleSubTab, setSubtitleSubTab] = useState<"presets" | "layers" | "add">("presets");
+
+  // ─── Motion tracking state ────────────────────────────────────────────────
+  const [isAnalyzingMotion, setIsAnalyzingMotion] = useState(false);
+  const [motionError, setMotionError] = useState("");
+  // Track which ratio was last analyzed to detect when re-analysis is needed
+  const lastAnalyzedRatioRef = useRef<string | null>(null);
 
   // Preview video wrapper actual pixel width
   const [previewWidth, setPreviewWidth] = useState(0);
@@ -281,6 +327,37 @@ export default function VideoEditor({
   const activePresetId = edits.activePresetId ?? "bold-impact";
 
   useEffect(() => { loadAllSubtitleFonts(); }, []);
+
+  // ─── Auto-trigger motion analysis when aspect ratio changes ──────────────
+  useEffect(() => {
+    const ratio = edits.aspectRatio;
+
+    // Only run when ratio is non-original and changed from last analyzed
+    if (ratio === "original") {
+      lastAnalyzedRatioRef.current = null;
+      return;
+    }
+    if (!onAnalyzeMotion) return;
+    // Already analyzed for this ratio
+    if (edits.motionAnalyzed && lastAnalyzedRatioRef.current === ratio) return;
+    if (isAnalyzingMotion) return;
+
+    lastAnalyzedRatioRef.current = ratio;
+    runMotionAnalysis();
+  }, [edits.aspectRatio]);
+
+  async function runMotionAnalysis() {
+    if (!onAnalyzeMotion || isAnalyzingMotion) return;
+    setIsAnalyzingMotion(true);
+    setMotionError("");
+    try {
+      await onAnalyzeMotion();
+    } catch (e: any) {
+      setMotionError(e.message || "Motion analysis failed");
+    } finally {
+      setIsAnalyzingMotion(false);
+    }
+  }
 
   // ── Image overlay drag ──────────────────────────────────────────────────────
   const imageDragStartRef = useRef<{ mouseX: number; mouseY: number; imgX: number; imgY: number } | null>(null);
@@ -364,10 +441,7 @@ export default function VideoEditor({
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
-      if (e.code === "Space") {
-        e.preventDefault();
-        togglePlay();
-      }
+      if (e.code === "Space") { e.preventDefault(); togglePlay(); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -388,7 +462,6 @@ export default function VideoEditor({
     seekToClientX(e.clientX);
   }
 
-  // Touch support for progress bar
   function handleProgressTouchStart(e: React.TouchEvent) {
     const touch = e.touches[0];
     const bar = progressBarRef.current;
@@ -439,22 +512,13 @@ export default function VideoEditor({
     setTranscribeError("");
     try {
       const result = await onAutoSubtitle();
-      
-      if (!result) { 
-        setTranscribeError("No response from server."); 
-        return; 
-      }
+      if (!result) { setTranscribeError("No response from server."); return; }
 
       const chunks = (result as any).chunks as { text: string; start: number; end: number }[] | undefined;
-      
-      if (!chunks || chunks.length === 0) { 
-        setTranscribeError("No speech detected or generation failed."); 
-        return; 
-      }
+      if (!chunks || chunks.length === 0) { setTranscribeError("No speech detected or generation failed."); return; }
 
       const preset = SUBTITLE_PRESETS.find((p) => p.id === activePresetId) ?? SUBTITLE_PRESETS[0];
       const manual = edits.textOverlays.filter((t) => !t.isAutoSubtitle);
-      
       const newOverlays: TextOverlay[] = chunks.map((chunk) =>
         applyPresetToOverlay(
           defaultTextOverlay({
@@ -467,7 +531,6 @@ export default function VideoEditor({
           preset,
         )
       );
-
       updateEdits({ textOverlays: [...manual, ...newOverlays] });
       setSubtitleSubTab("layers");
     } catch (e: any) {
@@ -477,7 +540,6 @@ export default function VideoEditor({
     }
   }
 
-  // ── Remove all auto subtitles ─────────────────────────────────────────────
   function clearAutoSubtitles() {
     updateEdits({ textOverlays: edits.textOverlays.filter((t) => !t.isAutoSubtitle) });
   }
@@ -599,6 +661,10 @@ export default function VideoEditor({
   const autoCount = edits.textOverlays.filter((t) => t.isAutoSubtitle).length;
   const manualCount = edits.textOverlays.filter((t) => !t.isAutoSubtitle).length;
 
+  // ── Determine motion tracking display state ───────────────────────────────
+  const hasMotionTracking = edits.motionAnalyzed && edits.motionKeyframes && edits.motionKeyframes.length > 0 && !edits.isStaticMotion;
+  const motionMessage = edits.motionMessage ?? "";
+
   // ── Overlay controls ──────────────────────────────────────────────────────
   function renderOverlayControls(t: TextOverlay) {
     const s = t.startSec ?? 0;
@@ -622,9 +688,7 @@ export default function VideoEditor({
           <div>
             <label className="block text-[10px] text-white/40 mb-1.5 font-medium uppercase tracking-wider">
               Size: {t.fontSize}
-              {fontPreviewScale < 0.99 && (
-                <span className="text-white/20 ml-1">(~{previewPx}px)</span>
-              )}
+              {fontPreviewScale < 0.99 && <span className="text-white/20 ml-1">(~{previewPx}px)</span>}
             </label>
             <input type="range" min={12} max={120} value={t.fontSize} onChange={(e) => updateOverlay(t.id, { fontSize: +e.target.value })} className="w-full accent-[#1ABC71]" />
           </div>
@@ -671,8 +735,7 @@ export default function VideoEditor({
             Letter Spacing: {t.letterSpacing > 0 ? "+" : ""}{t.letterSpacing}px
           </label>
           <input type="range" min={-5} max={20} step={0.5} value={t.letterSpacing ?? 0}
-            onChange={(e) => updateOverlay(t.id, { letterSpacing: +e.target.value })}
-            className="w-full accent-[#1ABC71]" />
+            onChange={(e) => updateOverlay(t.id, { letterSpacing: +e.target.value })} className="w-full accent-[#1ABC71]" />
         </div>
 
         <div className="space-y-2">
@@ -765,22 +828,21 @@ export default function VideoEditor({
 
   // ── Tab icon labels for mobile bottom bar ─────────────────────────────────
   const TABS: { id: Tab; label: string; icon: typeof Type }[] = [
-    { id: "subtitle", label: "Sub", icon: Type },
-    { id: "trim",     label: "Trim", icon: Clock },
-    { id: "crop",     label: "Crop", icon: Crop },
+    { id: "subtitle", label: "Sub",   icon: Type },
+    { id: "trim",     label: "Trim",  icon: Clock },
+    { id: "crop",     label: "Crop",  icon: Crop },
     { id: "color",    label: "Color", icon: Sliders },
     { id: "speed",    label: "Speed", icon: Zap },
     { id: "media",    label: "Media", icon: ImageIcon },
   ];
 
-  // ── Right panel content (shared between desktop sidebar and mobile sheet) ──
+  // ── Right panel content ────────────────────────────────────────────────────
   function renderPanelContent() {
     return (
       <>
         {/* ── SUBTITLE TAB ── */}
         {activeTab === "subtitle" && (
           <div className="flex flex-col h-full">
-            {/* Sub-tab bar */}
             <div className="flex border-b border-white/10 shrink-0">
               {(["presets", "add", "layers"] as const).map((tab) => (
                 <button key={tab} onClick={() => setSubtitleSubTab(tab)}
@@ -790,7 +852,6 @@ export default function VideoEditor({
               ))}
             </div>
 
-            {/* ─── PRESETS sub-tab ─── */}
             {subtitleSubTab === "presets" && (
               <div className="p-4 space-y-4 overflow-y-auto flex-1">
                 <div className="rounded-xl border border-[#1ABC71]/20 bg-[#1ABC71]/5 p-3 space-y-3">
@@ -802,27 +863,20 @@ export default function VideoEditor({
                   <p className="text-[10px] text-white/40 leading-relaxed">
                     AI listens to speech in your clip and generates synced subtitles — 3 words at a time.
                   </p>
-
                   {transcribeError && (
                     <p className="text-[10px] text-red-400 bg-red-500/10 rounded-lg px-2 py-1.5">{transcribeError}</p>
                   )}
-
-                  <button
-                    onClick={handleAutoSubtitle}
-                    disabled={isTranscribing || !onAutoSubtitle}
-                    className="w-full py-2.5 rounded-xl bg-[#1ABC71] text-white text-xs font-bold hover:bg-[#16a085] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#1ABC71]/20"
-                  >
+                  <button onClick={handleAutoSubtitle} disabled={isTranscribing || !onAutoSubtitle}
+                    className="w-full py-2.5 rounded-xl bg-[#1ABC71] text-white text-xs font-bold hover:bg-[#16a085] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#1ABC71]/20">
                     {isTranscribing ? (
                       <><Loader2 size={13} className="animate-spin" /> Transcribing speech…</>
                     ) : (
                       <><Sparkles size={13} /> Generate Auto Subtitles</>
                     )}
                   </button>
-
                   {!onAutoSubtitle && (
                     <p className="text-[9px] text-white/20 text-center">Requires OPENAI_API_KEY on backend</p>
                   )}
-
                   {autoCount > 0 && (
                     <div className="flex items-center justify-between text-[10px]">
                       <span className="text-[#1ABC71]/70 flex items-center gap-1"><Sparkles size={9} />{autoCount} subtitles generated</span>
@@ -832,17 +886,11 @@ export default function VideoEditor({
                     </div>
                   )}
                 </div>
-
                 <div>
                   <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium mb-2">Style Presets</div>
                   <div className="grid grid-cols-2 gap-2">
                     {SUBTITLE_PRESETS.map((preset) => (
-                      <PresetCard
-                        key={preset.id}
-                        preset={preset}
-                        isActive={activePresetId === preset.id}
-                        onClick={() => applyPresetToAllAuto(preset.id)}
-                      />
+                      <PresetCard key={preset.id} preset={preset} isActive={activePresetId === preset.id} onClick={() => applyPresetToAllAuto(preset.id)} />
                     ))}
                   </div>
                   {autoCount > 0 && (
@@ -854,7 +902,6 @@ export default function VideoEditor({
               </div>
             )}
 
-            {/* ─── ADD sub-tab ─── */}
             {subtitleSubTab === "add" && (
               <div className="p-4 space-y-4">
                 <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Add Manual Subtitle</div>
@@ -879,7 +926,6 @@ export default function VideoEditor({
               </div>
             )}
 
-            {/* ─── LAYERS sub-tab ─── */}
             {subtitleSubTab === "layers" && (
               <div className="p-4 space-y-2 overflow-y-auto flex-1">
                 <div className="flex items-center justify-between mb-2">
@@ -893,7 +939,6 @@ export default function VideoEditor({
                     </button>
                   )}
                 </div>
-
                 {edits.textOverlays.length === 0 && (
                   <div className="py-10 text-center">
                     <Type size={24} className="text-white/10 mx-auto mb-2" />
@@ -904,13 +949,11 @@ export default function VideoEditor({
                     </button>
                   </div>
                 )}
-
                 {edits.textOverlays.map((t) => {
                   const isSelected = selectedOverlayId === t.id;
                   const isExpanded = expandedId === t.id;
                   const s = t.startSec ?? 0;
                   const en = t.endSec ?? clipDuration;
-
                   return (
                     <div key={t.id}
                       className={`rounded-xl border transition-all overflow-hidden ${isSelected ? "border-[#1ABC71]/50 bg-[#1ABC71]/10" : "border-white/10 bg-white/3 hover:border-white/20"}`}>
@@ -921,8 +964,7 @@ export default function VideoEditor({
                             ? <Sparkles size={10} className="text-purple-400 shrink-0" />
                             : <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
                           }
-                          <span className="text-xs text-white/80 truncate"
-                            style={{ fontFamily: `'${t.fontFamily || "Montserrat"}', sans-serif` }}>
+                          <span className="text-xs text-white/80 truncate" style={{ fontFamily: `'${t.fontFamily || "Montserrat"}', sans-serif` }}>
                             {t.uppercase ? t.text.toUpperCase() : t.text}
                           </span>
                         </div>
@@ -960,7 +1002,7 @@ export default function VideoEditor({
           </div>
         )}
 
-        {/* ── CROP TAB ── */}
+        {/* ── CROP TAB — WITH MOTION TRACKING ── */}
         {activeTab === "crop" && (
           <div className="p-4 space-y-4">
             <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Aspect Ratio</div>
@@ -976,6 +1018,137 @@ export default function VideoEditor({
                 </button>
               ))}
             </div>
+
+            {/* ── AI Motion Tracking section (only shown when crop is active) ── */}
+            {edits.aspectRatio !== "original" && (
+              <div className="mt-2 rounded-xl border border-white/10 bg-white/3 overflow-hidden">
+                {/* Section header */}
+                <div className="flex items-center gap-2 px-3 py-2.5 border-b border-white/10">
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
+                    hasMotionTracking
+                      ? "bg-[#1ABC71]/20 border border-[#1ABC71]/30"
+                      : edits.isStaticMotion
+                        ? "bg-blue-500/20 border border-blue-500/30"
+                        : "bg-white/5 border border-white/10"
+                  }`}>
+                    {isAnalyzingMotion
+                      ? <Loader2 size={12} className="text-[#1ABC71] animate-spin" />
+                      : hasMotionTracking
+                        ? <Activity size={12} className="text-[#1ABC71]" />
+                        : edits.isStaticMotion
+                          ? <User size={12} className="text-blue-400" />
+                          : <Scan size={12} className="text-white/40" />
+                    }
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-white">AI Motion Tracking</p>
+                    <p className="text-[9px] text-white/30 truncate">
+                      {isAnalyzingMotion
+                        ? "Menganalisis gerakan di video…"
+                        : edits.motionAnalyzed
+                          ? motionMessage || "Analisis selesai"
+                          : "Analisis otomatis saat crop dipilih"
+                      }
+                    </p>
+                  </div>
+                  {/* Re-analyze button */}
+                  {!isAnalyzingMotion && onAnalyzeMotion && (
+                    <button
+                      onClick={runMotionAnalysis}
+                      title="Ulangi analisis motion"
+                      className="p-1.5 rounded-lg hover:bg-white/10 text-white/30 hover:text-[#1ABC71] transition-colors shrink-0"
+                    >
+                      <RefreshCw size={12} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Status & detail */}
+                <div className="p-3 space-y-2">
+                  {isAnalyzingMotion && (
+                    <div className="flex items-center gap-2 py-2">
+                      <div className="flex-1 h-1 rounded-full bg-white/10 overflow-hidden">
+                        <div className="h-full bg-[#1ABC71] rounded-full animate-pulse" style={{ width: "60%" }} />
+                      </div>
+                      <span className="text-[10px] text-white/30 font-mono shrink-0">scanning…</span>
+                    </div>
+                  )}
+
+                  {!isAnalyzingMotion && edits.motionAnalyzed && (
+                    <MotionStatusBadge edits={edits} />
+                  )}
+
+                  {!isAnalyzingMotion && motionError && (
+                    <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-[10px]">
+                      <AlertCircle size={10} />
+                      <span className="truncate">{motionError}</span>
+                    </div>
+                  )}
+
+                  {!isAnalyzingMotion && edits.motionAnalyzed && (
+                    <div className="grid grid-cols-2 gap-2 mt-1">
+                      {hasMotionTracking && (
+                        <>
+                          <div className="bg-white/5 rounded-lg px-2.5 py-2">
+                            <div className="text-[9px] text-white/25 mb-0.5">Keyframes</div>
+                            <div className="text-xs text-[#1ABC71] font-mono font-bold">
+                              {edits.motionKeyframes?.length ?? 0}
+                            </div>
+                          </div>
+                          <div className="bg-white/5 rounded-lg px-2.5 py-2">
+                            <div className="text-[9px] text-white/25 mb-0.5">Tracking</div>
+                            <div className="text-xs text-[#1ABC71] font-mono font-bold">Dynamic</div>
+                          </div>
+                        </>
+                      )}
+                      {edits.isStaticMotion && (
+                        <>
+                          <div className="bg-white/5 rounded-lg px-2.5 py-2">
+                            <div className="text-[9px] text-white/25 mb-0.5">Orang</div>
+                            <div className="text-xs text-blue-400 font-mono font-bold">Ditemukan</div>
+                          </div>
+                          <div className="bg-white/5 rounded-lg px-2.5 py-2">
+                            <div className="text-[9px] text-white/25 mb-0.5">Mode</div>
+                            <div className="text-xs text-blue-400 font-mono font-bold">Static Crop</div>
+                          </div>
+                        </>
+                      )}
+                      {edits.motionCropW && edits.motionCropH && (
+                        <div className="col-span-2 bg-white/5 rounded-lg px-2.5 py-2">
+                          <div className="text-[9px] text-white/25 mb-0.5">Crop Window</div>
+                          <div className="text-[10px] text-white/60 font-mono">
+                            {edits.motionCropW} × {edits.motionCropH}px
+                            {edits.motionVidW && edits.motionVidH && (
+                              <span className="text-white/30 ml-1">
+                                (src {edits.motionVidW}×{edits.motionVidH})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Info note */}
+                  <p className="text-[9px] text-white/20 leading-relaxed pt-1">
+                    {hasMotionTracking
+                      ? "✅ Kamera akan mengikuti orang yang bergerak saat export."
+                      : edits.isStaticMotion
+                        ? "📌 Crop dipusatkan ke wajah/orang yang diam."
+                        : edits.motionAnalyzed
+                          ? "⬛ Crop tengah diterapkan karena tidak ada orang terdeteksi."
+                          : "🔍 AI akan otomatis mendeteksi wajah & gerakan saat crop dipilih."
+                    }
+                  </p>
+
+                  {!onAnalyzeMotion && (
+                    <p className="text-[9px] text-yellow-400/50">
+                      ⚠️ onAnalyzeMotion prop tidak tersambung
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1024,14 +1197,9 @@ export default function VideoEditor({
         {activeTab === "media" && (
           <div className="p-4 space-y-4">
             <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Insert Media Overlay</div>
-
             <label className="block cursor-pointer">
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/gif,image/svg+xml,image/webp"
-                className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) addImageOverlay(f); e.target.value = ""; }}
-              />
+              <input type="file" accept="image/png,image/jpeg,image/gif,image/svg+xml,image/webp" className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) addImageOverlay(f); e.target.value = ""; }} />
               <div className="flex flex-col items-center gap-2 py-6 rounded-xl border-2 border-dashed border-white/15 hover:border-[#1ABC71]/50 hover:bg-[#1ABC71]/5 transition-all text-center">
                 <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center">
                   <ImageIcon size={20} className="text-white/30" />
@@ -1058,7 +1226,6 @@ export default function VideoEditor({
                     Clear all
                   </button>
                 </div>
-
                 {(edits.imageOverlays ?? []).map((img) => {
                   const isSelected = selectedImageId === img.id;
                   return (
@@ -1075,20 +1242,17 @@ export default function VideoEditor({
                         </button>
                         <div className="text-white/20">{isSelected ? <ChevronUp size={11} /> : <ChevronDown size={11} />}</div>
                       </div>
-
                       {isSelected && (
                         <div className="border-t border-white/10 p-3 space-y-3">
                           <div>
                             <div className="text-[9px] text-white/25 mb-1">Size: {Math.round(img.width * 100)}%</div>
                             <input type="range" min={0.02} max={1} step={0.01} value={img.width}
-                              onChange={(e) => updateImageOverlay(img.id, { width: +e.target.value })}
-                              className="w-full accent-[#1ABC71]" />
+                              onChange={(e) => updateImageOverlay(img.id, { width: +e.target.value })} className="w-full accent-[#1ABC71]" />
                           </div>
                           <div>
                             <div className="text-[9px] text-white/25 mb-1">Opacity: {Math.round(img.opacity * 100)}%</div>
                             <input type="range" min={0.05} max={1} step={0.05} value={img.opacity}
-                              onChange={(e) => updateImageOverlay(img.id, { opacity: +e.target.value })}
-                              className="w-full accent-[#1ABC71]" />
+                              onChange={(e) => updateImageOverlay(img.id, { opacity: +e.target.value })} className="w-full accent-[#1ABC71]" />
                           </div>
                           <div>
                             <div className="text-[9px] text-white/25 mb-1">Position</div>
@@ -1096,14 +1260,12 @@ export default function VideoEditor({
                               <div>
                                 <div className="text-[9px] text-white/20 mb-0.5">X: {Math.round(img.x * 100)}%</div>
                                 <input type="range" min={0} max={1} step={0.01} value={img.x}
-                                  onChange={(e) => updateImageOverlay(img.id, { x: +e.target.value })}
-                                  className="w-full accent-[#1ABC71]" />
+                                  onChange={(e) => updateImageOverlay(img.id, { x: +e.target.value })} className="w-full accent-[#1ABC71]" />
                               </div>
                               <div>
                                 <div className="text-[9px] text-white/20 mb-0.5">Y: {Math.round(img.y * 100)}%</div>
                                 <input type="range" min={0} max={1} step={0.01} value={img.y}
-                                  onChange={(e) => updateImageOverlay(img.id, { y: +e.target.value })}
-                                  className="w-full accent-[#1ABC71]" />
+                                  onChange={(e) => updateImageOverlay(img.id, { y: +e.target.value })} className="w-full accent-[#1ABC71]" />
                               </div>
                             </div>
                           </div>
@@ -1114,15 +1276,13 @@ export default function VideoEditor({
                                 <div className="text-[9px] text-white/20 mb-0.5">Start: {(img.startSec ?? 0).toFixed(1)}s</div>
                                 <input type="range" min={0} max={Math.max(0, clipDuration - 0.5)} step={0.1}
                                   value={img.startSec ?? 0}
-                                  onChange={(e) => updateImageOverlay(img.id, { startSec: +e.target.value })}
-                                  className="w-full accent-[#1ABC71]" />
+                                  onChange={(e) => updateImageOverlay(img.id, { startSec: +e.target.value })} className="w-full accent-[#1ABC71]" />
                               </div>
                               <div>
                                 <div className="text-[9px] text-white/20 mb-0.5">End: {(img.endSec ?? clipDuration).toFixed(1)}s</div>
                                 <input type="range" min={0.5} max={clipDuration} step={0.1}
                                   value={img.endSec ?? clipDuration}
-                                  onChange={(e) => updateImageOverlay(img.id, { endSec: +e.target.value })}
-                                  className="w-full accent-[#1ABC71]" />
+                                  onChange={(e) => updateImageOverlay(img.id, { endSec: +e.target.value })} className="w-full accent-[#1ABC71]" />
                               </div>
                             </div>
                           </div>
@@ -1140,21 +1300,14 @@ export default function VideoEditor({
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // RENDER
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ─── RENDER ────────────────────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center md:p-2">
-      {/* 
-        Desktop: floating modal (max-w-[1300px], 95vh)
-        Mobile: full screen 
-      */}
       <div className="bg-[#111] border-0 md:border md:border-white/10 rounded-none md:rounded-2xl w-full h-full md:max-w-[1300px] md:h-[95vh] overflow-hidden flex flex-col shadow-2xl">
 
         {/* ── Header ── */}
         <div className="flex items-center justify-between px-3 md:px-5 py-2.5 md:py-3 border-b border-white/10 shrink-0">
           <div className="flex items-center gap-2 md:gap-3">
-            {/* Mobile: back button */}
             <button onClick={onClose} className="p-1.5 md:hidden rounded-xl hover:bg-white/10 text-white/60 hover:text-white transition-colors">
               <ChevronLeft size={20} />
             </button>
@@ -1166,36 +1319,42 @@ export default function VideoEditor({
               <h2 className="text-xs md:text-sm font-bold text-white leading-tight truncate max-w-[150px] md:max-w-none">{moment.label}</h2>
               <p className="text-[9px] md:text-[10px] text-white/40 font-mono">
                 {formatTime(clipStart)} → {formatTime(clipEnd)} · {Math.round(clipDuration)}s
+                {hasMotionTracking && (
+                  <span className="ml-2 text-[#1ABC71]/70 inline-flex items-center gap-0.5">
+                    <Activity size={8} /> tracking
+                  </span>
+                )}
               </p>
             </div>
           </div>
 
-          {/* Desktop: tab switcher in header */}
           <div className="hidden md:flex items-center gap-1 bg-white/5 rounded-xl p-1">
             {TABS.map(({ id, label, icon: Icon }) => (
               <button key={id} onClick={() => setActiveTab(id)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${activeTab === id ? "bg-[#1ABC71] text-white shadow" : "text-white/50 hover:text-white/80"}`}>
-                <Icon size={11} />{label}
+                <Icon size={11} />
+                {label}
+                {/* Crop tab: show motion tracking indicator dot */}
+                {id === "crop" && edits.aspectRatio !== "original" && (
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    isAnalyzingMotion ? "bg-yellow-400 animate-pulse" :
+                    hasMotionTracking ? "bg-[#1ABC71]" :
+                    edits.motionAnalyzed ? "bg-blue-400" : "bg-white/20"
+                  }`} />
+                )}
               </button>
             ))}
           </div>
 
           <div className="flex items-center gap-1.5 md:gap-2">
-            {/* Mobile: toggle panel button */}
-            <button
-              onClick={() => setMobileShowPanel(!mobileShowPanel)}
-              className="md:hidden flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 text-white text-xs font-medium"
-            >
-              <Sliders size={13} />
-              Edit
+            <button onClick={() => setMobileShowPanel(!mobileShowPanel)}
+              className="md:hidden flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 text-white text-xs font-medium">
+              <Sliders size={13} /> Edit
             </button>
-
             <button onClick={() => onExport(moment, edits)} disabled={isExporting || !videoSrc}
               className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 rounded-xl bg-[#1ABC71] text-white text-xs font-bold hover:bg-[#16a085] disabled:opacity-40 transition-all shadow-lg">
               {isExporting ? <><Loader2 size={13} className="animate-spin" /><span className="hidden sm:inline">Exporting...</span></> : <><Download size={13} /><span className="hidden sm:inline">Export</span></>}
             </button>
-
-            {/* Desktop: close button */}
             <button onClick={onClose} className="hidden md:flex p-2 rounded-xl hover:bg-white/10 text-white/50 hover:text-white transition-colors">
               <X size={18} />
             </button>
@@ -1250,15 +1409,12 @@ export default function VideoEditor({
                       <div key={img.id}
                         className={`absolute select-none ${draggingImageId === img.id ? "cursor-grabbing" : "cursor-grab"} ${isSelected ? "z-30" : "z-10"}`}
                         style={{
-                          left: `${img.x * 100}%`,
-                          top: `${img.y * 100}%`,
-                          transform: "translate(-50%, -50%)",
-                          width: `${img.width * 100}%`,
+                          left: `${img.x * 100}%`, top: `${img.y * 100}%`,
+                          transform: "translate(-50%, -50%)", width: `${img.width * 100}%`,
                           opacity: isVisible ? img.opacity : 0.3,
                         }}
                         onMouseDown={(e) => handleImageMouseDown(e, img.id)}
-                        onClick={(e) => { e.stopPropagation(); setSelectedImageId(img.id); }}
-                      >
+                        onClick={(e) => { e.stopPropagation(); setSelectedImageId(img.id); }}>
                         <img src={img.src} alt={img.name} className="w-full h-auto block pointer-events-none" draggable={false} />
                         {isSelected && (
                           <div className="absolute -inset-1 border border-[#1ABC71]/70 rounded pointer-events-none" style={{ borderStyle: "dashed" }}>
@@ -1281,14 +1437,12 @@ export default function VideoEditor({
                     const scaledFontSize = t.fontSize * fontPreviewScale;
                     const scaledOutline = (t.outlineWidth ?? 0) * fontPreviewScale;
                     const scaledLetterSpace = (t.letterSpacing ?? 0) * fontPreviewScale;
-
                     return (
                       <div key={t.id}
                         className={`absolute select-none ${draggingTextId === t.id ? "cursor-grabbing" : "cursor-grab"} ${isSelected ? "z-30" : "z-10"}`}
                         style={{ left: `${t.x * 100}%`, top: `${t.y * 100}%`, transform: "translate(-50%, -50%)", opacity: isVisible ? (t.opacity ?? 1) : 0 }}
                         onMouseDown={(e) => handleTextMouseDown(e, t.id)}
                         onClick={(e) => { e.stopPropagation(); setSelectedOverlayId(t.id); }}>
-
                         {t.backgroundEnabled && (
                           <div className="absolute rounded pointer-events-none"
                             style={{
@@ -1297,11 +1451,9 @@ export default function VideoEditor({
                               zIndex: 0,
                             }} />
                         )}
-
                         <div style={{
                           position: "relative", zIndex: 1,
-                          fontSize: `${scaledFontSize}px`,
-                          fontFamily,
+                          fontSize: `${scaledFontSize}px`, fontFamily,
                           color: t.color,
                           fontWeight: t.bold ? "bold" : "normal",
                           fontStyle: t.italic ? "italic" : "normal",
@@ -1309,15 +1461,12 @@ export default function VideoEditor({
                           textAlign: t.textAlign || "center",
                           letterSpacing: `${scaledLetterSpace}px`,
                           lineHeight: t.lineHeight || 1.2,
-                          WebkitTextStroke: scaledOutline > 0
-                            ? `${scaledOutline}px ${t.outlineColor || "#000000"}`
-                            : undefined,
+                          WebkitTextStroke: scaledOutline > 0 ? `${scaledOutline}px ${t.outlineColor || "#000000"}` : undefined,
                           textShadow: buildTextShadow(t, fontPreviewScale),
                           whiteSpace: "nowrap",
                         }}>
                           {displayText}
                         </div>
-
                         {isSelected && (
                           <div className="absolute -inset-2 border border-[#1ABC71]/70 rounded pointer-events-none" style={{ borderStyle: "dashed" }}>
                             <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-[#1ABC71] text-white text-[9px] px-2 py-0.5 rounded font-mono whitespace-nowrap flex items-center gap-1">
@@ -1330,9 +1479,27 @@ export default function VideoEditor({
                     );
                   })}
 
+                  {/* Crop & motion tracking overlay badges */}
                   {isCropped && (
-                    <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 text-[#1ABC71] text-[10px] font-mono border border-[#1ABC71]/30 pointer-events-none">
-                      {edits.aspectRatio}
+                    <div className="absolute top-2 left-2 flex items-center gap-1.5 pointer-events-none">
+                      <div className="px-2 py-0.5 rounded-md bg-black/60 text-[#1ABC71] text-[10px] font-mono border border-[#1ABC71]/30">
+                        {edits.aspectRatio}
+                      </div>
+                      {isAnalyzingMotion && (
+                        <div className="px-2 py-0.5 rounded-md bg-black/60 text-yellow-400 text-[10px] font-mono border border-yellow-400/30 flex items-center gap-1">
+                          <Loader2 size={8} className="animate-spin" /> scanning
+                        </div>
+                      )}
+                      {!isAnalyzingMotion && hasMotionTracking && (
+                        <div className="px-2 py-0.5 rounded-md bg-black/60 text-[#1ABC71] text-[10px] font-mono border border-[#1ABC71]/30 flex items-center gap-1">
+                          <Activity size={8} /> tracking
+                        </div>
+                      )}
+                      {!isAnalyzingMotion && edits.isStaticMotion && (
+                        <div className="px-2 py-0.5 rounded-md bg-black/60 text-blue-400 text-[10px] font-mono border border-blue-400/30 flex items-center gap-1">
+                          <User size={8} /> static
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1343,7 +1510,6 @@ export default function VideoEditor({
 
             {/* Playback controls */}
             <div className="shrink-0 px-3 md:px-4 py-3 bg-[#0a0a0a] border-t border-white/10">
-              {/* Progress bar */}
               <div
                 ref={progressBarRef}
                 className={`h-2.5 md:h-2 bg-white/10 rounded-full mb-3 relative group select-none ${isDraggingProgress ? "cursor-grabbing" : "cursor-pointer"}`}
@@ -1372,6 +1538,7 @@ export default function VideoEditor({
                   {autoCount > 0 && <span className="flex items-center gap-1 text-[#1ABC71]/60"><Sparkles size={9} />{autoCount}</span>}
                   {edits.speed !== 1 && <span>{edits.speed}×</span>}
                   {edits.aspectRatio !== "original" && <span>{edits.aspectRatio}</span>}
+                  {hasMotionTracking && <span className="flex items-center gap-0.5 text-[#1ABC71]/60"><Activity size={9} />AI</span>}
                 </div>
               </div>
             </div>
@@ -1388,7 +1555,6 @@ export default function VideoEditor({
                     </span>
                   )}
                 </div>
-
                 <div className="px-4 pt-1 shrink-0">
                   <div className="relative h-5">
                     {Array.from({ length: Math.ceil(clipDuration) + 1 }).map((_, i) => (
@@ -1402,27 +1568,21 @@ export default function VideoEditor({
                     </div>
                   </div>
                 </div>
-
                 <div className="flex-1 overflow-y-auto px-4 pb-2 min-h-0">
-                  <div
-                    ref={timelineRef}
-                    className="relative cursor-crosshair"
+                  <div ref={timelineRef} className="relative cursor-crosshair"
                     onClick={handleTimelineClick}
-                    style={{ height: `${Math.max(1, edits.textOverlays.length) * 36 + 8}px` }}
-                  >
+                    style={{ height: `${Math.max(1, edits.textOverlays.length) * 36 + 8}px` }}>
                     {edits.textOverlays.length === 0 && (
                       <div className="absolute inset-0 flex items-center justify-center text-[10px] text-white/20">
                         Generate auto subtitles or add text → clips appear here
                       </div>
                     )}
-
                     {edits.textOverlays.map((t, index) => {
                       const s = t.startSec ?? 0;
                       const en = t.endSec ?? clipDuration;
                       const leftPct = (s / clipDuration) * 100;
                       const widthPct = ((en - s) / clipDuration) * 100;
                       const isSelected = selectedOverlayId === t.id;
-
                       return (
                         <div key={t.id} className="absolute"
                           style={{ top: `${index * 36 + 4}px`, left: `${leftPct}%`, width: `${widthPct}%`, height: "28px" }}>
@@ -1454,7 +1614,6 @@ export default function VideoEditor({
                         </div>
                       );
                     })}
-
                     <div className="absolute top-0 bottom-0 w-px bg-[#1ABC71]/60 pointer-events-none z-20" style={{ left: `${progressPct}%` }} />
                   </div>
                 </div>
@@ -1466,9 +1625,17 @@ export default function VideoEditor({
               {TABS.map(({ id, label, icon: Icon }) => (
                 <button key={id}
                   onClick={() => { setActiveTab(id); setMobileShowPanel(true); }}
-                  className={`flex flex-col items-center gap-1 px-4 py-2.5 text-[10px] font-medium transition-colors shrink-0 ${activeTab === id && mobileShowPanel ? "text-[#1ABC71]" : "text-white/40 hover:text-white/70"}`}>
+                  className={`flex flex-col items-center gap-1 px-4 py-2.5 text-[10px] font-medium transition-colors shrink-0 relative ${activeTab === id && mobileShowPanel ? "text-[#1ABC71]" : "text-white/40 hover:text-white/70"}`}>
                   <Icon size={18} />
                   {label}
+                  {/* Motion dot on crop tab */}
+                  {id === "crop" && edits.aspectRatio !== "original" && (
+                    <span className={`absolute top-2 right-3 w-1.5 h-1.5 rounded-full ${
+                      isAnalyzingMotion ? "bg-yellow-400 animate-pulse" :
+                      hasMotionTracking ? "bg-[#1ABC71]" :
+                      edits.motionAnalyzed ? "bg-blue-400" : "bg-white/20"
+                    }`} />
+                  )}
                 </button>
               ))}
             </div>
@@ -1484,7 +1651,6 @@ export default function VideoEditor({
           {/* ── Mobile: Full-screen panel overlay ── */}
           {mobileShowPanel && (
             <div className="md:hidden absolute inset-0 z-10 bg-[#0e0e0e] flex flex-col">
-              {/* Mobile panel header */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
                 <div className="flex items-center gap-2">
                   {(() => {
@@ -1494,28 +1660,30 @@ export default function VideoEditor({
                       <>
                         <Icon size={14} className="text-[#1ABC71]" />
                         <span className="text-sm font-semibold text-white capitalize">{tab?.label}</span>
+                        {activeTab === "crop" && edits.aspectRatio !== "original" && (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                            isAnalyzingMotion ? "text-yellow-400" :
+                            hasMotionTracking ? "text-[#1ABC71]" :
+                            "text-white/30"
+                          }`}>
+                            {isAnalyzingMotion ? "scanning…" : hasMotionTracking ? "tracking ON" : edits.isStaticMotion ? "static" : ""}
+                          </span>
+                        )}
                       </>
                     );
                   })()}
                 </div>
-                <button
-                  onClick={() => setMobileShowPanel(false)}
-                  className="p-2 rounded-xl hover:bg-white/10 text-white/50 hover:text-white transition-colors flex items-center gap-1.5 text-xs"
-                >
+                <button onClick={() => setMobileShowPanel(false)}
+                  className="p-2 rounded-xl hover:bg-white/10 text-white/50 hover:text-white transition-colors">
                   <X size={16} />
                 </button>
               </div>
-
-              {/* Panel content */}
               <div className="flex-1 overflow-y-auto">
                 {renderPanelContent()}
               </div>
-
-              {/* Mobile panel: tab bar at bottom */}
               <div className="shrink-0 flex items-center bg-[#0a0a0a] border-t border-white/10 overflow-x-auto">
                 {TABS.map(({ id, label, icon: Icon }) => (
-                  <button key={id}
-                    onClick={() => setActiveTab(id)}
+                  <button key={id} onClick={() => setActiveTab(id)}
                     className={`flex flex-col items-center gap-1 px-4 py-2.5 text-[10px] font-medium transition-colors shrink-0 ${activeTab === id ? "text-[#1ABC71]" : "text-white/40 hover:text-white/70"}`}>
                     <Icon size={18} />
                     {label}

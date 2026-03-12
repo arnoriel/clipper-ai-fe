@@ -12,7 +12,7 @@ import ExportPanel from "../components/ExportPanel";
 import { detectViralMomentsFromFile, formatTime, type ViralMoment } from "../lib/AI";
 import {
   saveProject, defaultEdits, generateId, getApiKey, getProject,
-  type Project, type ProjectClip, type ClipEdits,
+  type Project, type ProjectClip, type ClipEdits, type MotionAnalysisResult,
 } from "../lib/storage";
 import {
   storeSourceVideo,
@@ -27,7 +27,11 @@ import { clearAuth, getStoredUser } from "../lib/Auth";
 // ── Session persistence ───────────────────────────────────────────────────────
 const SESSION_KEY = "ai_clipper_active_session_v1";
 
-function saveSession(projectId: string, selectedClipIds: string[], clipEdits: Record<string, ClipEdits>) {
+function saveSession(
+  projectId: string,
+  selectedClipIds: string[],
+  clipEdits: Record<string, ClipEdits>,
+) {
   try {
     localStorage.setItem(SESSION_KEY, JSON.stringify({ projectId, selectedClipIds, clipEdits }));
   } catch {}
@@ -60,37 +64,34 @@ function ProgressToast({ message }: { message: string }) {
 export default function App() {
   const navigate = useNavigate();
 
-  const [step, setStep] = useState<Step>("input");
-  const [project, setProject] = useState<Project | null>(null);
+  const [step, setStep]                 = useState<Step>("input");
+  const [project, setProject]           = useState<Project | null>(null);
   const [selectedClipIds, setSelectedClipIds] = useState<string[]>([]);
-  const [editingMoment, setEditingMoment] = useState<ViralMoment | null>(null);
-  const [clipEdits, setClipEdits] = useState<Record<string, ClipEdits>>({});
+  const [editingMoment, setEditingMoment]     = useState<ViralMoment | null>(null);
+  const [clipEdits, setClipEdits]       = useState<Record<string, ClipEdits>>({});
   const [exportedUrls, setExportedUrls] = useState<Record<string, string>>({});
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportingId, setExportingId] = useState<string | null>(null);
-  const [progressMsg, setProgressMsg] = useState("");
-  const [error, setError] = useState("");
-  const [activePanel, setActivePanel] = useState<"moments" | "export">("moments");
+  const [isLoading, setIsLoading]       = useState(false);
+  const [isExporting, setIsExporting]   = useState(false);
+  const [exportingId, setExportingId]   = useState<string | null>(null);
+  const [progressMsg, setProgressMsg]   = useState("");
+  const [error, setError]               = useState("");
+  const [activePanel, setActivePanel]   = useState<"moments" | "export">("moments");
 
-  // Logout confirm modal
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-
-  // Mobile sidebar drawer
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
   const videoObjectUrlRef = useRef<string | null>(null);
   const currentUser = getStoredUser();
 
-  // ── Logout handler ────────────────────────────────────────────────────────
+  // ── Logout ────────────────────────────────────────────────────────────────
   function handleLogout() {
     clearSession();
     clearAuth();
     navigate("/auth", { replace: true });
   }
 
-  // Restore objectURL from IndexedDB when project loads
+  // ── Restore objectURL from IndexedDB ─────────────────────────────────────
   useEffect(() => {
     if (!project?.id || project.localVideoUrl) return;
     (async () => {
@@ -103,14 +104,14 @@ export default function App() {
     })();
   }, [project?.id]);
 
-  // Restore exported clip objectURLs
+  // ── Restore exported clip objectURLs ─────────────────────────────────────
   useEffect(() => {
     if (!project) return;
     (async () => {
       const storedIds = await listStoredExportIds();
       if (storedIds.length === 0) return;
       const momentIds = project.analysisResult.moments.map((m) => m.id);
-      const relevant = storedIds.filter((id) => momentIds.includes(id));
+      const relevant  = storedIds.filter((id) => momentIds.includes(id));
       if (relevant.length === 0) return;
 
       const entries = await Promise.all(
@@ -130,7 +131,7 @@ export default function App() {
     })();
   }, [project?.id]);
 
-  // Revoke objectURLs on unmount
+  // ── Revoke objectURLs on unmount ──────────────────────────────────────────
   useEffect(() => {
     return () => {
       if (videoObjectUrlRef.current) URL.revokeObjectURL(videoObjectUrlRef.current);
@@ -195,16 +196,16 @@ export default function App() {
       );
 
       const proj: Project = {
-        id: projectId,
-        videoFileName: file.name,
-        videoFileSize: file.size,
-        videoMimeType: file.type || "video/mp4",
-        videoDuration: duration,
-        localVideoUrl: objectUrl,
-        analysisResult: result,
-        selectedClips: [],
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
+        id:              projectId,
+        videoFileName:   file.name,
+        videoFileSize:   file.size,
+        videoMimeType:   file.type || "video/mp4",
+        videoDuration:   duration,
+        localVideoUrl:   objectUrl,
+        analysisResult:  result,
+        selectedClips:   [],
+        createdAt:       Date.now(),
+        updatedAt:       Date.now(),
       };
 
       saveProject(proj);
@@ -247,31 +248,88 @@ export default function App() {
     setClipEdits((prev) => ({ ...prev, [editingMoment.id]: edits }));
   }
 
-  // ── Auto-subtitle ─────────────────────────────────────────────────────────
+  // ── AI Auto-subtitle ──────────────────────────────────────────────────────
   async function handleAutoSubtitle(): Promise<any | null> {
     if (!project?.id || !editingMoment) return null;
     const videoBlob = await getSourceVideoBlob(project.id);
     if (!videoBlob) { setError("Video tidak ditemukan di IndexedDB."); return null; }
-    
-    const edits = clipEdits[editingMoment.id] || defaultEdits();
+
+    const edits     = clipEdits[editingMoment.id] || defaultEdits();
     const startTime = editingMoment.startTime + edits.trimStart;
-    const endTime = editingMoment.endTime + edits.trimEnd;
-    
+    const endTime   = editingMoment.endTime   + edits.trimEnd;
+
     const formData = new FormData();
     formData.append("video", videoBlob, "source.mp4");
     formData.append("start_time", startTime.toString());
     formData.append("end_time", endTime.toString());
 
-    const resp = await fetch(`${API_BASE}/api/auto-subtitle`, { 
-      method: "POST", 
-      body: formData 
-    });
-    
-    if (!resp.ok) { 
-      const body = await resp.json().catch(() => ({})); 
-      throw new Error(body.detail || body.error || "Transcription failed"); 
+    const resp = await fetch(`${API_BASE}/api/auto-subtitle`, { method: "POST", body: formData });
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      throw new Error(body.detail || body.error || "Transcription failed");
     }
     return await resp.json();
+  }
+
+  // ── AI Motion Tracking ────────────────────────────────────────────────────
+  async function handleAnalyzeMotion(): Promise<MotionAnalysisResult | null> {
+    if (!project?.id || !editingMoment) return null;
+
+    const videoBlob = await getSourceVideoBlob(project.id);
+    if (!videoBlob) {
+      setError("Video tidak ditemukan di IndexedDB untuk motion analysis.");
+      return null;
+    }
+
+    const edits       = clipEdits[editingMoment.id] || defaultEdits();
+    const startTime   = editingMoment.startTime + edits.trimStart;
+    const endTime     = editingMoment.endTime   + edits.trimEnd;
+    const aspectRatio = edits.aspectRatio;
+
+    if (aspectRatio === "original") {
+      // Should not be called for uncropped, but guard anyway
+      return null;
+    }
+
+    const formData = new FormData();
+    formData.append("video",         videoBlob, "source.mp4");
+    formData.append("start_time",    startTime.toString());
+    formData.append("end_time",      endTime.toString());
+    formData.append("aspect_ratio",  aspectRatio);
+
+    const resp = await fetch(`${API_BASE}/api/analyze-motion`, {
+      method: "POST",
+      body:   formData,
+    });
+
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      throw new Error(body.detail || body.error || "Motion analysis failed");
+    }
+
+    const result: MotionAnalysisResult = await resp.json();
+
+    // Persist results into clipEdits so they survive panel switches
+    setClipEdits((prev) => {
+      const current = prev[editingMoment.id] || defaultEdits();
+      return {
+        ...prev,
+        [editingMoment.id]: {
+          ...current,
+          motionKeyframes: result.keyframes,
+          motionAnalyzed:  true,
+          isStaticMotion:  result.isStatic,
+          motionCropW:     result.cropW,
+          motionCropH:     result.cropH,
+          motionVidW:      result.vidW,
+          motionVidH:      result.vidH,
+          motionMessage:   result.message,
+          motionAvailable: result.available,
+        },
+      };
+    });
+
+    return result;
   }
 
   // ── Export clip ───────────────────────────────────────────────────────────
@@ -303,6 +361,10 @@ export default function App() {
         speed:        edits.speed,
         trimStart:    edits.trimStart,
         trimEnd:      edits.trimEnd,
+        // Motion tracking data
+        motionKeyframes: edits.motionKeyframes ?? null,
+        motionVidW:      edits.motionVidW ?? null,
+        motionVidH:      edits.motionVidH ?? null,
         textOverlays: edits.textOverlays.map((t) => ({
           id:                t.id,
           text:              t.text,
@@ -393,7 +455,6 @@ export default function App() {
       {/* ── Header ── */}
       <header className="flex items-center justify-between px-3 md:px-6 py-3 md:py-4 border-b border-gray-200 dark:border-gray-800 shrink-0">
         <div className="flex items-center gap-2 md:gap-4">
-          {/* Back button */}
           <button
             onClick={() => {
               clearSession();
@@ -420,7 +481,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Center: file info — hidden on mobile */}
         <div className="flex-1 max-w-md mx-8 hidden md:block min-w-0">
           <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 truncate">
             <Film size={12} className="text-[#1ABC71] shrink-0" />
@@ -432,13 +492,11 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-2 md:gap-3">
-          {/* Video ready badge — hidden on small mobile */}
           <div className="hidden sm:flex items-center gap-1.5 text-xs text-[#1ABC71]">
             <CheckCircle2 size={12} />
             <span className="hidden sm:inline">Video siap</span>
           </div>
 
-          {/* Export button — only when clips selected */}
           {selectedClipIds.length > 0 && (
             <button
               onClick={() => setActivePanel("export")}
@@ -452,7 +510,6 @@ export default function App() {
             </button>
           )}
 
-          {/* Mobile: hamburger for sidebar */}
           <button
             onClick={() => setShowMobileSidebar(true)}
             className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 lg:hidden"
@@ -461,7 +518,6 @@ export default function App() {
             <Menu size={18} />
           </button>
 
-          {/* Desktop: logout button */}
           <div className="relative hidden lg:block">
             <button
               onClick={() => setShowLogoutConfirm(true)}
@@ -485,13 +541,9 @@ export default function App() {
             className="absolute left-0 top-0 bottom-0 w-72 bg-white dark:bg-[#080d1a] border-r border-gray-200 dark:border-gray-800 overflow-y-auto p-5 flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Close button */}
             <div className="flex items-center justify-between mb-4">
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Project Info</span>
-              <button
-                onClick={() => setShowMobileSidebar(false)}
-                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400"
-              >
+              <button onClick={() => setShowMobileSidebar(false)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400">
                 <XIcon size={16} />
               </button>
             </div>
@@ -502,9 +554,7 @@ export default function App() {
                   <Film size={18} className="text-[#1ABC71]" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-black dark:text-white truncate">
-                    {project.videoFileName}
-                  </p>
+                  <p className="text-xs font-semibold text-black dark:text-white truncate">{project.videoFileName}</p>
                   <p className="text-[10px] text-gray-500 dark:text-gray-400 font-mono mt-0.5">
                     {formatTime(project.videoDuration)} · {(project.videoFileSize / 1_048_576).toFixed(0)}MB
                   </p>
@@ -518,15 +568,13 @@ export default function App() {
 
             <div className="space-y-2 mb-6">
               {[
-                { label: "Upload Video",    done: true },
-                { label: "Analisis AI",     done: true },
-                { label: "Pilih Moments",   done: selectedClipIds.length > 0 },
-                {
-                  label: "Edit & Subtitle", done: Object.values(clipEdits).some(
+                { label: "Upload Video",      done: true },
+                { label: "Analisis AI",       done: true },
+                { label: "Pilih Moments",     done: selectedClipIds.length > 0 },
+                { label: "Edit & Subtitle",   done: Object.values(clipEdits).some(
                     (e) => e.aspectRatio !== "original" || e.textOverlays.length > 0 ||
                       e.trimStart !== 0 || e.trimEnd !== 0 || e.speed !== 1
-                  ),
-                },
+                  ) },
                 { label: "Export & Download", done: Object.keys(exportedUrls).length > 0 },
               ].map((s, i) => (
                 <div key={i} className="flex items-center gap-2.5 text-xs">
@@ -537,14 +585,11 @@ export default function App() {
                   }`}>
                     {s.done ? "✓" : i + 1}
                   </div>
-                  <span className={s.done ? "text-gray-700 dark:text-gray-200" : "text-gray-400 dark:text-gray-500"}>
-                    {s.label}
-                  </span>
+                  <span className={s.done ? "text-gray-700 dark:text-gray-200" : "text-gray-400 dark:text-gray-500"}>{s.label}</span>
                 </div>
               ))}
             </div>
 
-            {/* User info + logout */}
             {currentUser && (
               <div className="mb-4 px-3 py-2.5 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 flex items-center justify-between gap-2">
                 <div className="min-w-0">
@@ -554,7 +599,6 @@ export default function App() {
                 <button
                   onClick={() => { setShowMobileSidebar(false); setShowLogoutConfirm(true); }}
                   className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors shrink-0"
-                  title="Logout"
                 >
                   <LogOut size={13} />
                 </button>
@@ -562,12 +606,8 @@ export default function App() {
             )}
 
             <div className="mt-auto pt-5 border-t border-gray-200 dark:border-gray-800">
-              <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 font-mono">
-                AI Summary
-              </p>
-              <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
-                {project.analysisResult.summary}
-              </p>
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 font-mono">AI Summary</p>
+              <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">{project.analysisResult.summary}</p>
             </div>
           </div>
         </div>
@@ -575,39 +615,16 @@ export default function App() {
 
       {/* Logout confirm modal */}
       {showLogoutConfirm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
-          onClick={() => setShowLogoutConfirm(false)}
-        >
-          <div
-            className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-2xl p-6 w-full max-w-xs"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm" onClick={() => setShowLogoutConfirm(false)}>
+          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-2xl p-6 w-full max-w-xs" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-100 dark:border-red-900 mx-auto mb-4">
               <LogOut size={20} className="text-red-500" />
             </div>
-            <h3
-              className="text-base font-bold text-gray-900 dark:text-white text-center mb-1"
-              style={{ fontFamily: "'Syne', sans-serif" }}
-            >
-              Logout?
-            </h3>
-            <p className="text-xs text-gray-400 text-center mb-5">
-              Kamu akan keluar dari akun{currentUser?.name ? ` ${currentUser.name}` : ""}.
-            </p>
+            <h3 className="text-base font-bold text-gray-900 dark:text-white text-center mb-1" style={{ fontFamily: "'Syne', sans-serif" }}>Logout?</h3>
+            <p className="text-xs text-gray-400 text-center mb-5">Kamu akan keluar dari akun{currentUser?.name ? ` ${currentUser.name}` : ""}.</p>
             <div className="flex gap-2">
-              <button
-                onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 py-3 md:py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-              >
-                Batal
-              </button>
-              <button
-                onClick={handleLogout}
-                className="flex-1 py-3 md:py-2.5 rounded-xl bg-red-500 text-xs font-semibold text-white hover:bg-red-600 transition-colors"
-              >
-                Ya, Logout
-              </button>
+              <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 py-3 md:py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Batal</button>
+              <button onClick={handleLogout} className="flex-1 py-3 md:py-2.5 rounded-xl bg-red-500 text-xs font-semibold text-white hover:bg-red-600 transition-colors">Ya, Logout</button>
             </div>
           </div>
         </div>
@@ -624,7 +641,6 @@ export default function App() {
 
       {/* ── Main layout ── */}
       <div className="flex-1 flex overflow-hidden">
-
         {/* Left sidebar — desktop only */}
         <aside className="w-72 border-r border-gray-200 dark:border-gray-800 overflow-y-auto p-5 hidden lg:flex flex-col shrink-0 bg-gray-50 dark:bg-[#080d1a]">
           <div className="rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-4 mb-4 shadow-sm">
@@ -633,9 +649,7 @@ export default function App() {
                 <Film size={18} className="text-[#1ABC71]" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-black dark:text-white truncate">
-                  {project.videoFileName}
-                </p>
+                <p className="text-xs font-semibold text-black dark:text-white truncate">{project.videoFileName}</p>
                 <p className="text-[10px] text-gray-500 dark:text-gray-400 font-mono mt-0.5">
                   {formatTime(project.videoDuration)} · {(project.videoFileSize / 1_048_576).toFixed(0)}MB
                 </p>
@@ -649,15 +663,13 @@ export default function App() {
 
           <div className="space-y-2 mb-6">
             {[
-              { label: "Upload Video",    done: true },
-              { label: "Analisis AI",     done: true },
-              { label: "Pilih Moments",   done: selectedClipIds.length > 0 },
-              {
-                label: "Edit & Subtitle", done: Object.values(clipEdits).some(
+              { label: "Upload Video",      done: true },
+              { label: "Analisis AI",       done: true },
+              { label: "Pilih Moments",     done: selectedClipIds.length > 0 },
+              { label: "Edit & Subtitle",   done: Object.values(clipEdits).some(
                   (e) => e.aspectRatio !== "original" || e.textOverlays.length > 0 ||
                     e.trimStart !== 0 || e.trimEnd !== 0 || e.speed !== 1
-                ),
-              },
+                ) },
               { label: "Export & Download", done: Object.keys(exportedUrls).length > 0 },
             ].map((s, i) => (
               <div key={i} className="flex items-center gap-2.5 text-xs">
@@ -668,43 +680,31 @@ export default function App() {
                 }`}>
                   {s.done ? "✓" : i + 1}
                 </div>
-                <span className={s.done ? "text-gray-700 dark:text-gray-200" : "text-gray-400 dark:text-gray-500"}>
-                  {s.label}
-                </span>
+                <span className={s.done ? "text-gray-700 dark:text-gray-200" : "text-gray-400 dark:text-gray-500"}>{s.label}</span>
               </div>
             ))}
           </div>
 
-          {/* User info + logout in sidebar */}
           {currentUser && (
             <div className="mb-4 px-3 py-2.5 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-gray-800 dark:text-gray-100 truncate">{currentUser.name}</p>
                 <p className="text-[10px] text-gray-400 truncate">{currentUser.email}</p>
               </div>
-              <button
-                onClick={() => setShowLogoutConfirm(true)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors shrink-0"
-                title="Logout"
-              >
+              <button onClick={() => setShowLogoutConfirm(true)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors shrink-0">
                 <LogOut size={13} />
               </button>
             </div>
           )}
 
           <div className="mt-auto pt-5 border-t border-gray-200 dark:border-gray-800">
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 font-mono">
-              AI Summary
-            </p>
-            <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
-              {project.analysisResult.summary}
-            </p>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 font-mono">AI Summary</p>
+            <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">{project.analysisResult.summary}</p>
           </div>
         </aside>
 
         {/* Main panel */}
         <main className="flex-1 overflow-y-auto min-w-0 bg-white dark:bg-gray-950">
-          {/* Tab bar — sticky */}
           <div className="sticky top-0 z-10 flex items-center gap-1 px-3 md:px-6 py-2 md:py-3 bg-white/90 dark:bg-gray-950/90 backdrop-blur border-b border-gray-100 dark:border-gray-800">
             <button
               onClick={() => setActivePanel("moments")}
@@ -732,7 +732,6 @@ export default function App() {
             </button>
           </div>
 
-          {/* Content area — with bottom padding for mobile so content doesn't hide behind bottom nav area */}
           <div className="p-3 md:p-6 pb-6">
             {activePanel === "moments" && (
               <MomentsList
@@ -770,6 +769,7 @@ export default function App() {
           onClose={() => setEditingMoment(null)}
           isExporting={isExporting && exportingId === editingMoment.id}
           onAutoSubtitle={handleAutoSubtitle}
+          onAnalyzeMotion={handleAnalyzeMotion}
         />
       )}
     </div>
