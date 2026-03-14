@@ -175,7 +175,11 @@ export async function uploadAndStoreExportedClip(
   const response = await fetch(serverUrl, { method: "POST", body: formData });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new Error(body.detail || body.error || "Export failed");
+    let detailMsg = body.detail || body.error || "Export failed";
+    if (typeof detailMsg !== "string") {
+      detailMsg = JSON.stringify(detailMsg);
+    }
+    throw new Error(`Export failed: ${detailMsg}`);
   }
 
   const fileName = response.headers.get("X-File-Name") ?? `clip_${Date.now()}.mp4`;

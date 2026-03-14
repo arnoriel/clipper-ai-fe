@@ -34,6 +34,7 @@ interface Props {
   onClose: () => void;
   isExporting: boolean;
   onAutoSubtitle?: () => Promise<{ vtt: string } | null>;
+  onAutoSubtitleEmoji?: () => Promise<{ vtt: string } | null>;
 }
 
 type Tab = "subtitle" | "trim" | "crop" | "color" | "speed" | "media";
@@ -218,7 +219,7 @@ function PresetCard({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function VideoEditor({
-  moment, edits, videoSrc, onUpdateEdits, onExport, onClose, isExporting, onAutoSubtitle,
+  moment, edits, videoSrc, onUpdateEdits, onExport, onClose, isExporting, onAutoSubtitle, onAutoSubtitleEmoji
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoWrapRef = useRef<HTMLDivElement>(null);
@@ -236,6 +237,7 @@ export default function VideoEditor({
 
   // Auto-subtitle state
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isTranscribingEmoji, setIsTranscribingEmoji] = useState(false);
   const [transcribeError, setTranscribeError] = useState("");
   const [subtitleSubTab, setSubtitleSubTab] = useState<"presets" | "layers" | "add">("presets");
 
@@ -513,6 +515,33 @@ export default function VideoEditor({
       setTranscribeError(e.message || "Transcription failed");
     } finally {
       setIsTranscribing(false);
+    }
+  }
+
+  async function handleAutoSubtitleEmoji() {
+    if (!onAutoSubtitleEmoji) return;
+    setIsTranscribingEmoji(true);
+    setTranscribeError("");
+
+    try {
+      const result = await onAutoSubtitleEmoji();
+      if (!result || !result.vtt) {
+        setTranscribeError("No speech detected or generation failed.");
+        return;
+      }
+
+      const preset = SUBTITLE_PRESETS.find((p) => p.id === activePresetId) ?? SUBTITLE_PRESETS[0];
+
+      // Remove existing auto subtitles before parsing new ones
+      const manual = edits.textOverlays.filter((t) => !t.isAutoSubtitle);
+      const newOverlays = parseVttToOverlays(result.vtt, preset);
+
+      updateEdits({ textOverlays: [...manual, ...newOverlays] });
+      setSubtitleSubTab("layers");
+    } catch (e: any) {
+      setTranscribeError(e.message || "Transcription with emojis failed");
+    } finally {
+      setIsTranscribingEmoji(false);
     }
   }
 
@@ -1161,13 +1190,25 @@ export default function VideoEditor({
 
                         <button
                           onClick={handleAutoSubtitle}
-                          disabled={isTranscribing || !onAutoSubtitle}
-                          className="w-full py-2.5 rounded-xl bg-[#1ABC71] text-white text-xs font-bold hover:bg-[#16a085] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#1ABC71]/20"
+                          disabled={isTranscribing || isTranscribingEmoji || !onAutoSubtitle}
+                          className="w-full py-2.5 rounded-xl bg-[#1ABC71]/20 border border-[#1ABC71]/30 text-[#1ABC71] text-xs font-bold hover:bg-[#1ABC71]/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
                         >
                           {isTranscribing ? (
                             <><Loader2 size={13} className="animate-spin" /> Transcribing speech…</>
                           ) : (
-                            <><Sparkles size={13} /> Generate Auto Subtitles</>
+                            <><Sparkles size={13} /> Generate Auto Subtitles (Normal)</>
+                          )}
+                        </button>
+
+                        <button
+                          onClick={handleAutoSubtitleEmoji}
+                          disabled={isTranscribing || isTranscribingEmoji || !onAutoSubtitleEmoji}
+                          className="w-full py-2.5 rounded-xl bg-[#1ABC71] text-white text-xs font-bold hover:bg-[#16a085] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#1ABC71]/20"
+                        >
+                          {isTranscribingEmoji ? (
+                            <><Loader2 size={13} className="animate-spin" /> Adding emojis to speech…</>
+                          ) : (
+                            <><Sparkles size={13} /> Generate Auto Subtitle with Emoji</>
                           )}
                         </button>
 

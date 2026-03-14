@@ -224,6 +224,41 @@ export default function App() {
     return await resp.json();
   }
 
+  // ── Auto-subtitle with Emoji: call backend emoji endpoint ─────────────────
+  async function handleAutoSubtitleEmoji(): Promise<{
+    vtt: string;
+  } | null> {
+    if (!project?.id || !editingMoment) return null;
+
+    const videoBlob = await getSourceVideoBlob(project.id);
+    if (!videoBlob) {
+      setError("Video tidak ditemukan di IndexedDB.");
+      return null;
+    }
+
+    const edits = clipEdits[editingMoment.id] || defaultEdits();
+    const startTime = editingMoment.startTime + edits.trimStart;
+    const endTime = editingMoment.endTime + edits.trimEnd;
+    const duration = endTime - startTime;
+
+    const formData = new FormData();
+    formData.append("video", videoBlob, "source.mp4");
+    formData.append("start_sec", startTime.toString());
+    formData.append("duration", duration.toString());
+
+    const resp = await fetch(`${API_BASE}/api/auto-subtitle-emoji`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      throw new Error(body.detail || body.error || "Transcription with Emoji failed");
+    }
+
+    return await resp.json();
+  }
+
 
   // ── Export clip → IndexedDB ───────────────────────────────────────────────
   async function handleExportClip(moment: ViralMoment, edits: ClipEdits) {
@@ -491,6 +526,7 @@ export default function App() {
           onClose={() => setEditingMoment(null)}
           isExporting={isExporting && exportingId === editingMoment.id}
           onAutoSubtitle={handleAutoSubtitle}
+          onAutoSubtitleEmoji={handleAutoSubtitleEmoji}
         />
       )}
     </div>
