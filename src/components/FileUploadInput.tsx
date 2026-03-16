@@ -1,16 +1,19 @@
 // src/components/FileUploadInput.tsx
 import { useState, useRef, useCallback } from "react";
-import { Upload, Zap, AlertCircle, Loader2, Film, CheckCircle2 } from "lucide-react";
+import { Upload, Zap, AlertCircle, Loader2, Film, CheckCircle2, CreditCard } from "lucide-react";
 import { isApiKeyConfigured } from "../lib/storage";
 
 interface Props {
   onAnalyze: (file: File, duration: number) => void;
   isLoading: boolean;
   error?: string;
+  // NEW: credits system
+  credits?: number;
+  onTopUpClick?: () => void;
 }
 
 const ACCEPTED_TYPES = ["video/mp4", "video/webm", "video/mov", "video/quicktime", "video/avi", "video/x-matroska"];
-const MAX_SIZE_GB = 4;
+const MAX_SIZE_GB    = 4;
 const MAX_SIZE_BYTES = MAX_SIZE_GB * 1024 * 1024 * 1024;
 
 function formatBytes(bytes: number): string {
@@ -27,15 +30,17 @@ function formatDuration(s: number): string {
   return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
-export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) {
-  const [file, setFile]         = useState<File | null>(null);
-  const [duration, setDuration] = useState<number | null>(null);
+export default function FileUploadInput({ onAnalyze, isLoading, error, credits, onTopUpClick }: Props) {
+  const [file, setFile]             = useState<File | null>(null);
+  const [duration, setDuration]     = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [fileError, setFileError]   = useState("");
   const [loadingDuration, setLoadingDuration] = useState(false);
-  const inputRef  = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const apiKeyOk = isApiKeyConfigured();
+  const apiKeyOk       = isApiKeyConfigured();
+  const creditsDisplay = credits ?? 0;
+  const hasCredits     = creditsDisplay > 0;
 
   function validateFile(f: File): string {
     if (!ACCEPTED_TYPES.includes(f.type) && !f.name.match(/\.(mp4|webm|mov|avi|mkv)$/i)) {
@@ -62,12 +67,10 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
     setFileError("");
     const err = validateFile(f);
     if (err) { setFileError(err); return; }
-
     setLoadingDuration(true);
     try {
       const dur = await readDuration(f);
-      setFile(f);
-      setDuration(dur);
+      setFile(f); setDuration(dur);
     } catch {
       setFileError("Gagal membaca video. Pastikan file tidak rusak.");
     } finally {
@@ -81,8 +84,7 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
   }
 
   const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
+    e.preventDefault(); setIsDragging(false);
     const f = e.dataTransfer.files[0];
     if (f) processFile(f);
   }, []);
@@ -90,6 +92,7 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!file || duration === null) return;
+    if (!hasCredits) { onTopUpClick?.(); return; }
     onAnalyze(file, duration);
   }
 
@@ -97,6 +100,8 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
     setFile(null); setDuration(null); setFileError("");
     if (inputRef.current) inputRef.current.value = "";
   }
+
+  const noCredits = !hasCredits && credits !== undefined;
 
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-4 md:p-6 relative overflow-hidden">
@@ -122,7 +127,53 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
           </p>
         </div>
 
-        {/* ⚠️ Session warning banner */}
+        {/* ── Credits display ── */}
+        {credits !== undefined && (
+          <div className={`mb-5 flex items-center justify-between px-4 py-3.5 rounded-2xl border transition-all ${
+            noCredits
+              ? "bg-red-50 border-red-200"
+              : creditsDisplay <= 3
+              ? "bg-orange-50 border-orange-200"
+              : "bg-[#1ABC71]/5 border-[#1ABC71]/20"
+          }`}>
+            <div className="flex items-center gap-3">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                noCredits ? "bg-red-100 text-red-500" : creditsDisplay <= 3 ? "bg-orange-100 text-orange-500" : "bg-[#1ABC71]/15 text-[#1ABC71]"
+              }`}>
+                <CreditCard size={18} />
+              </div>
+              <div>
+                <p className={`text-sm font-bold ${noCredits ? "text-red-700" : creditsDisplay <= 3 ? "text-orange-700" : "text-gray-800"}`}>
+                  {noCredits
+                    ? "Kredit habis"
+                    : creditsDisplay <= 3
+                    ? `Kredit hampir habis: ${creditsDisplay} tersisa`
+                    : `${creditsDisplay} credit tersisa`
+                  }
+                </p>
+                <p className={`text-xs ${noCredits ? "text-red-500" : creditsDisplay <= 3 ? "text-orange-500" : "text-gray-400"}`}>
+                  {noCredits
+                    ? "Top up untuk mulai analisis video"
+                    : "1 analisis video = 1 credit · 1 auto-subtitle = 1 credit"
+                  }
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onTopUpClick}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                noCredits
+                  ? "bg-red-500 text-white hover:bg-red-600"
+                  : "bg-[#1ABC71] text-white hover:bg-[#16a085]"
+              }`}
+            >
+              <Zap size={12} />
+              Top Up
+            </button>
+          </div>
+        )}
+
+        {/* ⚠️ Session warning */}
         <div className="mb-5 md:mb-6 flex items-start gap-3 px-4 py-3.5 rounded-xl bg-green-50 border border-green-200 text-green-800 text-xs leading-relaxed">
           <span className="text-base shrink-0 mt-0.5">⚠️</span>
           <div>
@@ -210,27 +261,41 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
           {(error || fileError) && (
             <div className="flex items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
               <AlertCircle size={16} className="mt-0.5 shrink-0" />
-              <span>{error || fileError}</span>
+              <div className="flex-1">
+                <span>{error || fileError}</span>
+                {(error?.includes("Kredit") || error?.includes("credit")) && onTopUpClick && (
+                  <button type="button" onClick={onTopUpClick}
+                    className="ml-2 underline font-semibold hover:no-underline">
+                    Top Up Sekarang →
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
-          <button type="submit" disabled={isLoading || !file || !apiKeyOk || duration === null}
-            className="w-full py-4 rounded-2xl font-bold text-sm tracking-wider bg-[#1ABC71] text-white hover:bg-[#16a085] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#1ABC71]/20 active:scale-[0.99]">
-            {isLoading ? (
-              <><Loader2 size={18} className="animate-spin" /> Menganalisis Video...</>
-            ) : (
-              <><Zap size={18} /> Deteksi Momen Viral</>
-            )}
-          </button>
+          {noCredits ? (
+            <button type="button" onClick={onTopUpClick}
+              className="w-full py-4 rounded-2xl font-bold text-sm tracking-wider bg-red-500 text-white hover:bg-red-600 transition-all flex items-center justify-center gap-3 shadow-lg shadow-red-500/20">
+              <CreditCard size={18} /> Top Up Credit untuk Mulai
+            </button>
+          ) : (
+            <button type="submit" disabled={isLoading || !file || !apiKeyOk || duration === null}
+              className="w-full py-4 rounded-2xl font-bold text-sm tracking-wider bg-[#1ABC71] text-white hover:bg-[#16a085] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#1ABC71]/20 active:scale-[0.99]">
+              {isLoading
+                ? <><Loader2 size={18} className="animate-spin" /> Menganalisis Video...</>
+                : <><Zap size={18} /> Deteksi Momen Viral <span className="opacity-60 font-normal text-xs">(−1 credit)</span></>
+              }
+            </button>
+          )}
         </form>
 
         {/* Info */}
         <div className="mt-6 md:mt-8 pt-5 md:pt-6 border-t border-gray-200">
           <div className="flex flex-col gap-2.5 md:gap-3 text-xs text-gray-500">
             {[
-              "Video dianalisis AI berdasarkan durasi dan nama file — tidak perlu koneksi internet untuk video itu sendiri.",
+              "1 Analisis Video = 1 Credit · 1 Auto-Subtitle = 1 Credit. Export gratis.",
               "File video disimpan di browser IndexedDB kamu — tidak diupload ke server sampai kamu klik Export.",
-              "Auto-subtitle menggunakan OpenAI Whisper — 3 kata per subtitle, tersinkronisasi otomatis.",
+              "Auto-subtitle menggunakan Whisper AI — 3 kata per subtitle, tersinkronisasi otomatis.",
               `Format didukung: MP4, WebM, MOV, AVI, MKV (maks. ${MAX_SIZE_GB}GB).`,
             ].map((text, i) => (
               <div key={i} className="flex items-start gap-2">

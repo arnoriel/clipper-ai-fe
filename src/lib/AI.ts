@@ -1,12 +1,15 @@
+// src/lib/AI.ts
+import { getToken } from "./Auth";
+
 const API_BASE = import.meta.env.VITE_API_BASE;
 
 export interface ViralMoment {
   id: string;
   label: string;
-  startTime: number; // seconds
-  endTime: number;   // seconds
+  startTime: number;
+  endTime: number;
   reason: string;
-  viralScore: number; // 1-10
+  viralScore: number;
   category: "funny" | "emotional" | "educational" | "shocking" | "satisfying" | "drama" | "highlight";
 }
 
@@ -14,19 +17,25 @@ export interface VideoAnalysisResult {
   moments: ViralMoment[];
   summary: string;
   totalViralPotential: number;
+  credits_remaining?: number;
 }
 
 export interface VideoFileInfo {
   fileName: string;
-  fileSize: number; // bytes
-  duration: number; // seconds
+  fileSize: number;
+  duration: number;
   mimeType: string;
 }
 
-// ─── Detect viral moments — via backend ───────────────────────────────────────
+function authHeader(): Record<string, string> {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+// ─── Detect viral moments — requires auth + deducts 1 credit ────────────────
 export async function detectViralMomentsFromFile(
   videoInfo: VideoFileInfo,
-  _apiKey: string,  // Tidak dipakai lagi — API key ada di backend
+  _apiKey: string,
   onProgress?: (msg: string) => void
 ): Promise<VideoAnalysisResult> {
   onProgress?.("Mengirim metadata video ke server AI...");
@@ -40,12 +49,16 @@ export async function detectViralMomentsFromFile(
   onProgress?.("AI sedang menganalisis dan membagi video menjadi momen viral...");
 
   const resp = await fetch(`${API_BASE}/api/analyze-video`, {
-    method: "POST",
-    body: form,
+    method:  "POST",
+    headers: authHeader(),
+    body:    form,
   });
 
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}));
+    if (resp.status === 402) {
+      throw new Error("INSUFFICIENT_CREDITS");
+    }
     throw new Error(err.detail || err.error || `Server error ${resp.status}`);
   }
 
@@ -53,11 +66,11 @@ export async function detectViralMomentsFromFile(
   return resp.json();
 }
 
-// ─── Generate clip title & caption — via backend ──────────────────────────────
+// ─── Generate clip title & caption ──────────────────────────────────────────
 export async function generateClipContent(
   moment: ViralMoment,
   videoFileName: string,
-  _apiKey: string,  // Tidak dipakai lagi
+  _apiKey: string,
 ): Promise<{ titles: string[]; captions: string[]; hashtags: string[] }> {
   const form = new FormData();
   form.append("moment_label",    moment.label);
@@ -80,7 +93,7 @@ export async function generateClipContent(
   return resp.json();
 }
 
-// ─── Utility ──────────────────────────────────────────────────────────────────
+// ─── Utility ─────────────────────────────────────────────────────────────────
 export function formatTime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
