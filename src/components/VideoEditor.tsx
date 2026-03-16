@@ -24,7 +24,7 @@ import {
   type ImageOverlay,
 } from "../lib/storage";
 
-// ─── Props ────────────────────────────────────────────────────────────────────
+// Props interface
 interface Props {
   moment: ViralMoment;
   edits: ClipEdits;
@@ -35,6 +35,7 @@ interface Props {
   isExporting: boolean;
   onAutoSubtitle?: () => Promise<any | null>;
   onAnalyzeMotion?: () => Promise<MotionAnalysisResult | null>;
+  credits?: number;
 }
 
 type Tab = "subtitle" | "trim" | "crop" | "color" | "speed" | "media";
@@ -263,8 +264,10 @@ function MotionStatusBadge({ edits }: { edits: ClipEdits }) {
 export default function VideoEditor({
   moment, edits, videoSrc, onUpdateEdits, onExport, onClose, isExporting,
   onAutoSubtitle, onAnalyzeMotion,
+  credits,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const hasCredits = (credits ?? 1) > 0;
   const videoWrapRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
@@ -866,10 +869,21 @@ export default function VideoEditor({
                   {transcribeError && (
                     <p className="text-[10px] text-red-400 bg-red-500/10 rounded-lg px-2 py-1.5">{transcribeError}</p>
                   )}
-                  <button onClick={handleAutoSubtitle} disabled={isTranscribing || !onAutoSubtitle}
-                    className="w-full py-2.5 rounded-xl bg-[#1ABC71] text-white text-xs font-bold hover:bg-[#16a085] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#1ABC71]/20">
+                  {!hasCredits && (
+                    <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+                      <AlertCircle size={12} className="shrink-0" />
+                      <span>Kredit habis — tidak bisa generate subtitle. Top up dulu.</span>
+                    </div>
+                  )}
+                  <button
+                    onClick={handleAutoSubtitle}
+                    disabled={isTranscribing || !onAutoSubtitle || !hasCredits}
+                    className="w-full py-2.5 rounded-xl bg-[#1ABC71] text-white text-xs font-bold hover:bg-[#16a085] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#1ABC71]/20"
+                  >
                     {isTranscribing ? (
                       <><Loader2 size={13} className="animate-spin" /> Transcribing speech…</>
+                    ) : !hasCredits ? (
+                      <><AlertCircle size={13} /> Kredit Tidak Cukup</>
                     ) : (
                       <><Sparkles size={13} /> Generate Auto Subtitles</>
                     )}

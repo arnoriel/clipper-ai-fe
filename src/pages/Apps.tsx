@@ -743,6 +743,7 @@ export default function App() {
           isExporting={isExporting && exportingId === editingMoment.id}
           onAutoSubtitle={handleAutoSubtitle}
           onAnalyzeMotion={handleAnalyzeMotion}
+          credits={credits}
         />
       )}
 
