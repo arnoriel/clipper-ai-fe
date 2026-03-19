@@ -165,18 +165,22 @@ export async function uploadAndStoreExportedClip(
   videoBlob: Blob,
   momentId:  string,
   clip:      object,
-  edits:     object
+  edits:     object,
+  token?:    string,
 ): Promise<string> {
   const formData = new FormData();
   formData.append("video",     videoBlob, "source.mp4");
   formData.append("clipJson",  JSON.stringify(clip));
   formData.append("editsJson", JSON.stringify(edits));
 
-  const response = await fetch(serverUrl, { method: "POST", body: formData });
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    throw new Error(body.detail || body.error || "Export failed");
-  }
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const response = await fetch(serverUrl, {
+    method:  "POST",
+    headers,
+    body:    formData,
+  });
 
   const fileName = response.headers.get("X-File-Name") ?? `clip_${Date.now()}.mp4`;
   const blob     = await response.blob();

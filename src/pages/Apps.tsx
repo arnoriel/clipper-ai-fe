@@ -20,7 +20,9 @@ import FileUploadInput from "../components/FileUploadInput";
 import MomentsList from "../components/MomentsList";
 import VideoEditor from "../components/VideoEditor";
 import ExportPanel from "../components/ExportPanel";
-import CreditModal from "../components/CreditModal";              // ← NEW
+import CreditModal from "../components/CreditModal";
+import type { ClipTemplate } from "../lib/templates";
+import { applyTemplateToEdits } from "../lib/templates";
 import { detectViralMomentsFromFile, formatTime, type ViralMoment } from "../lib/AI";
 import {
   saveProject, defaultEdits, generateId, getApiKey, getProject,
@@ -240,6 +242,139 @@ export default function App() {
     }
   }
 
+   // ── Auto-generate: analyze + apply template to every clip ───────────────
+  async function handleAutoGenerate(
+    file: File,
+    duration: number,
+    templateArg: ClipTemplate,
+    watermarkSrc: string | null,
+  ) {
+    if (credits <= 0) {
+      setShowCreditModal(true);
+      setError("Kredit kamu habis. Silakan top up dulu.");
+      return;
+    }
+ 
+    // Mutable local copy so we can disable subtitles if credits run out mid-loop
+    let template = { ...templateArg };
+ 
+    setIsLoading(true);
+    setError("");
+    setProgressMsg("Menyimpan video ke browser…");
+    setStep("analyzing");
+ 
+    try {
+      const projectId = generateId();
+      await storeSourceVideo(projectId, file.name, file.type, file);
+      const objectUrl = URL.createObjectURL(file);
+      if (videoObjectUrlRef.current) URL.revokeObjectURL(videoObjectUrlRef.current);
+      videoObjectUrlRef.current = objectUrl;
+ 
+      const videoInfo = {
+        fileName: file.name,
+        fileSize: file.size,
+        duration,
+        mimeType: file.type || "video/mp4",
+      };
+ 
+      const result = await detectViralMomentsFromFile(
+        videoInfo,
+        getApiKey(),
+        (msg) => setProgressMsg(msg),
+      );
+ 
+      if (typeof result.credits_remaining === "number") {
+        updateStoredCredits(result.credits_remaining);
+        setCredits(result.credits_remaining);
+      } else {
+        await syncCredits();
+      }
+ 
+      const proj: Project = {
+        id:             projectId,
+        videoFileName:  file.name,
+        videoFileSize:  file.size,
+        videoMimeType:  file.type || "video/mp4",
+        videoDuration:  duration,
+        localVideoUrl:  objectUrl,
+        analysisResult: result,
+        selectedClips:  [],
+        createdAt:      Date.now(),
+        updatedAt:      Date.now(),
+      };
+      saveProject(proj);
+      setProject(proj);
+ 
+      const allMomentIds = result.moments.map((m) => m.id);
+      const newClipEdits: Record<string, ClipEdits> = {};
+      const videoBlob = await getSourceVideoBlob(projectId);
+ 
+      for (let i = 0; i < result.moments.length; i++) {
+        const moment = result.moments[i];
+        setProgressMsg(
+          `Clip ${i + 1}/${result.moments.length}: ${
+            template.subtitle_enabled ? "generating subtitle…" : "applying template…"
+          }`,
+        );
+ 
+        let subtitleChunks: { text: string; start: number; end: number }[] = [];
+ 
+        if (template.subtitle_enabled && videoBlob) {
+          try {
+            const formData = new FormData();
+            formData.append("video", videoBlob, "source.mp4");
+            formData.append("start_time", String(moment.startTime));
+            formData.append("end_time",   String(moment.endTime));
+ 
+            const token = getToken();
+            const resp = await fetch(`${API_BASE}/api/auto-subtitle`, {
+              method:  "POST",
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+              body:    formData,
+            });
+ 
+            if (resp.ok) {
+              const data = await resp.json();
+              subtitleChunks = (data.chunks as typeof subtitleChunks) || [];
+              if (typeof data.credits_remaining === "number") {
+                updateStoredCredits(data.credits_remaining);
+                setCredits(data.credits_remaining);
+              }
+            } else if (resp.status === 402) {
+              // No more credits — disable subtitle for remaining clips
+              template = { ...template, subtitle_enabled: false };
+            }
+          } catch {
+            // Continue without subtitles for this clip
+          }
+        }
+ 
+        newClipEdits[moment.id] = {
+          ...defaultEdits(),
+          ...applyTemplateToEdits(template, watermarkSrc, subtitleChunks),
+        };
+      }
+ 
+      setSelectedClipIds(allMomentIds);
+      setClipEdits(newClipEdits);
+      setExportedUrls({});
+      setActivePanel("export");
+      setStep("moments");
+ 
+    } catch (err: any) {
+      if (err.message === "INSUFFICIENT_CREDITS") {
+        setError("Kredit tidak cukup. Silakan top up.");
+        setShowCreditModal(true);
+      } else {
+        setError(err.message || "Terjadi kesalahan");
+      }
+      setStep("input");
+    } finally {
+      setIsLoading(false);
+      setProgressMsg("");
+    }
+  }
+
   function handleToggleSelect(moment: ViralMoment) {
     const isSelected = selectedClipIds.includes(moment.id);
     setSelectedClipIds((prev) => isSelected ? prev.filter((id) => id !== moment.id) : [...prev, moment.id]);
@@ -397,7 +532,7 @@ export default function App() {
       };
       setProgressMsg("Server memproses clip, harap tunggu…");
       const objectUrl = await uploadAndStoreExportedClip(
-        `${API_BASE}/api/export-clip`, videoBlob, moment.id, clip, editsForServer
+        `${API_BASE}/api/export-clip`, videoBlob, moment.id, clip, editsForServer, getToken() ?? undefined
       );
       setExportedUrls((prev) => ({ ...prev, [moment.id]: objectUrl }));
     } catch (err: any) {
@@ -416,15 +551,16 @@ export default function App() {
     .filter(Boolean) as ProjectClip[];
 
   // ─── RENDER: Input / Analyzing ──────────────────────────────────────────
-  if (step === "input" || step === "analyzing") {
+   if (step === "input" || step === "analyzing") {
     return (
       <>
         <FileUploadInput
           onAnalyze={handleAnalyze}
+          onAutoGenerate={handleAutoGenerate}
           isLoading={isLoading}
           error={error}
-          credits={credits}                              // ← pass credits
-          onTopUpClick={() => setShowCreditModal(true)}  // ← pass handler
+          credits={credits}
+          onTopUpClick={() => setShowCreditModal(true)}
         />
         {progressMsg && <ProgressToast message={progressMsg} />}
         {showCreditModal && (
