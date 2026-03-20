@@ -271,7 +271,7 @@ const HeroSection = () => {
           <TermBadge>{t.hero.badge}</TermBadge>
         </div>
 
-        <h1 className="text-5xl sm:text-7xl lg:text-8xl font-black text-black dark:text-white leading-[0.95] tracking-tight mb-6">
+        <h1 className="text-5xl sm:text-7xl lg:text-8xl font-black text-black dark:text-white leading-[1.05] tracking-tight mb-6 overflow-visible pb-2">
           {t.hero.title1}<br />
           {t.hero.title2} <span className="font-serif italic lowercase font-normal text-black dark:text-white">{t.hero.title3}</span>
         </h1>
