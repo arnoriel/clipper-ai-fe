@@ -27,9 +27,9 @@ body {
   overflow-x: hidden;
 }
 
-/* Headings: Unbounded — ultra-blocky for Dark Neo/Terminal */
+/* Headings: Syne — modern display with clear descenders */
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Unbounded', system-ui, sans-serif;
+  font-family: 'Syne', system-ui, sans-serif;
   font-weight: 900;
   letter-spacing: -0.03em;
 }
