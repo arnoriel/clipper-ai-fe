@@ -1,5 +1,6 @@
 // src/components/FileUploadInput.tsx
 import { useState, useRef, useCallback } from "react";
+import { BrandLogo } from "./BrandLogo";
 import {
   Upload, Zap, AlertCircle, Loader2, Film, CheckCircle2,
   Youtube, Link2, X, Clock, User, Download, ArrowRight,
@@ -45,7 +46,6 @@ function formatDuration(s: number): string {
   return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
-/** Extract YouTube video ID from various URL formats */
 function extractYouTubeId(url: string): string | null {
   const patterns = [
     /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([A-Za-z0-9_-]{11})/,
@@ -64,7 +64,6 @@ function isValidYoutubeUrl(url: string): boolean {
 export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) {
   const [mode, setMode] = useState<Mode>("upload");
 
-  // ── Upload state ──────────────────────────────────────────────────────────
   const [file, setFile] = useState<File | null>(null);
   const [duration, setDuration] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -72,25 +71,17 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
   const [loadingDuration, setLoadingDuration] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // ── YouTube state ─────────────────────────────────────────────────────────
   const [ytUrl, setYtUrl] = useState("");
   const [ytInfo, setYtInfo] = useState<YoutubeInfo | null>(null);
   const [ytError, setYtError] = useState("");
   const [fetchingInfo, setFetchingInfo] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(0); // 0-100
+  const [downloadProgress, setDownloadProgress] = useState(0);
 
   const apiKeyOk = isApiKeyConfigured();
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // UPLOAD helpers
-  // ══════════════════════════════════════════════════════════════════════════
-
   function validateFile(f: File): string {
-    if (
-      !ACCEPTED_TYPES.includes(f.type) &&
-      !f.name.match(/\.(mp4|webm|mov|avi|mkv)$/i)
-    ) {
+    if (!ACCEPTED_TYPES.includes(f.type) && !f.name.match(/\.(mp4|webm|mov|avi|mkv)$/i)) {
       return "Format tidak didukung. Gunakan MP4, WebM, MOV, AVI, atau MKV.";
     }
     if (f.size > MAX_SIZE_BYTES) {
@@ -114,12 +105,10 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
     setFileError("");
     const err = validateFile(f);
     if (err) { setFileError(err); return; }
-
     setLoadingDuration(true);
     try {
       const dur = await readDuration(f);
-      setFile(f);
-      setDuration(dur);
+      setFile(f); setDuration(dur);
     } catch {
       setFileError("Gagal membaca video. Pastikan file tidak rusak.");
     } finally {
@@ -133,8 +122,7 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
   }
 
   const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
+    e.preventDefault(); setIsDragging(false);
     const f = e.dataTransfer.files[0];
     if (f) processFile(f);
   }, []);
@@ -150,98 +138,47 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
     onAnalyze(file, duration);
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // YOUTUBE helpers
-  // ══════════════════════════════════════════════════════════════════════════
-
   async function handleFetchYoutubeInfo() {
     const url = ytUrl.trim();
-    if (!isValidYoutubeUrl(url)) {
-      setYtError("URL YouTube tidak valid. Contoh: https://youtube.com/watch?v=...");
-      return;
-    }
-
-    setYtError("");
-    setYtInfo(null);
-    setFetchingInfo(true);
-
+    if (!isValidYoutubeUrl(url)) { setYtError("URL YouTube tidak valid."); return; }
+    setYtError(""); setYtInfo(null); setFetchingInfo(true);
     try {
-      const resp = await fetch(
-        `${API_BASE}/api/youtube-info?url=${encodeURIComponent(url)}`
-      );
-      if (!resp.ok) {
-        const body = await resp.json().catch(() => ({}));
-        throw new Error(body.detail || "Gagal mengambil info video");
-      }
-      const info: YoutubeInfo = await resp.json();
-      setYtInfo(info);
+      const resp = await fetch(`${API_BASE}/api/youtube-info?url=${encodeURIComponent(url)}`);
+      if (!resp.ok) { const body = await resp.json().catch(() => ({})); throw new Error(body.detail || "Gagal mengambil info video"); }
+      setYtInfo(await resp.json());
     } catch (err: any) {
       setYtError(err.message || "Gagal mengambil info video YouTube");
-    } finally {
-      setFetchingInfo(false);
-    }
+    } finally { setFetchingInfo(false); }
   }
 
   async function handleYoutubeDownload() {
     if (!ytInfo) return;
-    const url = ytUrl.trim();
-
-    setYtError("");
-    setDownloading(true);
-    setDownloadProgress(0);
-
+    setYtError(""); setDownloading(true); setDownloadProgress(0);
     try {
       const formData = new FormData();
-      formData.append("url", url);
+      formData.append("url", ytUrl.trim());
       formData.append("max_resolution", "720");
-
-      const resp = await fetch(`${API_BASE}/api/download-youtube`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!resp.ok) {
-        const body = await resp.json().catch(() => ({}));
-        throw new Error(body.detail || "Download gagal");
-      }
-
-      // Read with progress tracking using Content-Length header
+      const resp = await fetch(`${API_BASE}/api/download-youtube`, { method: "POST", body: formData });
+      if (!resp.ok) { const body = await resp.json().catch(() => ({})); throw new Error(body.detail || "Download gagal"); }
       const contentLength = Number(resp.headers.get("Content-Length") ?? "0");
       const fileName = resp.headers.get("X-File-Name") ?? "youtube_video.mp4";
-      const durationStr = resp.headers.get("X-Video-Duration") ?? String(ytInfo.duration);
-      const videoDuration = Number(durationStr) || ytInfo.duration;
-
-      // Stream body with progress
+      const videoDuration = Number(resp.headers.get("X-Video-Duration") ?? String(ytInfo.duration)) || ytInfo.duration;
       const reader = resp.body!.getReader();
       const chunks: Uint8Array[] = [];
       let received = 0;
-
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        chunks.push(value);
-        received += value.length;
-        if (contentLength > 0) {
-          setDownloadProgress(Math.round((received / contentLength) * 100));
-        } else {
-          // Pulse animation when length unknown
-          setDownloadProgress((p) => Math.min(p + 2, 90));
-        }
+        chunks.push(value); received += value.length;
+        if (contentLength > 0) setDownloadProgress(Math.round((received / contentLength) * 100));
+        else setDownloadProgress((p) => Math.min(p + 2, 90));
       }
-
       setDownloadProgress(100);
-
-      // Assemble blob → File
       const blob = new Blob(chunks as BlobPart[], { type: "video/mp4" });
-      const videoFile = new File([blob], fileName, { type: "video/mp4" });
-
-      // Hand off to parent — identical to file upload flow
-      onAnalyze(videoFile, videoDuration);
-
+      onAnalyze(new File([blob], fileName, { type: "video/mp4" }), videoDuration);
     } catch (err: any) {
       setYtError(err.message || "Terjadi kesalahan saat download");
-      setDownloading(false);
-      setDownloadProgress(0);
+      setDownloading(false); setDownloadProgress(0);
     }
   }
 
@@ -251,215 +188,163 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
   }
 
   function handleModeSwitch(m: Mode) {
-    setMode(m);
-    setYtError(""); setFileError("");
+    setMode(m); setYtError(""); setFileError("");
   }
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // RENDER
-  // ══════════════════════════════════════════════════════════════════════════
 
   const anyError = error || fileError || ytError;
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950 flex items-center justify-center p-6 relative overflow-hidden">
-      {/* Background grid - light mode uses dark lines, dark mode uses light lines */}
-      <div
-        className="absolute inset-0 opacity-[0.04] dark:opacity-[0.06]"
-        style={{}}
-      >
-        <div className="absolute inset-0" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M 60 0 L 0 0 0 60' fill='none' stroke='%23888' stroke-width='0.5'/%3E%3C/svg%3E")`,
-          backgroundSize: "60px 60px",
-        }} />
-      </div>
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#1ABC71]/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-[#1ABC71]/5 rounded-full blur-[100px] pointer-events-none" />
+    <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-6 relative overflow-hidden">
+      {/* Grid Background */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        backgroundImage: "linear-gradient(var(--grid-color,rgba(0,0,0,0.06)) 1px, transparent 1px), linear-gradient(90deg, var(--grid-color,rgba(0,0,0,0.06)) 1px, transparent 1px)",
+        backgroundSize: "48px 48px",
+      }} />
 
       <div className="relative z-10 w-full max-w-xl">
         {/* Header */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#1ABC71]/10 border border-[#1ABC71]/20 text-[#1ABC71] text-xs font-mono mb-6">
-            <Zap size={12} className="fill-[#1ABC71] text-[#1ABC71]" />
-            POWERED BY COBAMULAI
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 border border-black dark:border-white text-black dark:text-white text-xs font-mono font-bold tracking-widest uppercase mb-6">
+            <span className="w-1.5 h-1.5 rounded-full bg-black dark:bg-white animate-pulse" />
+            ANALISIS AI SIAP
+          </span>
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <div className="h-8 w-8 bg-black dark:bg-white flex items-center justify-center">
+              <BrandLogo size={14} className="text-white dark:text-black stroke-white dark:stroke-black" />
+            </div>
+            <h1 className="font-black text-3xl uppercase text-black dark:text-white tracking-widest">
+              Try<span className="text-black dark:text-white">Klip</span>
+            </h1>
           </div>
-          <h1
-            className="text-5xl font-black text-black dark:text-white tracking-tight mb-3"
-            style={{ fontFamily: "'Syne', sans-serif" }}
-          >
-            AI Viral{" "}
-            <span className="text-[#1ABC71]">Clipper</span>
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 text-base">
-            Upload video kamu. AI mendeteksi momen viral. Kamu edit, auto-subtitle &amp; export.
+          <p className="text-black/50 dark:text-white/50 font-mono text-sm">
+            Upload video kamu. AI mendeteksi momen viral. Kamu edit &amp; export.
           </p>
         </div>
 
-        {/* Mode toggle */}
-        <div className="flex rounded-2xl border border-gray-200 dark:border-gray-800 p-1 mb-5 bg-gray-50 dark:bg-gray-900">
+        {/* Mode tabs */}
+        <div className="flex border border-black/15 dark:border-white/15 mb-0">
           <button
             type="button"
             onClick={() => handleModeSwitch("upload")}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${mode === "upload"
-              ? "bg-white dark:bg-gray-800 text-black dark:text-white shadow-sm border border-gray-200 dark:border-gray-700"
-              : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-              }`}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 font-mono text-xs uppercase tracking-widest border-r border-black/15 dark:border-white/15 transition-colors ${mode === "upload" ? "bg-black dark:bg-white text-white dark:text-black" : "text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white bg-transparent"}`}
           >
-            <Upload size={15} />
-            Upload File
+            <Upload size={13} /> Upload File
           </button>
           <button
             type="button"
             onClick={() => handleModeSwitch("youtube")}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all ${mode === "youtube"
-              ? "bg-white dark:bg-gray-800 text-black dark:text-white shadow-sm border border-gray-200 dark:border-gray-700"
-              : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-              }`}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 font-mono text-xs uppercase tracking-widest transition-colors ${mode === "youtube" ? "bg-black dark:bg-white text-white dark:text-black" : "text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white bg-transparent"}`}
           >
-            <Youtube size={15} className={mode === "youtube" ? "text-red-500" : ""} />
-            YouTube Link
+            <Youtube size={13} /> YouTube Link
           </button>
         </div>
 
         {/* ── UPLOAD MODE ── */}
         {mode === "upload" && (
-          <form onSubmit={handleUploadSubmit} className="space-y-4">
+          <form onSubmit={handleUploadSubmit} className="border border-t-0 border-black/15 dark:border-white/15 bg-gray-50 dark:bg-black">
             {!file ? (
               <div
                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                 onDragLeave={() => setIsDragging(false)}
                 onDrop={handleDrop}
                 onClick={() => inputRef.current?.click()}
-                className={`relative cursor-pointer rounded-2xl border-2 border-dashed transition-all duration-200 p-10 text-center ${isDragging
-                  ? "border-[#1ABC71]/70 bg-[#1ABC71]/5 scale-[1.01]"
-                  : "border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 hover:border-[#1ABC71]/50 hover:bg-gray-100 dark:hover:bg-gray-800"
-                  }`}
+                className={`cursor-pointer border-2 border-dashed m-4 p-10 text-center transition-all ${isDragging ? "border-black dark:border-white bg-black/5 dark:bg-white/5" : "border-black/20 dark:border-white/15 hover:border-black/60 dark:hover:border-white/60"}`}
               >
-                <input
-                  ref={inputRef}
-                  type="file"
+                <input ref={inputRef} type="file"
                   accept="video/mp4,video/webm,video/quicktime,video/avi,video/x-matroska,.mp4,.webm,.mov,.avi,.mkv"
-                  onChange={handleInputChange}
-                  className="hidden"
-                />
+                  onChange={handleInputChange} className="hidden" />
                 <div className="flex flex-col items-center gap-3">
-                  <div
-                    className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-colors ${isDragging ? "bg-[#1ABC71]/20" : "bg-gray-100 dark:bg-gray-800"
-                      }`}
-                  >
-                    {loadingDuration ? (
-                      <Loader2 size={28} className="text-[#1ABC71] animate-spin" />
-                    ) : (
-                      <Upload size={28} className={isDragging ? "text-[#1ABC71]" : "text-gray-400 dark:text-gray-500"} />
-                    )}
+                  <div className={`w-14 h-14 flex items-center justify-center border ${isDragging ? "border-black dark:border-white bg-black/10 dark:bg-white/10" : "border-black/20 dark:border-white/15 bg-white dark:bg-black"}`}>
+                    {loadingDuration
+                      ? <Loader2 size={24} className="text-black dark:text-white animate-spin" />
+                      : <Upload size={24} className={isDragging ? "text-black dark:text-white" : "text-black/30 dark:text-white/30"} />}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">
+                    <p className="font-mono text-sm font-bold text-black dark:text-white mb-1">
                       {isDragging ? "Lepaskan file di sini" : "Drag & drop video kamu"}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      atau <span className="text-[#1ABC71] underline">browse file</span>
+                    <p className="font-mono text-xs text-black/40 dark:text-white/30">
+                      atau <span className="text-black dark:text-white underline underline-offset-2">browse file</span>
                     </p>
                   </div>
-                  <div className="flex items-center gap-3 text-[10px] text-gray-400 font-mono mt-1">
+                  <div className="flex items-center gap-2 font-mono text-[10px] text-black/30 dark:text-white/30 mt-1">
                     <span>MP4</span><span>·</span><span>WebM</span><span>·</span>
                     <span>MOV</span><span>·</span><span>AVI</span><span>·</span><span>MKV</span>
                   </div>
-                  <p className="text-[10px] text-gray-400">Maks. {MAX_SIZE_GB}GB</p>
+                  <p className="font-mono text-[10px] text-black/30 dark:text-white/30">Maks. {MAX_SIZE_GB}GB</p>
                 </div>
               </div>
             ) : (
-              <div className="rounded-2xl border border-[#1ABC71]/30 bg-[#1ABC71]/5 p-5">
+              <div className="border border-black/40 dark:border-white/40 bg-black/5 dark:bg-white/5 m-4 p-4">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-[#1ABC71]/10 border border-[#1ABC71]/20 flex items-center justify-center shrink-0">
-                    <Film size={22} className="text-[#1ABC71]" />
+                  <div className="w-10 h-10 flex items-center justify-center border border-black/40 dark:border-white/40 bg-black/10 dark:bg-white/10 shrink-0">
+                    <Film size={18} className="text-black dark:text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-black dark:text-white truncate">{file.name}</p>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400 font-mono">
-                      <span>{formatBytes(file.size)}</span>
-                      <span>·</span>
-                      {duration !== null && (
-                        <span className="text-[#1ABC71]">{formatDuration(duration)}</span>
-                      )}
-                      <span>·</span>
-                      <span>{file.type || "video"}</span>
+                    <p className="font-mono text-sm font-bold text-black dark:text-white truncate">{file.name}</p>
+                    <div className="flex items-center gap-3 mt-1 font-mono text-xs text-black/50 dark:text-white/40">
+                      <span>{formatBytes(file.size)}</span><span>·</span>
+                      {duration !== null && <span className="text-black dark:text-white">{formatDuration(duration)}</span>}
+                      <span>·</span><span>{file.type || "video"}</span>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={clearFile}
-                    className="text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors text-xs px-2 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-                  >
+                  <button type="button" onClick={clearFile}
+                    className="font-mono text-[10px] uppercase tracking-widest text-black/40 dark:text-white/30 hover:text-black dark:hover:text-white border border-black/10 dark:border-white/10 px-2 py-1 transition-colors">
                     Ganti
                   </button>
                 </div>
                 {duration !== null && (
-                  <div className="mt-3 pt-3 border-t border-[#1ABC71]/15 flex items-center gap-2 text-xs text-[#1ABC71]">
+                  <div className="mt-3 pt-3 border-t border-black/20 dark:border-white/20 flex items-center gap-2 font-mono text-xs text-black dark:text-white">
                     <CheckCircle2 size={12} />
-                    <span>Video siap dianalisis — durasi {formatDuration(duration)}</span>
+                    Video siap dianalisis — durasi {formatDuration(duration)}
                   </div>
                 )}
               </div>
             )}
 
             {anyError && (
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
-                <AlertCircle size={16} className="mt-0.5 shrink-0" />
+              <div className="flex items-start gap-3 mx-4 mb-4 p-3 border border-red-400/40 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 font-mono text-xs">
+                <AlertCircle size={14} className="mt-0.5 shrink-0" />
                 <span>{anyError}</span>
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={isLoading || !file || !apiKeyOk || duration === null}
-              className="w-full py-4 rounded-2xl font-bold text-sm tracking-wider bg-[#1ABC71] text-white hover:bg-[#16a085] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#1ABC71]/20"
-            >
-              {isLoading ? (
-                <><Loader2 size={18} className="animate-spin" /> Menganalisis Video...</>
-              ) : (
-                <><Zap size={18} /> Deteksi Momen Viral</>
-              )}
-            </button>
+            <div className="px-4 pb-4">
+              <button
+                type="submit"
+                disabled={isLoading || !file || !apiKeyOk || duration === null}
+                className="w-full py-4 bg-black dark:bg-white text-white dark:text-black font-bold text-sm tracking-wide rounded-xl flex items-center justify-center gap-3 transition-all duration-200 shadow-[4px_4px_0px_#d1d5db] dark:shadow-[4px_4px_0px_#374151] hover:-translate-y-0.5 hover:-translate-x-0.5 hover:shadow-[6px_6px_0px_#d1d5db] dark:hover:shadow-[6px_6px_0px_#374151] active:translate-y-[4px] active:translate-x-[4px] active:shadow-none disabled:opacity-40 disabled:shadow-none disabled:translate-x-0 disabled:translate-y-0 disabled:cursor-not-allowed"
+              >
+                {isLoading
+                  ? <><Loader2 size={16} className="animate-spin" /> Menganalisis Video...</>
+                  : <><Zap size={16} /> Deteksi Momen Viral</>}
+              </button>
+            </div>
           </form>
         )}
 
         {/* ── YOUTUBE MODE ── */}
         {mode === "youtube" && (
-          <div className="space-y-4">
+          <div className="border border-t-0 border-black/15 dark:border-white/15 bg-gray-50 dark:bg-black">
             {/* URL input */}
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 p-4">
-              <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 block">
-                Link YouTube
-              </label>
+            <div className="p-4 border-b border-black/10 dark:border-white/10">
+              <p className="font-mono text-[10px] uppercase tracking-widest text-black/40 dark:text-white/30 mb-2">Link YouTube</p>
               <div className="flex gap-2">
                 <div className="relative flex-1">
-                  <Link2
-                    size={14}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  />
+                  <Link2 size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-black/30 dark:text-white/20" />
                   <input
                     type="url"
                     value={ytUrl}
-                    onChange={(e) => {
-                      setYtUrl(e.target.value);
-                      if (ytInfo) setYtInfo(null);
-                      if (ytError) setYtError("");
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") { e.preventDefault(); handleFetchYoutubeInfo(); }
-                    }}
+                    onChange={(e) => { setYtUrl(e.target.value); if (ytInfo) setYtInfo(null); if (ytError) setYtError(""); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleFetchYoutubeInfo(); } }}
                     placeholder="https://youtube.com/watch?v=..."
                     disabled={downloading}
-                    className="w-full pl-8 pr-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:outline-none focus:border-[#1ABC71]/60 focus:ring-2 focus:ring-[#1ABC71]/10 disabled:opacity-60"
+                    className="w-full pl-8 pr-3 py-2.5 border border-black/15 dark:border-white/15 bg-white dark:bg-black font-mono text-sm text-black dark:text-white placeholder:text-black/30 dark:placeholder:text-white/20 focus:outline-none focus:border-black/60 dark:focus:border-white/60 disabled:opacity-50"
                   />
                   {ytUrl && !downloading && (
-                    <button
-                      type="button"
-                      onClick={clearYoutube}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                    >
-                      <X size={14} />
+                    <button type="button" onClick={clearYoutube}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-black/30 dark:text-white/20 hover:text-black dark:hover:text-white">
+                      <X size={13} />
                     </button>
                   )}
                 </div>
@@ -467,75 +352,49 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
                   type="button"
                   onClick={handleFetchYoutubeInfo}
                   disabled={!ytUrl.trim() || fetchingInfo || downloading || !isValidYoutubeUrl(ytUrl)}
-                  className="px-4 py-2.5 rounded-xl bg-[#1ABC71] text-white text-sm font-semibold hover:bg-[#16a085] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2 shrink-0"
+                  className="px-4 py-2.5 bg-black dark:bg-white text-white dark:text-black font-mono text-xs uppercase tracking-widest hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity flex items-center gap-2 shrink-0"
                 >
-                  {fetchingInfo ? (
-                    <Loader2 size={15} className="animate-spin" />
-                  ) : (
-                    <ArrowRight size={15} />
-                  )}
+                  {fetchingInfo ? <Loader2 size={13} className="animate-spin" /> : <ArrowRight size={13} />}
                   Cek
                 </button>
               </div>
-              <p className="text-[10px] text-gray-400 mt-2 font-mono">
+              <p className="font-mono text-[10px] text-black/30 dark:text-white/20 mt-2">
                 Mendukung: youtube.com/watch?v= · youtu.be/ · /shorts/
               </p>
             </div>
 
-            {/* Video info preview card */}
+            {/* Video info card */}
             {ytInfo && !downloading && (
-              <div className="rounded-2xl border border-[#1ABC71]/30 bg-[#1ABC71]/5 overflow-hidden">
+              <div className="m-4 border border-black/40 dark:border-white/40 bg-black/5 dark:bg-white/5">
                 <div className="flex gap-4 p-4">
-                  {/* Thumbnail */}
-                  <div className="w-24 h-16 rounded-lg overflow-hidden bg-gray-200 shrink-0">
-                    <img
-                      src={ytInfo.thumbnail}
-                      alt="thumbnail"
+                  <div className="w-24 h-16 overflow-hidden bg-black/10 shrink-0">
+                    <img src={ytInfo.thumbnail} alt="thumbnail"
                       className="w-full h-full object-cover"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                    />
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                   </div>
-                  {/* Meta */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-black dark:text-white line-clamp-2 leading-tight mb-1">
+                    <p className="font-mono text-sm font-bold text-black dark:text-white line-clamp-2 leading-tight mb-1">
                       {ytInfo.title}
                     </p>
-                    <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
-                      <span className="flex items-center gap-1">
-                        <User size={10} /> {ytInfo.author || "YouTube Creator"}
-                      </span>
-                      <span className="flex items-center gap-1 text-[#1ABC71] font-mono font-semibold">
-                        <Clock size={10} /> {formatDuration(ytInfo.duration)}
-                      </span>
+                    <div className="flex items-center gap-3 font-mono text-xs text-black/40 dark:text-white/30 flex-wrap">
+                      <span className="flex items-center gap-1"><User size={10} /> {ytInfo.author || "YouTube Creator"}</span>
+                      <span className="flex items-center gap-1 text-black dark:text-white"><Clock size={10} /> {formatDuration(ytInfo.duration)}</span>
                     </div>
                     {ytInfo.streams && ytInfo.streams.length > 0 && (
                       <div className="flex gap-1.5 mt-2 flex-wrap">
                         {ytInfo.streams.slice(-3).reverse().map((s, i) => (
-                          <span
-                            key={i}
-                            className={`text-[10px] px-2 py-0.5 rounded-full border font-mono ${i === 0
-                              ? "bg-[#1ABC71]/15 border-[#1ABC71]/30 text-[#1ABC71]"
-                              : "bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400"
-                              }`}
-                          >
-                            {s.resolution}
-                            {s.filesize_mb > 0 && ` · ${s.filesize_mb}MB`}
+                          <span key={i} className={`font-mono text-[10px] px-2 py-0.5 border ${i === 0 ? "border-black/40 dark:border-white/40 text-black dark:text-white bg-black/10 dark:bg-white/10" : "border-black/10 dark:border-white/10 text-black/40 dark:text-white/30"}`}>
+                            {s.resolution}{s.filesize_mb > 0 && ` · ${s.filesize_mb}MB`}
                           </span>
                         ))}
                       </div>
                     )}
                   </div>
                 </div>
-
-                <div className="px-4 pb-4 pt-0">
-                  <button
-                    type="button"
-                    onClick={handleYoutubeDownload}
-                    disabled={isLoading}
-                    className="w-full py-3 rounded-xl font-bold text-sm bg-[#1ABC71] text-white hover:bg-[#16a085] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-md shadow-[#1ABC71]/20"
-                  >
-                    <Download size={16} />
-                    Download &amp; Analisis (max 720p)
+                <div className="px-4 pb-4">
+                  <button type="button" onClick={handleYoutubeDownload} disabled={isLoading}
+                    className="w-full py-3 bg-black dark:bg-white text-white dark:text-black font-bold text-sm tracking-wide rounded-xl flex items-center justify-center gap-2 transition-all duration-200 shadow-[4px_4px_0px_#d1d5db] dark:shadow-[4px_4px_0px_#374151] hover:-translate-y-0.5 hover:-translate-x-0.5 hover:shadow-[6px_6px_0px_#d1d5db] dark:hover:shadow-[6px_6px_0px_#374151] active:translate-y-[4px] active:translate-x-[4px] active:shadow-none disabled:opacity-40 disabled:shadow-none disabled:translate-x-0 disabled:translate-y-0 disabled:cursor-not-allowed">
+                    <Download size={15} /> Download &amp; Analisis (max 720p)
                   </button>
                 </div>
               </div>
@@ -543,51 +402,40 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
 
             {/* Download progress */}
             {downloading && (
-              <div className="rounded-2xl border border-[#1ABC71]/30 bg-[#1ABC71]/5 p-5">
+              <div className="m-4 border border-black/40 dark:border-white/40 bg-black/5 dark:bg-white/5 p-4">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#1ABC71]/10 border border-[#1ABC71]/20 flex items-center justify-center shrink-0">
-                    <Youtube size={18} className="text-red-500" />
+                  <div className="w-10 h-10 border border-black/40 dark:border-white/40 bg-black/10 dark:bg-white/10 flex items-center justify-center shrink-0">
+                    <Youtube size={16} className="text-red-500" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-black dark:text-white truncate">
+                    <p className="font-mono text-sm font-bold text-black dark:text-white truncate">
                       {ytInfo?.title ?? "Mengunduh video…"}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    <p className="font-mono text-xs text-black/40 dark:text-white/30 mt-0.5">
                       {downloadProgress < 100
                         ? `Mengunduh dari server… ${downloadProgress > 0 ? `${downloadProgress}%` : ""}`
                         : "Selesai, memproses…"}
                     </p>
                   </div>
                 </div>
-
-                {/* Progress bar */}
-                <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-800 overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-[#1ABC71] to-[#16a085] transition-all duration-300"
-                    style={{ width: `${downloadProgress || 5}%` }}
-                  />
+                <div className="h-1.5 bg-black/10 dark:bg-white/10 overflow-hidden">
+                  <div className="h-full bg-black dark:bg-white transition-all duration-300"
+                    style={{ width: `${downloadProgress || 5}%` }} />
                 </div>
-
-                {downloadProgress === 0 && (
-                  <p className="text-[10px] text-gray-400 mt-2 text-center">
-                    Server sedang mendownload, harap tunggu…
-                  </p>
-                )}
               </div>
             )}
 
             {/* Error */}
             {(ytError || error) && (
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
-                <AlertCircle size={16} className="mt-0.5 shrink-0" />
+              <div className="flex items-start gap-3 mx-4 mb-4 p-3 border border-red-400/40 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 font-mono text-xs">
+                <AlertCircle size={14} className="mt-0.5 shrink-0" />
                 <span>{ytError || error}</span>
               </div>
             )}
 
-            {/* isLoading (AI analyzing after download) */}
             {isLoading && !downloading && (
-              <div className="flex items-center justify-center gap-3 py-4 text-sm text-gray-500">
-                <Loader2 size={16} className="animate-spin text-[#1ABC71]" />
+              <div className="flex items-center justify-center gap-3 py-4 font-mono text-sm text-black/50 dark:text-white/40">
+                <Loader2 size={15} className="animate-spin text-black dark:text-white" />
                 Menganalisis video…
               </div>
             )}
@@ -595,12 +443,12 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
         )}
 
         {/* Info footer */}
-        <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-800">
-          <div className="flex flex-col gap-3 text-xs text-gray-500 dark:text-gray-400">
+        <div className="mt-6 pt-5 border-t border-black/10 dark:border-white/8">
+          <div className="flex flex-col gap-2.5">
             {(mode === "upload"
               ? [
-                "Video dianalisis AI berdasarkan durasi dan nama file — tidak perlu koneksi internet untuk video itu sendiri.",
-                "File video disimpan di browser IndexedDB kamu — tidak diupload ke server sampai kamu klik Export.",
+                "Video dianalisis AI berdasarkan durasi dan nama file — tidak perlu koneksi internet.",
+                "File video disimpan di browser IndexedDB kamu — tidak diupload ke server sampai Export.",
                 "Auto-subtitle menggunakan OpenAI Whisper — 3 kata per subtitle, tersinkronisasi otomatis.",
                 `Format didukung: MP4, WebM, MOV, AVI, MKV (maks. ${MAX_SIZE_GB}GB).`,
               ]
@@ -608,11 +456,10 @@ export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) 
                 "Video YouTube akan diunduh ke server lalu dikirim ke browsermu (maks. resolusi 720p).",
                 "Setelah download, video disimpan di IndexedDB browser — tidak perlu upload ulang saat Export.",
                 "Video privat, age-restricted, atau yang dinonaktifkan embed-nya tidak bisa diunduh.",
-                "Gunakan untuk video yang kamu miliki atau yang bebas digunakan ulang.",
               ]
             ).map((text, i) => (
-              <div key={i} className="flex items-start gap-2">
-                <div className="w-1 h-1 rounded-full bg-[#1ABC71]/50 mt-1.5 shrink-0" />
+              <div key={i} className="flex items-start gap-2 font-mono text-xs text-black/40 dark:text-white/25">
+                <span className="text-black dark:text-white shrink-0">›</span>
                 <span>{text}</span>
               </div>
             ))}
