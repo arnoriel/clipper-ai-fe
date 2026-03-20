@@ -27,11 +27,16 @@ body {
   overflow-x: hidden;
 }
 
-/* Headings: Syne — modern display with clear descenders */
+/* Headings: Unbounded — ultra-blocky for Dark Neo/Terminal */
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Syne', system-ui, sans-serif;
+  font-family: 'Unbounded', system-ui, sans-serif;
   font-weight: 900;
   letter-spacing: -0.03em;
+}
+
+/* Hero heading override: Bricolage Grotesque for clearer letterforms */
+h1.font-bricolage {
+  font-family: 'Bricolage Grotesque', system-ui, sans-serif;
 }
 
 /* Dark mode body override */

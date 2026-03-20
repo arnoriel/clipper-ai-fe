@@ -16,6 +16,7 @@ export default {
       fontFamily: {
         serif: ['"Playfair Display"', 'serif'],
         syne: ['"Syne"', 'sans-serif'],
+        bricolage: ['"Bricolage Grotesque"', 'sans-serif'],
       }
     },
   },
