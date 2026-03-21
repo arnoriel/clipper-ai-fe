@@ -14,6 +14,7 @@ import { BrandLogo } from "../components/BrandLogo";
 import {
   Film, ChevronRight, Loader2,
   CheckCircle2, AlertCircle, Sparkles, ArrowLeft,
+  CreditCard, Menu, LogOut, X as XIcon,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import FileUploadInput from "../components/FileUploadInput";
@@ -480,19 +481,19 @@ export default function App() {
   }
 
 
-  // ── Export clip → IndexedDB ───────────────────────────────────────────────
-  async function handleExportClip(moment: ViralMoment, edits: ClipEdits) {
+  // ── Analyze Motion ───────────────────────────────────────────────
+  async function handleAnalyzeMotion(moment: ViralMoment) {
     if (!project?.id) {
       setError("Tidak ada project aktif.");
-      return;
+      return null;
     }
 
     const videoBlob = await getSourceVideoBlob(project.id);
     if (!videoBlob) { setError("Video tidak ditemukan di IndexedDB."); return null; }
 
-    const edits       = clipEdits[editingMoment.id] || defaultEdits();
-    const startTime   = editingMoment.startTime + edits.trimStart;
-    const endTime     = editingMoment.endTime   + edits.trimEnd;
+    const edits       = clipEdits[moment.id] || defaultEdits();
+    const startTime   = moment.startTime + edits.trimStart;
+    const endTime     = moment.endTime   + edits.trimEnd;
     const aspectRatio = edits.aspectRatio;
     if (aspectRatio === "original") return null;
 
@@ -510,10 +511,10 @@ export default function App() {
 
     const result: MotionAnalysisResult = await resp.json();
     setClipEdits((prev) => {
-      const current = prev[editingMoment.id] || defaultEdits();
+      const current = prev[moment.id] || defaultEdits();
       return {
         ...prev,
-        [editingMoment.id]: {
+        [moment.id]: {
           ...current,
           motionKeyframes: result.keyframes,
           motionAnalyzed:  true,
