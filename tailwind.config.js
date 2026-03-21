@@ -12,6 +12,11 @@ export default {
         primary: '#1ABC71',
         background: '#FFFFFF',
         text: '#000000',
+      },
+      fontFamily: {
+        serif: ['"Playfair Display"', 'serif'],
+        syne: ['"Syne"', 'sans-serif'],
+        bricolage: ['"Bricolage Grotesque"', 'sans-serif'],
       }
     },
   },

@@ -1,4 +1,4 @@
-/* /Users/haimac/Project/clipper-ai-fe/src/index.css */
+/* src/index.css — Neobrutalism Global Styles */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -10,46 +10,55 @@
 }
 
 :root {
-  font-family: 'Syne', system-ui, -apple-system, sans-serif;
+  font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  color-scheme: light;
+  color-scheme: light dark;
+  /* Grid line color — adapts per mode */
+  --grid-color: rgba(0, 0, 0, 0.06);
 }
 
 body {
-  background: var(--bg-color, #FFFFFF);
-  color: var(--text-color, #000000);
+  background: #ffffff;
+  color: #000000;
   min-height: 100vh;
   overflow-x: hidden;
-  transition: background-color 0.3s, color 0.3s;
 }
 
+/* Headings: Unbounded — ultra-blocky for Dark Neo/Terminal */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Unbounded', system-ui, sans-serif;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+/* Hero heading override: Bricolage Grotesque for clearer letterforms */
+h1.font-bricolage {
+  font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+}
+
+/* Dark mode body override */
 .dark body {
-  --bg-color: #030712;
-  /* Tailwind gray-950 */
-  --text-color: #f3f4f6;
-  /* Tailwind gray-100 */
+  background: #000000;
+  color: #ffffff;
+  --grid-color: rgba(255, 255, 255, 0.04);
 }
 
-/* Custom scrollbar */
+/* Terminal-style dark scrollbar */
 ::-webkit-scrollbar {
   width: 4px;
   height: 4px;
 }
-
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: #111;
 }
-
 ::-webkit-scrollbar-thumb {
   background: #1ABC71;
-  border-radius: 2px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: #16a085;
+  background: #fff;
 }
 
 /* Monospace font for timestamps */
@@ -60,32 +69,34 @@ body {
 /* Range input styling */
 input[type="range"] {
   height: 4px;
-  border-radius: 2px;
+  border-radius: 0;
   appearance: none;
   background: #e0e0e0;
   outline: none;
   cursor: pointer;
+  border: 2px solid #000;
 }
 
 input[type="range"]::-webkit-slider-thumb {
   appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  border-radius: 0;
   background: #1ABC71;
   cursor: pointer;
-  box-shadow: 0 0 6px rgba(26, 188, 113, 0.5);
-  transition: transform 0.1s ease;
+  border: 2px solid #000;
+  box-shadow: 2px 2px 0px #000;
 }
 
 input[type="range"]::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
+  background: #000;
 }
 
 /* Line clamp utility */
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -96,7 +107,7 @@ video {
   display: block;
 }
 
-/* Smooth transitions */
+/* Neobrutalism: keep transitions crisp */
 * {
   transition-property: none;
 }
@@ -110,9 +121,14 @@ input,
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Focus visible */
+/* Focus visible — Neo style */
 :focus-visible {
-  outline: 2px solid rgba(26, 188, 113, 0.6);
+  outline: 3px solid #000;
   outline-offset: 2px;
-  border-radius: 4px;
+}
+
+/* Neobrutalism selection */
+::selection {
+  background: #1ABC71;
+  color: #000;
 }

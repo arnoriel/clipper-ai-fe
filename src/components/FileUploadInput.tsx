@@ -4,6 +4,7 @@
 // Manual Edit tab shows the original "Deteksi Momen Viral" button.
 
 import { useState, useRef, useCallback } from "react";
+import { BrandLogo } from "./BrandLogo";
 import {
   Upload, Zap, AlertCircle, Loader2, Film, CheckCircle2,
   CreditCard, Wand2, PenLine,
@@ -30,7 +31,15 @@ interface Props {
   onTopUpClick?: () => void;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+type Mode = "upload" | "youtube";
+
+interface YoutubeInfo {
+  title: string;
+  duration: number;
+  thumbnail: string;
+  author?: string;
+  streams?: { resolution: string; filesize_mb: number }[];
+}
 
 const ACCEPTED_TYPES = [
   "video/mp4",
@@ -61,16 +70,24 @@ function formatDuration(s: number): string {
   return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+function extractYouTubeId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([A-Za-z0-9_-]{11})/,
+  ];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
+}
 
-export default function FileUploadInput({
-  onAnalyze,
-  onAutoGenerate,
-  isLoading,
-  error,
-  credits,
-  onTopUpClick,
-}: Props) {
+function isValidYoutubeUrl(url: string): boolean {
+  return !!extractYouTubeId(url.trim());
+}
+
+export default function FileUploadInput({ onAnalyze, isLoading, error }: Props) {
+  const [mode, setMode] = useState<Mode>("upload");
+
   const [file, setFile] = useState<File | null>(null);
   const [duration, setDuration] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -81,17 +98,20 @@ export default function FileUploadInput({
 
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const [ytUrl, setYtUrl] = useState("");
+  const [ytInfo, setYtInfo] = useState<YoutubeInfo | null>(null);
+  const [ytError, setYtError] = useState("");
+  const [fetchingInfo, setFetchingInfo] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+
   const apiKeyOk = isApiKeyConfigured();
   const creditsDisplay = credits ?? 0;
   const hasCredits = creditsDisplay > 0;
   const noCredits = !hasCredits && credits !== undefined;
 
-  // ── File validation ────────────────────────────────────────────────────────
   function validateFile(f: File): string {
-    if (
-      !ACCEPTED_TYPES.includes(f.type) &&
-      !f.name.match(/\.(mp4|webm|mov|avi|mkv)$/i)
-    ) {
+    if (!ACCEPTED_TYPES.includes(f.type) && !f.name.match(/\.(mp4|webm|mov|avi|mkv)$/i)) {
       return "Format tidak didukung. Gunakan MP4, WebM, MOV, AVI, atau MKV.";
     }
     if (f.size > MAX_SIZE_BYTES) {
@@ -120,15 +140,11 @@ export default function FileUploadInput({
   async function processFile(f: File) {
     setFileError("");
     const err = validateFile(f);
-    if (err) {
-      setFileError(err);
-      return;
-    }
+    if (err) { setFileError(err); return; }
     setLoadingDuration(true);
     try {
       const dur = await readDuration(f);
-      setFile(f);
-      setDuration(dur);
+      setFile(f); setDuration(dur);
     } catch {
       setFileError("Gagal membaca video. Pastikan file tidak rusak.");
     } finally {
@@ -142,8 +158,7 @@ export default function FileUploadInput({
   }
 
   const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
+    e.preventDefault(); setIsDragging(false);
     const f = e.dataTransfer.files[0];
     if (f) processFile(f);
   }, []);
@@ -166,168 +181,290 @@ export default function FileUploadInput({
     onAnalyze(file, duration);
   }
 
-  async function handleAutoGenerate(
-    template: ClipTemplate,
-    watermarkSrc: string | null
-  ) {
-    if (!file || duration === null) return;
-    await onAutoGenerate(file, duration, template, watermarkSrc);
+  async function handleFetchYoutubeInfo() {
+    const url = ytUrl.trim();
+    if (!isValidYoutubeUrl(url)) { setYtError("URL YouTube tidak valid."); return; }
+    setYtError(""); setYtInfo(null); setFetchingInfo(true);
+    try {
+      const resp = await fetch(`${API_BASE}/api/youtube-info?url=${encodeURIComponent(url)}`);
+      if (!resp.ok) { const body = await resp.json().catch(() => ({})); throw new Error(body.detail || "Gagal mengambil info video"); }
+      setYtInfo(await resp.json());
+    } catch (err: any) {
+      setYtError(err.message || "Gagal mengambil info video YouTube");
+    } finally { setFetchingInfo(false); }
   }
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  async function handleYoutubeDownload() {
+    if (!ytInfo) return;
+    setYtError(""); setDownloading(true); setDownloadProgress(0);
+    try {
+      const formData = new FormData();
+      formData.append("url", ytUrl.trim());
+      formData.append("max_resolution", "720");
+      const resp = await fetch(`${API_BASE}/api/download-youtube`, { method: "POST", body: formData });
+      if (!resp.ok) { const body = await resp.json().catch(() => ({})); throw new Error(body.detail || "Download gagal"); }
+      const contentLength = Number(resp.headers.get("Content-Length") ?? "0");
+      const fileName = resp.headers.get("X-File-Name") ?? "youtube_video.mp4";
+      const videoDuration = Number(resp.headers.get("X-Video-Duration") ?? String(ytInfo.duration)) || ytInfo.duration;
+      const reader = resp.body!.getReader();
+      const chunks: Uint8Array[] = [];
+      let received = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value); received += value.length;
+        if (contentLength > 0) setDownloadProgress(Math.round((received / contentLength) * 100));
+        else setDownloadProgress((p) => Math.min(p + 2, 90));
+      }
+      setDownloadProgress(100);
+      const blob = new Blob(chunks as BlobPart[], { type: "video/mp4" });
+      onAnalyze(new File([blob], fileName, { type: "video/mp4" }), videoDuration);
+    } catch (err: any) {
+      setYtError(err.message || "Terjadi kesalahan saat download");
+      setDownloading(false); setDownloadProgress(0);
+    }
+  }
+
+  function clearYoutube() {
+    setYtUrl(""); setYtInfo(null); setYtError("");
+    setDownloading(false); setDownloadProgress(0);
+  }
+
+  function handleModeSwitch(m: Mode) {
+    setMode(m); setYtError(""); setFileError("");
+  }
+
+  const anyError = error || fileError || ytError;
+
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4 md:p-6 relative overflow-hidden">
-      {/* Background grid */}
-      <div
-        className="absolute inset-0 opacity-[0.03]"
-        style={{
-          backgroundImage: `linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)`,
-          backgroundSize: "60px 60px",
-        }}
-      />
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#1ABC71]/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-[#1ABC71]/5 rounded-full blur-[100px] pointer-events-none" />
+    <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-6 relative overflow-hidden">
+      {/* Grid Background */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        backgroundImage: "linear-gradient(var(--grid-color,rgba(0,0,0,0.06)) 1px, transparent 1px), linear-gradient(90deg, var(--grid-color,rgba(0,0,0,0.06)) 1px, transparent 1px)",
+        backgroundSize: "48px 48px",
+      }} />
 
       <div className="relative z-10 w-full max-w-xl">
         {/* Header */}
-        <div className="text-center mb-7 md:mb-9">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#1ABC71]/10 border border-[#1ABC71]/20 text-[#1ABC71] text-xs font-mono mb-5">
-            <Zap size={12} className="fill-[#1ABC71] text-[#1ABC71]" />
-            POWERED BY COBAMULAI
+        <div className="text-center mb-10">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 border border-black dark:border-white text-black dark:text-white text-xs font-mono font-bold tracking-widest uppercase mb-6">
+            <span className="w-1.5 h-1.5 rounded-full bg-black dark:bg-white animate-pulse" />
+            ANALISIS AI SIAP
+          </span>
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <div className="h-8 w-8 bg-black dark:bg-white flex items-center justify-center">
+              <BrandLogo size={14} className="text-white dark:text-black stroke-white dark:stroke-black" />
+            </div>
+            <h1 className="font-black text-3xl uppercase text-black dark:text-white tracking-widest">
+              Try<span className="text-black dark:text-white">Klip</span>
+            </h1>
           </div>
-          <h1
-            className="text-4xl md:text-5xl font-black text-black tracking-tight mb-3"
-            style={{ fontFamily: "'Syne', sans-serif" }}
-          >
-            AI Viral <span className="text-[#1ABC71]">Clipper</span>
-          </h1>
-          <p className="text-gray-600 text-sm md:text-base px-2">
-            Upload video kamu. AI mendeteksi momen viral. Kamu edit, auto-subtitle
-            &amp; export.
+          <p className="text-black/50 dark:text-white/50 font-mono text-sm">
+            Upload video kamu. AI mendeteksi momen viral. Kamu edit &amp; export.
           </p>
         </div>
 
-        {/* Credits display */}
-        {credits !== undefined && (
-          <div
-            className={`mb-5 flex items-center justify-between px-4 py-3.5 rounded-2xl border transition-all ${
-              noCredits
-                ? "bg-red-50 border-red-200"
-                : creditsDisplay <= 3
-                ? "bg-orange-50 border-orange-200"
-                : "bg-[#1ABC71]/5 border-[#1ABC71]/20"
-            }`}
+        {/* Mode tabs */}
+        <div className="flex border border-black/15 dark:border-white/15 mb-0">
+          <button
+            type="button"
+            onClick={() => handleModeSwitch("upload")}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 font-mono text-xs uppercase tracking-widest border-r border-black/15 dark:border-white/15 transition-colors ${mode === "upload" ? "bg-black dark:bg-white text-white dark:text-black" : "text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white bg-transparent"}`}
           >
-            <div className="flex items-center gap-3">
-              <div
-                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                  noCredits
-                    ? "bg-red-100 text-red-500"
-                    : creditsDisplay <= 3
-                    ? "bg-orange-100 text-orange-500"
-                    : "bg-[#1ABC71]/15 text-[#1ABC71]"
-                }`}
-              >
-                <CreditCard size={18} />
-              </div>
-              <div>
-                <p
-                  className={`text-sm font-bold ${
-                    noCredits
-                      ? "text-red-700"
-                      : creditsDisplay <= 3
-                      ? "text-orange-700"
-                      : "text-gray-800"
-                  }`}
-                >
-                  {noCredits
-                    ? "Kredit habis"
-                    : creditsDisplay <= 3
-                    ? `Kredit hampir habis: ${creditsDisplay} tersisa`
-                    : `${creditsDisplay} credit tersisa`}
-                </p>
-                <p
-                  className={`text-xs ${
-                    noCredits
-                      ? "text-red-500"
-                      : creditsDisplay <= 3
-                      ? "text-orange-500"
-                      : "text-gray-400"
-                  }`}
-                >
-                  {noCredits
-                    ? "Top up untuk mulai analisis video"
-                    : "1 analisis = 1 cr · 1 auto-subtitle = 1 cr"}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={onTopUpClick}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
-                noCredits
-                  ? "bg-red-500 text-white hover:bg-red-600"
-                  : "bg-[#1ABC71] text-white hover:bg-[#16a085]"
-              }`}
-            >
-              <Zap size={12} />
-              Top Up
-            </button>
-          </div>
-        )}
-
-        {/* Session warning */}
-        <div className="mb-5 flex items-start gap-3 px-4 py-3.5 rounded-xl bg-green-50 border border-green-200 text-green-800 text-xs leading-relaxed">
-          <span className="text-base shrink-0 mt-0.5">⚠️</span>
-          <div>
-            <p className="font-semibold mb-1">
-              Selesaikan sesi editing sebelum pergi
-            </p>
-            <p className="text-green-700">
-              Setelah upload video,{" "}
-              <strong>jangan kembali ke halaman Upload</strong> sampai kamu
-              selesai export clip. Mengulang dari awal akan memotong kredit
-              lagi.
-            </p>
-          </div>
+            <Upload size={13} /> Upload File
+          </button>
+          <button
+            type="button"
+            onClick={() => handleModeSwitch("youtube")}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 font-mono text-xs uppercase tracking-widest transition-colors ${mode === "youtube" ? "bg-black dark:bg-white text-white dark:text-black" : "text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white bg-transparent"}`}
+          >
+            <Youtube size={13} /> YouTube Link
+          </button>
         </div>
 
-        {/* ── File drop zone ── */}
-        {!file ? (
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              setIsDragging(true);
-            }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={handleDrop}
-            onClick={() => inputRef.current?.click()}
-            className={`relative cursor-pointer rounded-2xl border-2 border-dashed transition-all duration-200 p-8 md:p-10 text-center ${
-              isDragging
-                ? "border-[#1ABC71]/70 bg-[#1ABC71]/5 scale-[1.01]"
-                : "border-gray-300 bg-gray-50 hover:border-[#1ABC71]/50 hover:bg-gray-100"
-            }`}
-          >
-            <input
-              ref={inputRef}
-              type="file"
-              accept="video/mp4,video/webm,video/quicktime,video/avi,video/x-matroska,.mp4,.webm,.mov,.avi,.mkv"
-              onChange={handleInputChange}
-              className="hidden"
-            />
-            <div className="flex flex-col items-center gap-3">
+        {/* ── UPLOAD MODE ── */}
+        {mode === "upload" && (
+          <form onSubmit={handleUploadSubmit} className="border border-t-0 border-black/15 dark:border-white/15 bg-gray-50 dark:bg-black">
+            {!file ? (
               <div
-                className={`w-14 h-14 md:w-16 md:h-16 rounded-2xl flex items-center justify-center transition-colors ${
-                  isDragging ? "bg-[#1ABC71]/20" : "bg-gray-100"
-                }`}
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={handleDrop}
+                onClick={() => inputRef.current?.click()}
+                className={`cursor-pointer border-2 border-dashed m-4 p-10 text-center transition-all ${isDragging ? "border-black dark:border-white bg-black/5 dark:bg-white/5" : "border-black/20 dark:border-white/15 hover:border-black/60 dark:hover:border-white/60"}`}
               >
-                {loadingDuration ? (
-                  <Loader2 size={26} className="text-[#1ABC71] animate-spin" />
-                ) : (
-                  <Upload
-                    size={26}
-                    className={isDragging ? "text-[#1ABC71]" : "text-gray-400"}
-                  />
+                <input ref={inputRef} type="file"
+                  accept="video/mp4,video/webm,video/quicktime,video/avi,video/x-matroska,.mp4,.webm,.mov,.avi,.mkv"
+                  onChange={handleInputChange} className="hidden" />
+                <div className="flex flex-col items-center gap-3">
+                  <div className={`w-14 h-14 flex items-center justify-center border ${isDragging ? "border-black dark:border-white bg-black/10 dark:bg-white/10" : "border-black/20 dark:border-white/15 bg-white dark:bg-black"}`}>
+                    {loadingDuration
+                      ? <Loader2 size={24} className="text-black dark:text-white animate-spin" />
+                      : <Upload size={24} className={isDragging ? "text-black dark:text-white" : "text-black/30 dark:text-white/30"} />}
+                  </div>
+                  <div>
+                    <p className="font-mono text-sm font-bold text-black dark:text-white mb-1">
+                      {isDragging ? "Lepaskan file di sini" : "Drag & drop video kamu"}
+                    </p>
+                    <p className="font-mono text-xs text-black/40 dark:text-white/30">
+                      atau <span className="text-black dark:text-white underline underline-offset-2">browse file</span>
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 font-mono text-[10px] text-black/30 dark:text-white/30 mt-1">
+                    <span>MP4</span><span>·</span><span>WebM</span><span>·</span>
+                    <span>MOV</span><span>·</span><span>AVI</span><span>·</span><span>MKV</span>
+                  </div>
+                  <p className="font-mono text-[10px] text-black/30 dark:text-white/30">Maks. {MAX_SIZE_GB}GB</p>
+                </div>
+              </div>
+            ) : (
+              <div className="border border-black/40 dark:border-white/40 bg-black/5 dark:bg-white/5 m-4 p-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 flex items-center justify-center border border-black/40 dark:border-white/40 bg-black/10 dark:bg-white/10 shrink-0">
+                    <Film size={18} className="text-black dark:text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-mono text-sm font-bold text-black dark:text-white truncate">{file.name}</p>
+                    <div className="flex items-center gap-3 mt-1 font-mono text-xs text-black/50 dark:text-white/40">
+                      <span>{formatBytes(file.size)}</span><span>·</span>
+                      {duration !== null && <span className="text-black dark:text-white">{formatDuration(duration)}</span>}
+                      <span>·</span><span>{file.type || "video"}</span>
+                    </div>
+                  </div>
+                  <button type="button" onClick={clearFile}
+                    className="font-mono text-[10px] uppercase tracking-widest text-black/40 dark:text-white/30 hover:text-black dark:hover:text-white border border-black/10 dark:border-white/10 px-2 py-1 transition-colors">
+                    Ganti
+                  </button>
+                </div>
+                {duration !== null && (
+                  <div className="mt-3 pt-3 border-t border-black/20 dark:border-white/20 flex items-center gap-2 font-mono text-xs text-black dark:text-white">
+                    <CheckCircle2 size={12} />
+                    Video siap dianalisis — durasi {formatDuration(duration)}
+                  </div>
                 )}
+              </div>
+            )}
+
+            {anyError && (
+              <div className="flex items-start gap-3 mx-4 mb-4 p-3 border border-red-400/40 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 font-mono text-xs">
+                <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                <span>{anyError}</span>
+              </div>
+            )}
+
+            <div className="px-4 pb-4">
+              <button
+                type="submit"
+                disabled={isLoading || !file || !apiKeyOk || duration === null}
+                className="w-full py-4 bg-black dark:bg-white text-white dark:text-black font-bold text-sm tracking-wide rounded-xl flex items-center justify-center gap-3 transition-all duration-200 shadow-[4px_4px_0px_#d1d5db] dark:shadow-[4px_4px_0px_#374151] hover:-translate-y-0.5 hover:-translate-x-0.5 hover:shadow-[6px_6px_0px_#d1d5db] dark:hover:shadow-[6px_6px_0px_#374151] active:translate-y-[4px] active:translate-x-[4px] active:shadow-none disabled:opacity-40 disabled:shadow-none disabled:translate-x-0 disabled:translate-y-0 disabled:cursor-not-allowed"
+              >
+                {isLoading
+                  ? <><Loader2 size={16} className="animate-spin" /> Menganalisis Video...</>
+                  : <><Zap size={16} /> Deteksi Momen Viral</>}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* ── YOUTUBE MODE ── */}
+        {mode === "youtube" && (
+          <div className="border border-t-0 border-black/15 dark:border-white/15 bg-gray-50 dark:bg-black">
+            {/* URL input */}
+            <div className="p-4 border-b border-black/10 dark:border-white/10">
+              <p className="font-mono text-[10px] uppercase tracking-widest text-black/40 dark:text-white/30 mb-2">Link YouTube</p>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Link2 size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-black/30 dark:text-white/20" />
+                  <input
+                    type="url"
+                    value={ytUrl}
+                    onChange={(e) => { setYtUrl(e.target.value); if (ytInfo) setYtInfo(null); if (ytError) setYtError(""); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleFetchYoutubeInfo(); } }}
+                    placeholder="https://youtube.com/watch?v=..."
+                    disabled={downloading}
+                    className="w-full pl-8 pr-3 py-2.5 border border-black/15 dark:border-white/15 bg-white dark:bg-black font-mono text-sm text-black dark:text-white placeholder:text-black/30 dark:placeholder:text-white/20 focus:outline-none focus:border-black/60 dark:focus:border-white/60 disabled:opacity-50"
+                  />
+                  {ytUrl && !downloading && (
+                    <button type="button" onClick={clearYoutube}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-black/30 dark:text-white/20 hover:text-black dark:hover:text-white">
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleFetchYoutubeInfo}
+                  disabled={!ytUrl.trim() || fetchingInfo || downloading || !isValidYoutubeUrl(ytUrl)}
+                  className="px-4 py-2.5 bg-black dark:bg-white text-white dark:text-black font-mono text-xs uppercase tracking-widest hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity flex items-center gap-2 shrink-0"
+                >
+                  {fetchingInfo ? <Loader2 size={13} className="animate-spin" /> : <ArrowRight size={13} />}
+                  Cek
+                </button>
+              </div>
+              <p className="font-mono text-[10px] text-black/30 dark:text-white/20 mt-2">
+                Mendukung: youtube.com/watch?v= · youtu.be/ · /shorts/
+              </p>
+            </div>
+
+            {/* Video info card */}
+            {ytInfo && !downloading && (
+              <div className="m-4 border border-black/40 dark:border-white/40 bg-black/5 dark:bg-white/5">
+                <div className="flex gap-4 p-4">
+                  <div className="w-24 h-16 overflow-hidden bg-black/10 shrink-0">
+                    <img src={ytInfo.thumbnail} alt="thumbnail"
+                      className="w-full h-full object-cover"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-mono text-sm font-bold text-black dark:text-white line-clamp-2 leading-tight mb-1">
+                      {ytInfo.title}
+                    </p>
+                    <div className="flex items-center gap-3 font-mono text-xs text-black/40 dark:text-white/30 flex-wrap">
+                      <span className="flex items-center gap-1"><User size={10} /> {ytInfo.author || "YouTube Creator"}</span>
+                      <span className="flex items-center gap-1 text-black dark:text-white"><Clock size={10} /> {formatDuration(ytInfo.duration)}</span>
+                    </div>
+                    {ytInfo.streams && ytInfo.streams.length > 0 && (
+                      <div className="flex gap-1.5 mt-2 flex-wrap">
+                        {ytInfo.streams.slice(-3).reverse().map((s, i) => (
+                          <span key={i} className={`font-mono text-[10px] px-2 py-0.5 border ${i === 0 ? "border-black/40 dark:border-white/40 text-black dark:text-white bg-black/10 dark:bg-white/10" : "border-black/10 dark:border-white/10 text-black/40 dark:text-white/30"}`}>
+                            {s.resolution}{s.filesize_mb > 0 && ` · ${s.filesize_mb}MB`}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="px-4 pb-4">
+                  <button type="button" onClick={handleYoutubeDownload} disabled={isLoading}
+                    className="w-full py-3 bg-black dark:bg-white text-white dark:text-black font-bold text-sm tracking-wide rounded-xl flex items-center justify-center gap-2 transition-all duration-200 shadow-[4px_4px_0px_#d1d5db] dark:shadow-[4px_4px_0px_#374151] hover:-translate-y-0.5 hover:-translate-x-0.5 hover:shadow-[6px_6px_0px_#d1d5db] dark:hover:shadow-[6px_6px_0px_#374151] active:translate-y-[4px] active:translate-x-[4px] active:shadow-none disabled:opacity-40 disabled:shadow-none disabled:translate-x-0 disabled:translate-y-0 disabled:cursor-not-allowed">
+                    <Download size={15} /> Download &amp; Analisis (max 720p)
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Download progress */}
+            {downloading && (
+              <div className="m-4 border border-black/40 dark:border-white/40 bg-black/5 dark:bg-white/5 p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 border border-black/40 dark:border-white/40 bg-black/10 dark:bg-white/10 flex items-center justify-center shrink-0">
+                    <Youtube size={16} className="text-red-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-mono text-sm font-bold text-black dark:text-white truncate">
+                      {ytInfo?.title ?? "Mengunduh video…"}
+                    </p>
+                    <p className="font-mono text-xs text-black/40 dark:text-white/30 mt-0.5">
+                      {downloadProgress < 100
+                        ? `Mengunduh dari server… ${downloadProgress > 0 ? `${downloadProgress}%` : ""}`
+                        : "Selesai, memproses…"}
+                    </p>
+                  </div>
+                </div>
+                <div className="h-1.5 bg-black/10 dark:bg-white/10 overflow-hidden">
+                  <div className="h-full bg-black dark:bg-white transition-all duration-300"
+                    style={{ width: `${downloadProgress || 5}%` }} />
+                </div>
               </div>
               <div>
                 <p className="text-sm font-semibold text-gray-700 mb-1">
@@ -410,137 +547,41 @@ export default function FileUploadInput({
           </div>
         )}
 
-        {/* ── Error banners ── */}
-        {(error || fileError) && (
-          <div className="flex items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm mb-3">
-            <AlertCircle size={16} className="mt-0.5 shrink-0" />
-            <div className="flex-1">
-              <span>{error || fileError}</span>
-              {(error?.includes("Kredit") ||
-                error?.includes("credit")) &&
-                onTopUpClick && (
-                  <button
-                    type="button"
-                    onClick={onTopUpClick}
-                    className="ml-2 underline font-semibold hover:no-underline"
-                  >
-                    Top Up Sekarang →
-                  </button>
-                )}
-            </div>
-          </div>
-        )}
-
-        {/* ── Edit mode tabs (only shown after file is selected) ── */}
-        {file && duration !== null && (
-          <div className="mt-4 space-y-3">
-            {/* Tab switcher */}
-            <div className="flex rounded-2xl border border-gray-200 overflow-hidden bg-gray-50 p-1 gap-1">
-              <button
-                onClick={() => setEditMode("auto")}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                  editMode === "auto"
-                    ? "bg-[#1ABC71] text-white shadow"
-                    : "text-gray-500 hover:text-gray-700 hover:bg-white/60"
-                }`}
-              >
-                <Wand2 size={13} />
-                ✨ Auto Edit
-              </button>
-              <button
-                onClick={() => setEditMode("manual")}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                  editMode === "manual"
-                    ? "bg-[#1ABC71] text-white shadow"
-                    : "text-gray-500 hover:text-gray-700 hover:bg-white/60"
-                }`}
-              >
-                <PenLine size={13} />
-                🎬 Manual Edit
-              </button>
-            </div>
-
-            {/* ── AUTO EDIT tab content ── */}
-            {editMode === "auto" && (
-              <div>
-                {/* Explanation */}
-                <div className="flex items-start gap-2.5 px-3 py-3 rounded-xl bg-purple-500/5 border border-purple-500/20 text-xs text-purple-700 mb-3">
-                  <Wand2 size={12} className="shrink-0 mt-0.5 text-purple-500" />
-                  <p>
-                    Atur template sekali, klik <strong>Generate Videos</strong>.
-                    AI akan analisis video, pilih semua momen, lalu terapkan
-                    crop, subtitle, dan watermark ke setiap clip secara otomatis
-                    — semuanya siap export.
-                  </p>
-                </div>
-                <AutoEditPanel
-                  credits={creditsDisplay}
-                  onGenerate={handleAutoGenerate}
-                  onTopUpClick={onTopUpClick}
-                  isLoading={isLoading}
-                />
+            {/* Error */}
+            {(ytError || error) && (
+              <div className="flex items-start gap-3 mx-4 mb-4 p-3 border border-red-400/40 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 font-mono text-xs">
+                <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                <span>{ytError || error}</span>
               </div>
             )}
 
-            {/* ── MANUAL EDIT tab content ── */}
-            {editMode === "manual" && (
-              <form onSubmit={handleManualSubmit} className="space-y-3">
-                {/* Explanation */}
-                <div className="flex items-start gap-2.5 px-3 py-3 rounded-xl bg-blue-500/5 border border-blue-500/20 text-xs text-blue-700">
-                  <PenLine size={12} className="shrink-0 mt-0.5 text-blue-500" />
-                  <p>
-                    AI analisis video dan tampilkan daftar momen viral. Kamu
-                    bisa pilih momen yang ingin diedit, atur subtitle, crop,
-                    dan watermark satu per satu secara manual.
-                  </p>
-                </div>
-
-                {noCredits ? (
-                  <button
-                    type="button"
-                    onClick={onTopUpClick}
-                    className="w-full py-4 rounded-2xl font-bold text-sm tracking-wider bg-red-500 text-white hover:bg-red-600 transition-all flex items-center justify-center gap-3 shadow-lg shadow-red-500/20"
-                  >
-                    <CreditCard size={18} /> Top Up Credit untuk Mulai
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    disabled={isLoading || !file || !apiKeyOk || duration === null}
-                    className="w-full py-4 rounded-2xl font-bold text-sm tracking-wider bg-[#1ABC71] text-white hover:bg-[#16a085] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#1ABC71]/20 active:scale-[0.99]"
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 size={18} className="animate-spin" />
-                        Menganalisis Video...
-                      </>
-                    ) : (
-                      <>
-                        <Zap size={18} />
-                        Deteksi Momen Viral
-                        <span className="opacity-60 font-normal text-xs">
-                          (−1 credit)
-                        </span>
-                      </>
-                    )}
-                  </button>
-                )}
-              </form>
+            {isLoading && !downloading && (
+              <div className="flex items-center justify-center gap-3 py-4 font-mono text-sm text-black/50 dark:text-white/40">
+                <Loader2 size={15} className="animate-spin text-black dark:text-white" />
+                Menganalisis video…
+              </div>
             )}
           </div>
         )}
 
         {/* Info footer */}
-        <div className="mt-6 pt-5 border-t border-gray-200">
-          <div className="flex flex-col gap-2.5 text-xs text-gray-500">
-            {[
-              "Auto Edit: 1 cr analisis + 1 cr per clip subtitle. Export gratis.",
-              "Manual Edit: 1 cr analisis, edit tiap clip sendiri.",
-              "File disimpan di IndexedDB browser — tidak diupload ke server sampai Export.",
-              `Format: MP4, WebM, MOV, AVI, MKV (maks. ${MAX_SIZE_GB}GB).`,
-            ].map((text, i) => (
-              <div key={i} className="flex items-start gap-2">
-                <div className="w-1 h-1 rounded-full bg-[#1ABC71]/50 mt-1.5 shrink-0" />
+        <div className="mt-6 pt-5 border-t border-black/10 dark:border-white/8">
+          <div className="flex flex-col gap-2.5">
+            {(mode === "upload"
+              ? [
+                "Video dianalisis AI berdasarkan durasi dan nama file — tidak perlu koneksi internet.",
+                "File video disimpan di browser IndexedDB kamu — tidak diupload ke server sampai Export.",
+                "Auto-subtitle menggunakan OpenAI Whisper — 3 kata per subtitle, tersinkronisasi otomatis.",
+                `Format didukung: MP4, WebM, MOV, AVI, MKV (maks. ${MAX_SIZE_GB}GB).`,
+              ]
+              : [
+                "Video YouTube akan diunduh ke server lalu dikirim ke browsermu (maks. resolusi 720p).",
+                "Setelah download, video disimpan di IndexedDB browser — tidak perlu upload ulang saat Export.",
+                "Video privat, age-restricted, atau yang dinonaktifkan embed-nya tidak bisa diunduh.",
+              ]
+            ).map((text, i) => (
+              <div key={i} className="flex items-start gap-2 font-mono text-xs text-black/40 dark:text-white/25">
+                <span className="text-black dark:text-white shrink-0">›</span>
                 <span>{text}</span>
               </div>
             ))}
