@@ -1,12 +1,13 @@
 // src/pages/Auth.tsx
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Eye, EyeOff, Loader2, AlertCircle, CheckCircle2,
-  Mail, Lock, ArrowRight,
+  Mail, Lock, User, ArrowRight, Sparkles, Globe,
 } from "lucide-react";
-import { signIn, saveAuth, isAuthenticated } from "../lib/Auth";
+import { signUp, signIn, saveAuth, isAuthenticated } from "../lib/Auth";
 import { BrandLogo } from "../components/BrandLogo";
+import { content, type Lang } from "../locales/landing";
 const GridBg = ({ className = "" }: { className?: string }) => (
   <div
     className={`absolute inset-0 pointer-events-none ${className}`}
@@ -18,7 +19,47 @@ const GridBg = ({ className = "" }: { className?: string }) => (
   />
 );
 
-// Removed PasswordStrengthBar
+// ─── Password strength bar ─────────────────────────────────────────────────────
+function PasswordStrengthBar({ password, labels }: { password: string; labels: { length: string; upper: string; number: string; weak: string; medium: string; strong: string } }) {
+  const checks = [
+    { label: labels.length, ok: password.length >= 8 },
+    { label: labels.upper,  ok: /[A-Z]/.test(password) },
+    { label: labels.number, ok: /\d/.test(password) },
+  ];
+  const score = checks.filter((c) => c.ok).length;
+  const barColors = ["bg-red-500", "bg-yellow-500", "bg-black dark:bg-white", "bg-black dark:bg-white"];
+  const scoreLabels = ["", labels.weak, labels.medium, labels.strong];
+
+  if (!password) return null;
+
+  return (
+    <div className="mt-2 space-y-1.5">
+      <div className="flex gap-1 items-center">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className={`h-1 flex-1 transition-all duration-300 ${
+              i < score ? barColors[score] : "bg-black/10 dark:bg-white/10"
+            }`}
+          />
+        ))}
+        <span className={`text-[10px] font-mono ml-1 uppercase tracking-wider ${
+          score === 1 ? "text-red-500" : score === 2 ? "text-yellow-500" : "text-black dark:text-white"
+        }`}>{scoreLabels[score]}</span>
+      </div>
+      <div className="flex gap-3">
+        {checks.map((c) => (
+          <span key={c.label} className={`flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider transition-colors ${
+            c.ok ? "text-black dark:text-white" : "text-black/30 dark:text-white/30"
+          }`}>
+            <CheckCircle2 size={9} />
+            {c.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ─── Input field ───────────────────────────────────────────────────────────────
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -33,18 +74,18 @@ function AuthInput({ icon, label, error, rightEl, ...props }: InputProps) {
 
   return (
     <div className="space-y-1.5">
-      <label className="block font-mono text-xs text-black/60 dark:text-white/50 tracking-widest uppercase">
+      <label className="block font-mono text-[10px] tracking-widest text-black/40 dark:text-white/30 uppercase">
         {label}
       </label>
       <div className={`relative flex items-center border transition-all duration-200 ${
         error
           ? "border-red-500 bg-red-50 dark:bg-red-950/20"
           : focused
-          ? "border-black dark:border-white bg-white dark:bg-black shadow-[4px_4px_0px_#000000] dark:shadow-[4px_4px_0px_#ffffff]"
-          : "border-black/20 dark:border-white/20 bg-white dark:bg-black hover:border-black/40 dark:hover:border-white/40 shadow-none"
+          ? "border-black dark:border-white bg-black/5 dark:bg-white/5"
+          : "border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.02]"
       }`}>
-        <span className={`pl-3.5 shrink-0 transition-colors ${
-          focused ? "text-black dark:text-white" : "text-black/40 dark:text-white/40"
+        <span className={`pl-4 shrink-0 transition-colors ${
+          focused ? "text-black dark:text-white" : "text-black/30 dark:text-white/30"
         }`}>
           {icon}
         </span>
@@ -52,7 +93,7 @@ function AuthInput({ icon, label, error, rightEl, ...props }: InputProps) {
           {...props}
           onFocus={(e) => { setFocused(true); props.onFocus?.(e); }}
           onBlur={(e)  => { setFocused(false); props.onBlur?.(e); }}
-          className="flex-1 bg-transparent px-3 py-3 font-mono text-sm text-black dark:text-white placeholder-black/30 dark:placeholder-white/30 outline-none min-w-0"
+          className="flex-1 bg-transparent border-none appearance-none focus:outline-none focus:ring-0 focus:border-transparent focus:shadow-none shadow-none px-3 py-3 font-mono text-sm text-black dark:text-white placeholder-black/30 dark:placeholder-white/30 outline-none w-full min-w-0"
         />
         {rightEl && <span className="pr-3">{rightEl}</span>}
       </div>
@@ -71,10 +112,34 @@ function AuthInput({ icon, label, error, rightEl, ...props }: InputProps) {
 // ══════════════════════════════════════════════════════════════════════════════
 export default function Auth() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Read language from localStorage (same key used by LandingPage Navbar)
+  const [lang, setLangState] = useState<Lang>(
+    () => (localStorage.getItem("lang") as Lang) || "ID"
+  );
+  const t = content[lang];
+
+  const setLang = (l: Lang) => {
+    setLangState(l);
+    localStorage.setItem("lang", l);
+  };
+
+  const initialMode = searchParams.get("mode") === "signup" ? "signup" : "signin";
+  const [mode, setMode] = useState<"signin" | "signup">(initialMode);
+
   // Sign-in state
   const [siEmail, setSiEmail]       = useState("");
   const [siPassword, setSiPassword] = useState("");
   const [siShowPw, setSiShowPw]     = useState(false);
+
+  // Sign-up state
+  const [suName, setSuName]               = useState("");
+  const [suEmail, setSuEmail]             = useState("");
+  const [suPassword, setSuPassword]       = useState("");
+  const [suConfirm, setSuConfirm]         = useState("");
+  const [suShowPw, setSuShowPw]           = useState(false);
+  const [suShowConfirm, setSuShowConfirm] = useState(false);
 
   // Shared
   const [loading, setLoading]         = useState(false);
@@ -86,50 +151,102 @@ export default function Auth() {
     if (isAuthenticated()) navigate("/app", { replace: true });
   }, []);
 
+  function switchMode(next: "signin" | "signup") {
+    setMode(next);
+    setError("");
+    setSuccess("");
+    setFieldErrors({});
+    setSearchParams(next === "signup" ? { mode: "signup" } : {});
+  }
+
   // ─── Sign in ────────────────────────────────────────────────────────────────
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
     setError(""); setFieldErrors({});
     const errs: Record<string, string> = {};
-    if (!siEmail)    errs.siEmail    = "Email wajib diisi";
-    if (!siPassword) errs.siPassword = "Password wajib diisi";
+    if (!siEmail)    errs.siEmail    = t.auth.errEmailRequired;
+    if (!siPassword) errs.siPassword = t.auth.errPasswordRequired;
     if (Object.keys(errs).length) { setFieldErrors(errs); return; }
 
     setLoading(true);
     try {
       const res = await signIn({ email: siEmail, password: siPassword });
       saveAuth(res.token, res.user);
-      setSuccess(`Selamat datang kembali, ${res.user.name}!`);
+      setSuccess(`${t.auth.successSignin}, ${res.user.name}!`);
       setTimeout(() => navigate("/app", { replace: true }), 700);
     } catch (err: any) {
-      setError(err.message || "Login gagal. Coba lagi.");
+      setError(err.message || t.auth.errSignin);
     } finally {
       setLoading(false);
     }
   }
 
-  // Removed handleSignUp
+  // ─── Sign up ────────────────────────────────────────────────────────────────
+  async function handleSignUp(e: React.FormEvent) {
+    e.preventDefault();
+    setError(""); setFieldErrors({});
+    const errs: Record<string, string> = {};
+    if (!suName.trim() || suName.trim().length < 2) errs.suName     = t.auth.errNameMin;
+    if (!suEmail)                                    errs.suEmail    = t.auth.errEmailRequired;
+    if (!suPassword || suPassword.length < 8)        errs.suPassword = t.auth.errPasswordMin;
+    if (suPassword !== suConfirm)                    errs.suConfirm  = t.auth.errPasswordMatch;
+    if (Object.keys(errs).length) { setFieldErrors(errs); return; }
+
+    setLoading(true);
+    try {
+      const res = await signUp({
+        name: suName.trim(),
+        email: suEmail,
+        password: suPassword,
+        confirm_password: suConfirm,
+      });
+      saveAuth(res.token, res.user);
+      setSuccess(`${t.auth.successSignup}, ${res.user.name} 👋`);
+      setTimeout(() => navigate("/app", { replace: true }), 800);
+    } catch (err: any) {
+      setError(err.message || t.auth.errSignup);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-4 relative overflow-hidden">
       <GridBg />
 
+      {/* Language toggle */}
+      <div className="absolute top-4 right-4 z-20">
+        <button
+          onClick={() => setLang(lang === "ID" ? "EN" : "ID")}
+          className="flex items-center gap-1.5 px-3 py-1.5 border border-black/10 dark:border-white/10 bg-white/80 dark:bg-black/80 backdrop-blur text-black dark:text-white font-mono text-[10px] font-bold uppercase tracking-widest hover:border-black dark:hover:border-white transition-colors"
+        >
+          <Globe size={11} />
+          {lang === "ID" ? "EN" : "ID"}
+        </button>
+      </div>
+
       {/* Card */}
       <div className="relative w-full max-w-md z-10">
 
         {/* Logo */}
-        <div className="flex items-center justify-center gap-3 mb-8 md:mb-10">
-          <div className="w-10 h-10 bg-black dark:bg-white flex items-center justify-center border-2 border-black dark:border-white shadow-[4px_4px_0px_#000000] dark:shadow-[4px_4px_0px_#ffffff]">
-            <BrandLogo size={20} className="text-white dark:text-black" />
-          </div>
-          <span className="text-xl font-black text-black dark:text-white uppercase tracking-tight">
-            AI Viral Clipper
+        <div className="flex flex-col items-center justify-center gap-4 mb-8 md:mb-10">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 border border-black dark:border-white text-black dark:text-white text-xs font-mono font-bold tracking-widest uppercase mb-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-black dark:bg-white animate-pulse" />
+            {t.auth.badge}
           </span>
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 bg-black dark:bg-white flex items-center justify-center">
+              <BrandLogo size={18} className="text-white dark:text-black" />
+            </div>
+            <span className="font-black text-xl text-black dark:text-white uppercase tracking-widest hidden sm:inline-block">
+              Try<span className="text-black dark:text-white">Klip</span>
+            </span>
+          </div>
         </div>
 
         {/* Form card */}
-        <div className="border-2 border-black dark:border-white bg-white dark:bg-black p-6 md:p-8 relative shadow-[8px_8px_0px_#000000] dark:shadow-[8px_8px_0px_#ffffff]">
+        <div className="border border-black/10 dark:border-white/10 bg-white dark:bg-white/[0.02] p-6 md:p-8 relative">
 
           {/* Success */}
           {success && (
@@ -148,66 +265,192 @@ export default function Auth() {
           )}
 
           {/* ── SIGN IN ──────────────────────────────────────────────────────── */}
-          <form onSubmit={handleSignIn} className="space-y-5" noValidate>
-            <div>
-              <h2 className="text-xl sm:text-2xl font-black uppercase text-black dark:text-white leading-[1.05] tracking-tight mb-2">
-                Selamat datang kembali
-              </h2>
-              <p className="font-mono text-xs text-black/50 dark:text-white/40">Masuk untuk lanjutkan membuat konten viral</p>
-            </div>
+          {mode === "signin" && (
+            <form onSubmit={handleSignIn} className="space-y-5" noValidate>
+              <div className="text-center mb-8">
+                <h2 className="text-2xl sm:text-3xl font-black uppercase text-black dark:text-white leading-[1.05] tracking-tight mx-auto mb-3">
+                  {t.auth.signinTitle1} <span className="text-black dark:text-white">{t.auth.signinTitle2}</span>
+                </h2>
+                <span className="block font-mono text-[10px] tracking-widest text-black/40 dark:text-white/30 uppercase">{t.auth.signinSub}</span>
+              </div>
 
-            <AuthInput
-              icon={<Mail size={15} />}
-              label="Email"
-              type="email"
-              placeholder="nama@email.com"
-              value={siEmail}
-              onChange={(e) => setSiEmail(e.target.value)}
-              error={fieldErrors.siEmail}
-              autoComplete="email"
-            />
+              <AuthInput
+                icon={<Mail size={15} />}
+                label={t.auth.labelEmail}
+                type="email"
+                placeholder={t.auth.placeholderEmail}
+                value={siEmail}
+                onChange={(e) => setSiEmail(e.target.value)}
+                error={fieldErrors.siEmail}
+                autoComplete="email"
+              />
 
-            <AuthInput
-              icon={<Lock size={15} />}
-              label="Password"
-              type={siShowPw ? "text" : "password"}
-              placeholder="••••••••"
-              value={siPassword}
-              onChange={(e) => setSiPassword(e.target.value)}
-              error={fieldErrors.siPassword}
-              autoComplete="current-password"
-              rightEl={
+              <AuthInput
+                icon={<Lock size={15} />}
+                label={t.auth.labelPassword}
+                type={siShowPw ? "text" : "password"}
+                placeholder={t.auth.placeholderPassword}
+                value={siPassword}
+                onChange={(e) => setSiPassword(e.target.value)}
+                error={fieldErrors.siPassword}
+                autoComplete="current-password"
+                rightEl={
+                  <button
+                    type="button"
+                    onClick={() => setSiShowPw((v) => !v)}
+                    className="text-gray-300 hover:text-gray-500 transition-colors p-1"
+                  >
+                    {siShowPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                }
+              />
+
+              <button
+                type="submit"
+                disabled={loading || !!success}
+                className="w-full inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-black dark:bg-white text-white dark:text-black font-bold text-sm rounded-xl transition-all duration-200 shadow-[4px_4px_0px_#d1d5db] dark:shadow-[4px_4px_0px_#374151] hover:-translate-y-0.5 hover:-translate-x-0.5 hover:shadow-[6px_6px_0px_#d1d5db] dark:hover:shadow-[6px_6px_0px_#374151] active:translate-y-[4px] active:translate-x-[4px] active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+              >
+                {loading ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <>
+                    {t.auth.btnSignin}
+                    <ArrowRight size={15} />
+                  </>
+                )}
+              </button>
+
+              <p className="text-center font-mono text-[10px] tracking-widest text-black/40 dark:text-white/30 uppercase pt-6 border-t border-black/10 dark:border-white/10 mt-6">
+                {t.auth.noAccount}{" "}
                 <button
                   type="button"
-                  onClick={() => setSiShowPw((v) => !v)}
-                  className="text-gray-300 hover:text-gray-500 transition-colors p-1"
+                  onClick={() => switchMode("signup")}
+                  className="text-black dark:text-white hover:underline font-bold ml-1"
                 >
-                  {siShowPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                  {t.auth.linkRegister}
                 </button>
-              }
-            />
+              </p>
+            </form>
+          )}
 
-            <button
-              type="submit"
-              disabled={loading || !!success}
-              className="w-full flex items-center justify-center gap-2.5 py-3.5 bg-[#1ABC71] text-black font-bold uppercase tracking-wider text-sm border-2 border-black disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-[4px_4px_0px_#000000] hover:-translate-y-0.5 hover:-translate-x-0.5 hover:shadow-[6px_6px_0px_#000000] active:translate-y-[4px] active:translate-x-[4px] active:shadow-none dark:bg-black dark:text-white dark:border-white dark:shadow-[4px_4px_0px_#ffffff] dark:hover:shadow-[6px_6px_0px_#ffffff]"
-            >
-              {loading ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <>
-                  Masuk
-                  <ArrowRight size={15} />
-                </>
-              )}
-            </button>
-          </form>
+          {/* ── SIGN UP ──────────────────────────────────────────────────────── */}
+          {mode === "signup" && (
+            <form onSubmit={handleSignUp} className="space-y-5" noValidate>
+              <div className="text-center mb-8">
+                <h2 className="text-2xl sm:text-3xl font-black uppercase text-black dark:text-white leading-[1.05] tracking-tight mx-auto mb-3">
+                  {t.auth.signupTitle1} <span className="text-black dark:text-white">{t.auth.signupTitle2}</span>
+                </h2>
+                <span className="block font-mono text-[10px] tracking-widest text-black/40 dark:text-white/30 uppercase">{t.auth.signupSub}</span>
+              </div>
+
+              <AuthInput
+                icon={<User size={15} />}
+                label={t.auth.labelName}
+                type="text"
+                placeholder={t.auth.placeholderName}
+                value={suName}
+                onChange={(e) => setSuName(e.target.value)}
+                error={fieldErrors.suName}
+                autoComplete="name"
+              />
+
+              <AuthInput
+                icon={<Mail size={15} />}
+                label={t.auth.labelEmail}
+                type="email"
+                placeholder={t.auth.placeholderEmail}
+                value={suEmail}
+                onChange={(e) => setSuEmail(e.target.value)}
+                error={fieldErrors.suEmail}
+                autoComplete="email"
+              />
+
+              <div>
+                <AuthInput
+                  icon={<Lock size={15} />}
+                  label={t.auth.labelPassword}
+                  type={suShowPw ? "text" : "password"}
+                  placeholder={t.auth.placeholderNewPw}
+                  value={suPassword}
+                  onChange={(e) => setSuPassword(e.target.value)}
+                  error={fieldErrors.suPassword}
+                  autoComplete="new-password"
+                  rightEl={
+                    <button
+                      type="button"
+                      onClick={() => setSuShowPw((v) => !v)}
+                      className="text-gray-300 hover:text-gray-500 transition-colors p-1"
+                    >
+                      {suShowPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  }
+                />
+                <PasswordStrengthBar
+                  password={suPassword}
+                  labels={{
+                    length: t.auth.pwLength,
+                    upper:  t.auth.pwUpper,
+                    number: t.auth.pwNumber,
+                    weak:   t.auth.pwWeak,
+                    medium: t.auth.pwMedium,
+                    strong: t.auth.pwStrong,
+                  }}
+                />
+              </div>
+
+              <AuthInput
+                icon={<Lock size={15} />}
+                label={t.auth.labelConfirm}
+                type={suShowConfirm ? "text" : "password"}
+                placeholder={t.auth.placeholderConfirm}
+                value={suConfirm}
+                onChange={(e) => setSuConfirm(e.target.value)}
+                error={fieldErrors.suConfirm}
+                autoComplete="new-password"
+                rightEl={
+                  <button
+                    type="button"
+                    onClick={() => setSuShowConfirm((v) => !v)}
+                    className="text-gray-300 hover:text-gray-500 transition-colors p-1"
+                  >
+                    {suShowConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                }
+              />
+
+              <button
+                type="submit"
+                disabled={loading || !!success}
+                className="w-full inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-black dark:bg-white text-white dark:text-black font-bold text-sm rounded-xl transition-all duration-200 shadow-[4px_4px_0px_#d1d5db] dark:shadow-[4px_4px_0px_#374151] hover:-translate-y-0.5 hover:-translate-x-0.5 hover:shadow-[6px_6px_0px_#d1d5db] dark:hover:shadow-[6px_6px_0px_#374151] active:translate-y-[4px] active:translate-x-[4px] active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+              >
+                {loading ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <>
+                    <Sparkles size={15} />
+                    {t.auth.btnSignup}
+                  </>
+                )}
+              </button>
+
+              <p className="text-center font-mono text-[10px] tracking-widest text-black/40 dark:text-white/30 uppercase pt-6 border-t border-black/10 dark:border-white/10 mt-6">
+                {t.auth.haveAccount}{" "}
+                <button
+                  type="button"
+                  onClick={() => switchMode("signin")}
+                  className="text-black dark:text-white hover:underline font-bold ml-1"
+                >
+                  {t.auth.linkLogin}
+                </button>
+              </p>
+            </form>
+          )}
         </div>
 
         {/* Footer */}
-        <p className="text-center font-mono text-[10px] text-black/40 dark:text-white/30 mt-6 px-4">
-          Hanya untuk pengguna terdaftar. Hubungi admin untuk akses.
-        </p>
+        <span className="block text-center font-mono text-[10px] tracking-widest text-black/40 dark:text-white/30 uppercase mt-6 px-4">
+          {t.auth.footer}
+        </span>
       </div>
 
       <style>{`
