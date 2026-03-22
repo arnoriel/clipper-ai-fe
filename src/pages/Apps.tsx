@@ -27,7 +27,7 @@ import { applyTemplateToEdits } from "../lib/templates";
 import { detectViralMomentsFromFile, formatTime, type ViralMoment } from "../lib/AI";
 import {
   saveProject, defaultEdits, generateId, getApiKey, getProject,
-  type Project, type ProjectClip, type ClipEdits, type MotionAnalysisResult,
+  type Project, type ProjectClip, type ClipEdits,
 } from "../lib/storage";
 import {
   storeSourceVideo, getSourceVideoUrl, getSourceVideoBlob,
@@ -57,27 +57,6 @@ function ProgressToast({ message }: { message: string }) {
       <Loader2 size={13} className="animate-spin text-black dark:text-white shrink-0" />
       {message}
     </div>
-  );
-}
-
-// ── Credits badge (used in header) ──────────────────────────────────────────
-function CreditsBadge({ credits, onClick }: { credits: number; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      title="Kredit tersisa — klik untuk top up"
-      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all hover:scale-105 active:scale-95 ${
-        credits === 0
-          ? "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20"
-          : credits <= 3
-          ? "bg-orange-500/10 border-orange-500/30 text-orange-400 hover:bg-orange-500/20"
-          : "bg-[#1ABC71]/10 border-[#1ABC71]/25 text-[#1ABC71] hover:bg-[#1ABC71]/20"
-      }`}
-    >
-      <CreditCard size={12} />
-      <span>{credits}</span>
-      <span className="text-[10px] font-normal opacity-70 hidden sm:inline">cr</span>
-    </button>
   );
 }
 
@@ -445,91 +424,6 @@ export default function App() {
     return data;
   }
 
-  // ── Auto-subtitle with Emoji: call backend emoji endpoint ─────────────────
-  async function handleAutoSubtitleEmoji(): Promise<{
-    vtt: string;
-  } | null> {
-    if (!project?.id || !editingMoment) return null;
-
-    const videoBlob = await getSourceVideoBlob(project.id);
-    if (!videoBlob) {
-      setError("Video tidak ditemukan di IndexedDB.");
-      return null;
-    }
-
-    const edits = clipEdits[editingMoment.id] || defaultEdits();
-    const startTime = editingMoment.startTime + edits.trimStart;
-    const endTime = editingMoment.endTime + edits.trimEnd;
-    const duration = endTime - startTime;
-
-    const formData = new FormData();
-    formData.append("video", videoBlob, "source.mp4");
-    formData.append("start_sec", startTime.toString());
-    formData.append("duration", duration.toString());
-
-    const resp = await fetch(`${API_BASE}/api/auto-subtitle-emoji`, {
-      method: "POST",
-      body: formData,
-    });
-
-    if (!resp.ok) {
-      const body = await resp.json().catch(() => ({}));
-      throw new Error(body.detail || body.error || "Transcription with Emoji failed");
-    }
-
-    return await resp.json();
-  }
-
-
-  // ── Analyze Motion ───────────────────────────────────────────────
-  async function handleAnalyzeMotion(moment: ViralMoment) {
-    if (!project?.id) {
-      setError("Tidak ada project aktif.");
-      return null;
-    }
-
-    const videoBlob = await getSourceVideoBlob(project.id);
-    if (!videoBlob) { setError("Video tidak ditemukan di IndexedDB."); return null; }
-
-    const edits       = clipEdits[moment.id] || defaultEdits();
-    const startTime   = moment.startTime + edits.trimStart;
-    const endTime     = moment.endTime   + edits.trimEnd;
-    const aspectRatio = edits.aspectRatio;
-    if (aspectRatio === "original") return null;
-
-    const formData = new FormData();
-    formData.append("video", videoBlob, "source.mp4");
-    formData.append("start_time", startTime.toString());
-    formData.append("end_time", endTime.toString());
-    formData.append("aspect_ratio", aspectRatio);
-
-    const resp = await fetch(`${API_BASE}/api/analyze-motion`, { method: "POST", body: formData });
-    if (!resp.ok) {
-      const body = await resp.json().catch(() => ({}));
-      throw new Error(body.detail || body.error || "Motion analysis failed");
-    }
-
-    const result: MotionAnalysisResult = await resp.json();
-    setClipEdits((prev) => {
-      const current = prev[moment.id] || defaultEdits();
-      return {
-        ...prev,
-        [moment.id]: {
-          ...current,
-          motionKeyframes: result.keyframes,
-          motionAnalyzed:  true,
-          isStaticMotion:  result.isStatic,
-          motionCropW:     result.cropW,
-          motionCropH:     result.cropH,
-          motionVidW:      result.vidW,
-          motionVidH:      result.vidH,
-          motionMessage:   result.message,
-          motionAvailable: result.available,
-        },
-      };
-    });
-    return result;
-  }
 
   // ── Export clip ──────────────────────────────────────────────────────────
   async function handleExportClip(moment: ViralMoment, edits: ClipEdits) {
@@ -882,7 +776,6 @@ export default function App() {
           onClose={() => setEditingMoment(null)}
           isExporting={isExporting && exportingId === editingMoment.id}
           onAutoSubtitle={handleAutoSubtitle}
-          onAutoSubtitleEmoji={handleAutoSubtitleEmoji}
         />
       )}
 
