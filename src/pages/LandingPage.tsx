@@ -206,7 +206,7 @@ const Navbar = () => {
           </div>
           
           <div className="flex items-center gap-6">
-            <Link to="/login" className="font-mono text-[11px] font-bold uppercase tracking-widest text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white transition-colors">
+            <Link to="/auth" className="font-mono text-[11px] font-bold uppercase tracking-widest text-black/70 dark:text-white/70 hover:text-black dark:hover:text-white transition-colors">
               {t.nav.login}
             </Link>
           </div>
@@ -250,7 +250,7 @@ const Navbar = () => {
               {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
           </div>
-          <Link to="/login" className="font-mono text-xs font-bold uppercase tracking-widest text-black/80 dark:text-white/80 py-2 mt-4">{t.nav.login}</Link>
+          <Link to="/auth" className="font-mono text-xs font-bold uppercase tracking-widest text-black/80 dark:text-white/80 py-2 mt-4">{t.nav.login}</Link>
         </div>
       )}
     </nav>
