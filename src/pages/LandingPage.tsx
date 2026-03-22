@@ -741,9 +741,6 @@ const CTASection = () => {
             <span className="text-black dark:text-white">{t.cta.title2}</span>
           </h2>
           <p className="text-black/50 dark:text-white/40 font-mono text-sm mb-8">{t.cta.desc}</p>
-          <PrimaryBtn to="/app" icon={<Rocket className="h-5 w-5" />} className="px-10 py-4 text-sm">
-            {t.cta.btn}
-          </PrimaryBtn>
         </div>
         <div className="max-w-2xl mx-auto">
           <DarkCard className="p-6 sm:p-8 text-center" accent>
