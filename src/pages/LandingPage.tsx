@@ -857,8 +857,15 @@ const Footer = () => {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 const LandingPage = () => {
-  const [lang, setLang] = useState<Lang>("ID");
+  const [lang, setLangState] = useState<Lang>(
+    () => (localStorage.getItem("lang") as Lang) || "ID"
+  );
   const t = content[lang];
+
+  const setLang = (l: Lang) => {
+    setLangState(l);
+    localStorage.setItem("lang", l);
+  };
 
   return (
     <LangContext.Provider value={{ lang, setLang, t }}>
