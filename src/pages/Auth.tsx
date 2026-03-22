@@ -2,50 +2,21 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
-  Zap, Eye, EyeOff, Loader2, AlertCircle, CheckCircle2,
+  Eye, EyeOff, Loader2, AlertCircle, CheckCircle2,
   Mail, Lock, User, ArrowRight, Sparkles,
 } from "lucide-react";
 import { signUp, signIn, saveAuth, isAuthenticated } from "../lib/Auth";
-
-// ─── Subtle dot-grid background ───────────────────────────────────────────────
-function DotGrid() {
-  return (
-    <div
-      className="absolute inset-0 pointer-events-none"
-      aria-hidden="true"
-      style={{
-        backgroundImage:
-          "radial-gradient(circle, #d1d5db 1px, transparent 1px)",
-        backgroundSize: "28px 28px",
-        opacity: 0.55,
-      }}
-    />
-  );
-}
-
-// ─── Soft color blobs ──────────────────────────────────────────────────────────
-function ColorBlobs() {
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-      <div
-        className="absolute rounded-full"
-        style={{
-          width: 480, height: 480,
-          top: "-10%", left: "-8%",
-          background: "radial-gradient(circle, rgba(26,188,113,0.12) 0%, transparent 70%)",
-        }}
-      />
-      <div
-        className="absolute rounded-full"
-        style={{
-          width: 420, height: 420,
-          bottom: "-8%", right: "-6%",
-          background: "radial-gradient(circle, rgba(14,165,233,0.10) 0%, transparent 70%)",
-        }}
-      />
-    </div>
-  );
-}
+import { BrandLogo } from "../components/BrandLogo";
+const GridBg = ({ className = "" }: { className?: string }) => (
+  <div
+    className={`absolute inset-0 pointer-events-none ${className}`}
+    style={{
+      backgroundImage:
+        "linear-gradient(var(--grid-color) 1px, transparent 1px), linear-gradient(90deg, var(--grid-color) 1px, transparent 1px)",
+      backgroundSize: "48px 48px",
+    }}
+  />
+);
 
 // ─── Password strength bar ─────────────────────────────────────────────────────
 function PasswordStrengthBar({ password }: { password: string }) {
@@ -55,7 +26,7 @@ function PasswordStrengthBar({ password }: { password: string }) {
     { label: "Angka",       ok: /\d/.test(password) },
   ];
   const score = checks.filter((c) => c.ok).length;
-  const barColors = ["bg-red-400", "bg-yellow-400", "bg-[#1ABC71]", "bg-[#1ABC71]"];
+  const barColors = ["bg-red-500", "bg-yellow-500", "bg-black dark:bg-white", "bg-black dark:bg-white"];
   const labels    = ["", "Lemah", "Sedang", "Kuat"];
 
   if (!password) return null;
@@ -66,19 +37,19 @@ function PasswordStrengthBar({ password }: { password: string }) {
         {[0, 1, 2].map((i) => (
           <div
             key={i}
-            className={`h-1 flex-1 rounded-full transition-all duration-300 ${
-              i < score ? barColors[score] : "bg-gray-200"
+            className={`h-1 flex-1 transition-all duration-300 ${
+              i < score ? barColors[score] : "bg-black/10 dark:bg-white/10"
             }`}
           />
         ))}
-        <span className={`text-[10px] font-semibold ml-1 ${
-          score === 1 ? "text-red-500" : score === 2 ? "text-yellow-500" : "text-[#1ABC71]"
+        <span className={`text-[10px] font-mono ml-1 uppercase tracking-wider ${
+          score === 1 ? "text-red-500" : score === 2 ? "text-yellow-500" : "text-black dark:text-white"
         }`}>{labels[score]}</span>
       </div>
       <div className="flex gap-3">
         {checks.map((c) => (
-          <span key={c.label} className={`flex items-center gap-1 text-[10px] transition-colors ${
-            c.ok ? "text-[#1ABC71]" : "text-gray-400"
+          <span key={c.label} className={`flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider transition-colors ${
+            c.ok ? "text-black dark:text-white" : "text-black/30 dark:text-white/30"
           }`}>
             <CheckCircle2 size={9} />
             {c.label}
@@ -102,18 +73,18 @@ function AuthInput({ icon, label, error, rightEl, ...props }: InputProps) {
 
   return (
     <div className="space-y-1.5">
-      <label className="block text-xs font-semibold text-gray-500 tracking-wide uppercase">
+      <label className="block font-mono text-xs text-black/60 dark:text-white/50 tracking-widest uppercase">
         {label}
       </label>
-      <div className={`relative flex items-center rounded-xl border transition-all duration-200 ${
+      <div className={`relative flex items-center border transition-all duration-200 ${
         error
-          ? "border-red-400 bg-red-50"
+          ? "border-red-500 bg-red-50 dark:bg-red-950/20"
           : focused
-          ? "border-[#1ABC71] bg-white shadow-[0_0_0_3px_rgba(26,188,113,0.12)]"
-          : "border-gray-200 bg-white hover:border-gray-300 shadow-sm"
+          ? "border-black dark:border-white bg-white dark:bg-black shadow-[4px_4px_0px_#d1d5db] dark:shadow-[4px_4px_0px_#374151]"
+          : "border-black/20 dark:border-white/20 bg-white dark:bg-black hover:border-black/40 dark:hover:border-white/40 shadow-none"
       }`}>
         <span className={`pl-3.5 shrink-0 transition-colors ${
-          focused ? "text-[#1ABC71]" : "text-gray-400"
+          focused ? "text-black dark:text-white" : "text-black/40 dark:text-white/40"
         }`}>
           {icon}
         </span>
@@ -121,7 +92,7 @@ function AuthInput({ icon, label, error, rightEl, ...props }: InputProps) {
           {...props}
           onFocus={(e) => { setFocused(true); props.onFocus?.(e); }}
           onBlur={(e)  => { setFocused(false); props.onBlur?.(e); }}
-          className="flex-1 bg-transparent px-3 py-3 text-sm text-gray-800 placeholder-gray-300 outline-none min-w-0"
+          className="flex-1 bg-transparent px-3 py-3 font-mono text-sm text-black dark:text-white placeholder-black/30 dark:placeholder-white/30 outline-none min-w-0"
         />
         {rightEl && <span className="pr-3">{rightEl}</span>}
       </div>
@@ -229,36 +200,32 @@ export default function Auth() {
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 relative overflow-hidden">
-      <DotGrid />
-      <ColorBlobs />
+    <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-4 relative overflow-hidden">
+      <GridBg />
 
       {/* Card */}
-      <div className="relative w-full max-w-md">
+      <div className="relative w-full max-w-md z-10">
 
         {/* Logo */}
-        <div className="flex items-center justify-center gap-2.5 mb-8 md:mb-10">
-          <div className="w-9 h-9 rounded-xl bg-[#1ABC71] flex items-center justify-center shadow-lg shadow-[#1ABC71]/25">
-            <Zap size={18} className="text-white fill-white" />
+        <div className="flex items-center justify-center gap-3 mb-8 md:mb-10">
+          <div className="w-10 h-10 bg-black dark:bg-white flex items-center justify-center shadow-[4px_4px_0px_#d1d5db] dark:shadow-[4px_4px_0px_#374151]">
+            <BrandLogo size={20} className="text-white dark:text-black" />
           </div>
-          <span
-            className="text-xl font-bold text-gray-900"
-            style={{ fontFamily: "'Syne', sans-serif", letterSpacing: "-0.02em" }}
-          >
+          <span className="text-xl font-black text-black dark:text-white uppercase tracking-tight">
             AI Viral Clipper
           </span>
         </div>
 
         {/* Tab switcher */}
-        <div className="flex gap-1 p-1 rounded-2xl bg-white border border-gray-200 mb-6 md:mb-8 shadow-sm">
+        <div className="flex gap-1 p-1 bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 mb-6 md:mb-8">
           {(["signin", "signup"] as const).map((m) => (
             <button
               key={m}
               onClick={() => switchMode(m)}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+              className={`flex-1 py-2.5 font-mono text-xs uppercase tracking-widest transition-all duration-200 ${
                 mode === m
-                  ? "bg-[#1ABC71] text-white shadow-md shadow-[#1ABC71]/20"
-                  : "text-gray-400 hover:text-gray-700"
+                  ? "bg-black dark:bg-white text-white dark:text-black shadow-[2px_2px_0px_#d1d5db] dark:shadow-[2px_2px_0px_#374151]"
+                  : "text-black/50 dark:text-white/50 hover:text-black dark:hover:text-white"
               }`}
             >
               {m === "signin" ? "Masuk" : "Daftar"}
@@ -267,11 +234,13 @@ export default function Auth() {
         </div>
 
         {/* Form card */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 md:p-8 shadow-xl shadow-gray-200/60">
+        <div className="border border-black/10 dark:border-white/10 bg-white dark:bg-black p-6 md:p-8 relative">
+          <div className="absolute top-0 right-0 w-2 h-2 border-l border-b border-black/10 dark:border-white/10" />
+          <div className="absolute bottom-0 left-0 w-2 h-2 border-r border-t border-black/10 dark:border-white/10" />
 
           {/* Success */}
           {success && (
-            <div className="mb-5 flex items-center gap-3 px-4 py-3 rounded-xl bg-[#1ABC71]/8 border border-[#1ABC71]/20 text-sm text-[#15a862] animate-[fadeIn_0.2s_ease]">
+            <div className="mb-5 flex items-center gap-3 px-4 py-3 bg-black/5 dark:bg-white/5 border border-black/20 dark:border-white/20 font-mono text-xs text-black dark:text-white uppercase tracking-wider animate-[fadeIn_0.2s_ease]">
               <CheckCircle2 size={16} className="shrink-0" />
               {success}
             </div>
@@ -279,7 +248,7 @@ export default function Auth() {
 
           {/* Error */}
           {error && (
-            <div className="mb-5 flex items-center gap-3 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-600 animate-[fadeIn_0.2s_ease]">
+            <div className="mb-5 flex items-center gap-3 px-4 py-3 bg-red-50 dark:bg-red-950/20 border border-red-500 font-mono text-xs text-red-500 uppercase tracking-wider animate-[fadeIn_0.2s_ease]">
               <AlertCircle size={16} className="shrink-0" />
               {error}
             </div>
@@ -289,13 +258,10 @@ export default function Auth() {
           {mode === "signin" && (
             <form onSubmit={handleSignIn} className="space-y-5" noValidate>
               <div>
-                <h2
-                  className="text-xl font-bold text-gray-900 mb-1"
-                  style={{ fontFamily: "'Syne', sans-serif" }}
-                >
+                <h2 className="text-xl sm:text-2xl font-black uppercase text-black dark:text-white leading-[1.05] tracking-tight mb-2">
                   Selamat datang kembali
                 </h2>
-                <p className="text-xs text-gray-400">Masuk untuk lanjutkan membuat konten viral</p>
+                <p className="font-mono text-xs text-black/50 dark:text-white/40">Masuk untuk lanjutkan membuat konten viral</p>
               </div>
 
               <AuthInput
@@ -332,7 +298,7 @@ export default function Auth() {
               <button
                 type="submit"
                 disabled={loading || !!success}
-                className="w-full flex items-center justify-center gap-2.5 py-3.5 md:py-3 rounded-xl bg-[#1ABC71] text-sm font-semibold text-white hover:bg-[#16a863] disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-[#1ABC71]/20 active:scale-[0.99]"
+                className="w-full flex items-center justify-center gap-2.5 py-3.5 bg-black dark:bg-white text-white dark:text-black font-bold uppercase tracking-wider text-sm border-2 border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-[4px_4px_0px_#d1d5db] dark:shadow-[4px_4px_0px_#374151] hover:-translate-y-0.5 hover:-translate-x-0.5 hover:shadow-[6px_6px_0px_#d1d5db] dark:hover:shadow-[6px_6px_0px_#374151] active:translate-y-[4px] active:translate-x-[4px] active:shadow-none"
               >
                 {loading ? (
                   <Loader2 size={16} className="animate-spin" />
@@ -344,14 +310,14 @@ export default function Auth() {
                 )}
               </button>
 
-              <p className="text-center text-xs text-gray-400">
+              <p className="text-center font-mono text-xs text-black/50 dark:text-white/40">
                 Belum punya akun?{" "}
                 <button
                   type="button"
                   onClick={() => switchMode("signup")}
-                  className="text-[#1ABC71] hover:underline font-semibold"
+                  className="text-black dark:text-white hover:underline font-bold uppercase tracking-widest"
                 >
-                  Daftar sekarang
+                  Daftar
                 </button>
               </p>
             </form>
@@ -361,13 +327,10 @@ export default function Auth() {
           {mode === "signup" && (
             <form onSubmit={handleSignUp} className="space-y-5" noValidate>
               <div>
-                <h2
-                  className="text-xl font-bold text-gray-900 mb-1"
-                  style={{ fontFamily: "'Syne', sans-serif" }}
-                >
+                <h2 className="text-xl sm:text-2xl font-black uppercase text-black dark:text-white leading-[1.05] tracking-tight mb-2">
                   Buat akun baru
                 </h2>
-                <p className="text-xs text-gray-400">Mulai buat konten viral hari ini — gratis</p>
+                <p className="font-mono text-xs text-black/50 dark:text-white/40">Mulai buat konten viral hari ini — gratis</p>
               </div>
 
               <AuthInput
@@ -438,7 +401,7 @@ export default function Auth() {
               <button
                 type="submit"
                 disabled={loading || !!success}
-                className="w-full flex items-center justify-center gap-2.5 py-3.5 md:py-3 rounded-xl bg-[#1ABC71] text-sm font-semibold text-white hover:bg-[#16a863] disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-[#1ABC71]/20 active:scale-[0.99]"
+                className="w-full flex items-center justify-center gap-2.5 py-3.5 bg-black dark:bg-white text-white dark:text-black font-bold uppercase tracking-wider text-sm border-2 border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-[4px_4px_0px_#d1d5db] dark:shadow-[4px_4px_0px_#374151] hover:-translate-y-0.5 hover:-translate-x-0.5 hover:shadow-[6px_6px_0px_#d1d5db] dark:hover:shadow-[6px_6px_0px_#374151] active:translate-y-[4px] active:translate-x-[4px] active:shadow-none"
               >
                 {loading ? (
                   <Loader2 size={16} className="animate-spin" />
@@ -450,12 +413,12 @@ export default function Auth() {
                 )}
               </button>
 
-              <p className="text-center text-xs text-gray-400">
+              <p className="text-center font-mono text-xs text-black/50 dark:text-white/40">
                 Sudah punya akun?{" "}
                 <button
                   type="button"
                   onClick={() => switchMode("signin")}
-                  className="text-[#1ABC71] hover:underline font-semibold"
+                  className="text-black dark:text-white hover:underline font-bold uppercase tracking-widest"
                 >
                   Masuk
                 </button>
