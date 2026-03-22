@@ -173,7 +173,12 @@ export async function uploadAndStoreExportedClip(
   formData.append("clipJson",  JSON.stringify(clip));
   formData.append("editsJson", JSON.stringify(edits));
 
-  const response = await fetch(serverUrl, { method: "POST", body: formData });
+  const headers: HeadersInit = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(serverUrl, { method: "POST", body: formData, headers });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     let detailMsg = body.detail || body.error || "Export failed";
