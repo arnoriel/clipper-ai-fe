@@ -113,9 +113,9 @@ const MonoLabel = ({ children, className = "" }: { children: React.ReactNode; cl
 
 // ── Section Header ───────────────────────────────────────────────────────────
 const SectionHeader = ({ badge, title, accent }: { badge: string; title: React.ReactNode; accent?: string }) => (
-  <div className="mb-14">
+  <div className="mb-14 text-center">
     <TermBadge>{badge}</TermBadge>
-    <h2 className="mt-5 text-3xl sm:text-5xl font-black uppercase text-black dark:text-white leading-[1.05] tracking-tight">
+    <h2 className="mt-5 text-3xl sm:text-5xl font-black uppercase text-black dark:text-white leading-[1.05] tracking-tight mx-auto">
       {title}
       {accent && <> <span className="text-black dark:text-white">{accent}</span></>}
     </h2>
@@ -432,9 +432,11 @@ const ProblemSection = () => {
               </DarkCard>
             ))}
           </div>
-          <div className="inline-flex items-center gap-2 font-mono text-sm px-3 py-1.5 bg-black/20 dark:bg-white/20 text-black dark:text-white">
-            <TrendingUp className="h-4 w-4 text-black dark:text-white" />
-            <span>{t.problem.conclusion1} <span className="font-bold">{t.problem.conclusion2}</span>{t.problem.conclusion3}</span>
+          <div className="text-center">
+            <div className="inline-flex items-center gap-2 font-mono text-sm px-3 py-1.5 bg-black/20 dark:bg-white/20 text-black dark:text-white">
+              <TrendingUp className="h-4 w-4 text-black dark:text-white" />
+              <span>{t.problem.conclusion1} <span className="font-bold">{t.problem.conclusion2}</span>{t.problem.conclusion3}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -669,14 +671,14 @@ const AudienceSection = () => {
       <GridBg />
       <div className="container mx-auto px-5 max-w-6xl relative z-10">
         <SectionHeader badge={t.targetUsers.badge} title={t.targetUsers.title1} accent={t.targetUsers.title2} />
-        <div className="flex flex-wrap gap-2 mb-10">
+        <div className="flex flex-wrap justify-center gap-2 mb-10">
           {audiences.map((a, i) => (
             <div key={i} className="flex items-center gap-2 px-4 py-2.5 border border-black/10 dark:border-white/10 text-black/60 dark:text-white/50 font-mono text-xs uppercase tracking-wider hover:border-black/5 dark:hover:border-white/50 hover:text-black dark:hover:text-white transition-colors cursor-default">
               <a.icon className="h-3.5 w-3.5" /> {a.label}
             </div>
           ))}
         </div>
-        <div className="flex items-center gap-2 font-mono text-sm text-black/40 dark:text-white/30">
+        <div className="flex items-center justify-center gap-2 font-mono text-sm text-black/40 dark:text-white/30 text-center">
           <span className="text-black dark:text-white">&gt;</span>
           <span>{t.targetUsers.conclusion1}</span>
           <span className="text-black dark:text-white">{t.targetUsers.conclusion2}</span>
