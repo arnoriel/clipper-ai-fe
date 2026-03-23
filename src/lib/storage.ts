@@ -179,12 +179,12 @@ export const SUBTITLE_PRESETS: SubtitlePreset[] = [
   {
     id: "neon-green", name: "Neon Green",
     description: "Brand-green glow with heavy shadow for depth.",
-    emoji: "🟢", previewBg: "#0a0a0a", previewText: "#1ABC71", previewAccent: "#1ABC71",
+    emoji: "🟢", previewBg: "#0a0a0a", previewText: "#000000", previewAccent: "#000000",
     overrides: {
-      fontFamily: "Oswald", fontSize: 50, color: "#1ABC71",
+      fontFamily: "Oswald", fontSize: 50, color: "#000000",
       bold: true, italic: false, uppercase: false, textAlign: "center",
       letterSpacing: 1, opacity: 1, outlineWidth: 0,
-      shadowEnabled: true, shadowColor: "#1ABC71", shadowX: 0, shadowY: 0, shadowBlur: 18,
+      shadowEnabled: true, shadowColor: "#000000", shadowX: 0, shadowY: 0, shadowBlur: 18,
       backgroundEnabled: false, x: 0.5, y: 0.82,
     },
   },

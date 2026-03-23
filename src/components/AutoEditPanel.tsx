@@ -86,7 +86,7 @@ function WatermarkPreview({
         <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
           Preview Posisi Watermark
         </p>
-        <span className="text-[9px] font-mono text-[#1ABC71] bg-[#1ABC71]/10 border border-[#1ABC71]/20 px-1.5 py-0.5 rounded-md">
+        <span className="text-[9px] font-mono text-[#000000] bg-[#000000]/10 border border-[#000000]/20 px-1.5 py-0.5 rounded-md">
           {displayLabel}
         </span>
       </div>
@@ -111,7 +111,7 @@ function WatermarkPreview({
           className="rounded-xl overflow-hidden border border-white/10 shadow-lg"
         >
           {/* ── Dark video-like background ── */}
-          <div className="absolute inset-0 bg-gray-900" />
+          <div className="absolute inset-0 bg-gray-400" />
 
           {/* ── Subtle grid (rule-of-thirds feel) ── */}
           <div
@@ -194,7 +194,7 @@ function WatermarkPreview({
             <span className="text-[8px] uppercase tracking-wider text-gray-400 font-medium">
               {item.label}
             </span>
-            <span className="text-[10px] font-mono font-bold text-[#1ABC71]">
+            <span className="text-[10px] font-mono font-bold text-[#000000]">
               {item.value}
             </span>
           </div>
@@ -345,7 +345,7 @@ export default function AutoEditPanel({
       {/* ── Template name + Load saved ── */}
       <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
         <div className="flex items-center gap-2 mb-2.5">
-          <Wand2 size={13} className="text-[#1ABC71]" />
+          <Wand2 size={13} className="text-[#000000]" />
           <span className="text-xs font-semibold text-gray-700 flex-1">
             Template
           </span>
@@ -353,7 +353,7 @@ export default function AutoEditPanel({
             <div ref={dropdownRef} className="relative">
               <button
                 onClick={() => setShowTemplateDropdown((v) => !v)}
-                className="flex items-center gap-1 text-[11px] text-[#1ABC71] font-semibold hover:text-[#16a085] transition-colors"
+                className="flex items-center gap-1 text-[11px] text-[#000000] font-semibold hover:text-[#16a085] transition-colors"
               >
                 Load Saved
                 <ChevronDown
@@ -394,7 +394,7 @@ export default function AutoEditPanel({
           value={template.name}
           onChange={(e) => upd({ name: e.target.value })}
           placeholder="Nama template..."
-          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#1ABC71]/60 bg-white"
+          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#000000]/60 bg-white"
         />
       </div>
 
@@ -404,7 +404,7 @@ export default function AutoEditPanel({
           onClick={() => toggleSection("crop")}
           className="w-full flex items-center gap-2 px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
         >
-          <Crop size={13} className="text-[#1ABC71] shrink-0" />
+          <Crop size={13} className="text-[#000000] shrink-0" />
           <span className="text-xs font-semibold text-gray-700 flex-1">
             Crop & Aspect Ratio
           </span>
@@ -425,7 +425,7 @@ export default function AutoEditPanel({
                 onClick={() => upd({ aspect_ratio: ar.value })}
                 className={`flex flex-col items-center py-2 px-1 rounded-xl text-center transition-all border ${
                   template.aspect_ratio === ar.value
-                    ? "bg-[#1ABC71]/10 border-[#1ABC71]/40 text-[#1ABC71]"
+                    ? "bg-[#000000]/10 border-[#000000]/40 text-[#000000]"
                     : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"
                 }`}
               >
@@ -443,7 +443,7 @@ export default function AutoEditPanel({
           onClick={() => toggleSection("subtitle")}
           className="w-full flex items-center gap-2 px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
         >
-          <Sparkles size={13} className="text-[#1ABC71] shrink-0" />
+          <Sparkles size={13} className="text-[#000000] shrink-0" />
           <span className="text-xs font-semibold text-gray-700 flex-1">
             Auto Subtitle
           </span>
@@ -453,7 +453,7 @@ export default function AutoEditPanel({
               upd({ subtitle_enabled: !template.subtitle_enabled });
             }}
             className={`relative w-8 h-4 rounded-full transition-colors mr-2 cursor-pointer ${
-              template.subtitle_enabled ? "bg-[#1ABC71]" : "bg-gray-300"
+              template.subtitle_enabled ? "bg-[#000000]" : "bg-gray-300"
             }`}
           >
             <div
@@ -482,7 +482,7 @@ export default function AutoEditPanel({
                   onClick={() => upd({ subtitle_preset_id: preset.id })}
                   className={`relative rounded-xl overflow-hidden border transition-all ${
                     template.subtitle_preset_id === preset.id
-                      ? "border-[#1ABC71] shadow-[0_0_8px_rgba(26,188,113,0.25)]"
+                      ? "border-[#000000] shadow-[0_0_8px_rgba(26,188,113,0.25)]"
                       : "border-gray-200 hover:border-gray-300"
                   }`}
                 >
@@ -509,7 +509,7 @@ export default function AutoEditPanel({
                   <div
                     className={`px-2 py-1 text-[9px] flex items-center justify-between ${
                       template.subtitle_preset_id === preset.id
-                        ? "bg-[#1ABC71]/10 text-[#1ABC71]"
+                        ? "bg-[#000000]/10 text-[#000000]"
                         : "bg-gray-50 text-gray-500"
                     }`}
                   >
@@ -536,7 +536,7 @@ export default function AutoEditPanel({
           onClick={() => toggleSection("watermark")}
           className="w-full flex items-center gap-2 px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
         >
-          <ImageIcon size={13} className="text-[#1ABC71] shrink-0" />
+          <ImageIcon size={13} className="text-[#000000] shrink-0" />
           <span className="text-xs font-semibold text-gray-700 flex-1">
             Watermark / Logo
           </span>
@@ -572,7 +572,7 @@ export default function AutoEditPanel({
                     </p>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="cursor-pointer p-1.5 rounded-lg text-gray-400 hover:text-[#1ABC71] hover:bg-[#1ABC71]/10 transition-colors">
+                    <label className="cursor-pointer p-1.5 rounded-lg text-gray-400 hover:text-[#000000] hover:bg-[#000000]/10 transition-colors">
                       <input
                         type="file"
                         accept="image/png,image/jpeg,image/svg+xml,image/webp"
@@ -606,7 +606,7 @@ export default function AutoEditPanel({
                         <span className="text-[10px] text-gray-500">
                           {f.label}
                         </span>
-                        <span className="text-[10px] font-mono text-[#1ABC71]">
+                        <span className="text-[10px] font-mono text-[#000000]">
                           {Math.round(template[f.key] * 100)}%
                         </span>
                       </div>
@@ -617,7 +617,7 @@ export default function AutoEditPanel({
                         step={f.step}
                         value={template[f.key]}
                         onChange={(e) => upd({ [f.key]: +e.target.value })}
-                        className="w-full accent-[#1ABC71]"
+                        className="w-full accent-[#000000]"
                       />
                     </div>
                   ))}
@@ -647,7 +647,7 @@ export default function AutoEditPanel({
                     if (e.target) e.target.value = "";
                   }}
                 />
-                <div className="flex flex-col items-center gap-2 py-5 rounded-xl border-2 border-dashed border-gray-300 hover:border-[#1ABC71]/50 hover:bg-[#1ABC71]/5 transition-all text-center">
+                <div className="flex flex-col items-center gap-2 py-5 rounded-xl border-2 border-dashed border-gray-300 hover:border-[#000000]/50 hover:bg-[#000000]/5 transition-all text-center">
                   <ImageIcon size={20} className="text-gray-400" />
                   <p className="text-xs text-gray-500 font-medium">
                     Upload watermark / logo
@@ -668,7 +668,7 @@ export default function AutoEditPanel({
           onClick={() => toggleSection("color")}
           className="w-full flex items-center gap-2 px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
         >
-          <Sliders size={13} className="text-[#1ABC71] shrink-0" />
+          <Sliders size={13} className="text-[#000000] shrink-0" />
           <span className="text-xs font-semibold text-gray-700 flex-1">
             Warna & Kecepatan
           </span>
@@ -700,7 +700,7 @@ export default function AutoEditPanel({
               <div key={f.key}>
                 <div className="flex justify-between mb-1">
                   <span className="text-[10px] text-gray-500">{f.label}</span>
-                  <span className="text-[10px] font-mono text-[#1ABC71]">
+                  <span className="text-[10px] font-mono text-[#000000]">
                     {template[f.key] > 0 ? "+" : ""}
                     {(template[f.key] * 100).toFixed(0)}%
                   </span>
@@ -712,7 +712,7 @@ export default function AutoEditPanel({
                   step={0.05}
                   value={template[f.key]}
                   onChange={(e) => upd({ [f.key]: +e.target.value })}
-                  className="w-full accent-[#1ABC71]"
+                  className="w-full accent-[#000000]"
                 />
               </div>
             ))}
@@ -725,7 +725,7 @@ export default function AutoEditPanel({
                     onClick={() => upd({ speed: s })}
                     className={`py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
                       template.speed === s
-                        ? "bg-[#1ABC71]/20 border-[#1ABC71]/40 text-[#1ABC71]"
+                        ? "bg-[#000000]/20 border-[#000000]/40 text-[#000000]"
                         : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"
                     }`}
                   >
@@ -743,12 +743,12 @@ export default function AutoEditPanel({
         className={`flex items-center gap-3 px-3 py-3 rounded-xl border ${
           !hasCredits
             ? "bg-red-50 border-red-200"
-            : "bg-[#1ABC71]/5 border-[#1ABC71]/20"
+            : "bg-[#000000]/5 border-[#000000]/20"
         }`}
       >
         <CreditCard
           size={14}
-          className={!hasCredits ? "text-red-500 shrink-0" : "text-[#1ABC71] shrink-0"}
+          className={!hasCredits ? "text-red-500 shrink-0" : "text-[#000000] shrink-0"}
         />
         <div className="flex-1 min-w-0">
           <p className="text-xs font-semibold text-gray-700">Estimasi Kredit</p>
@@ -768,7 +768,7 @@ export default function AutoEditPanel({
               ? "text-red-500"
               : credits <= 3
               ? "text-orange-500"
-              : "text-[#1ABC71]"
+              : "text-[#000000]"
           }`}
         >
           {credits}
@@ -799,7 +799,7 @@ export default function AutoEditPanel({
           {isSaving ? (
             <Loader2 size={12} className="animate-spin" />
           ) : saveSuccess ? (
-            <Check size={12} className="text-[#1ABC71]" />
+            <Check size={12} className="text-[#000000]" />
           ) : (
             <Save size={12} />
           )}
@@ -817,7 +817,7 @@ export default function AutoEditPanel({
           <button
             onClick={() => onGenerate(template, watermarkSrc)}
             disabled={isLoading}
-            className="flex-1 py-3 rounded-xl bg-[#1ABC71] text-white text-xs font-bold hover:bg-[#16a085] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#1ABC71]/20 active:scale-[0.99]"
+            className="flex-1 py-3 rounded-xl bg-[#000000] text-white text-xs font-bold hover:bg-[#16a085] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#000000]/20 active:scale-[0.99]"
           >
             {isLoading ? (
               <>

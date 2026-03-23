@@ -102,7 +102,7 @@ export default function ExportPanel({
 
               {/* Motion tracking badge */}
               {hasMotionTracking && (
-                <span className="px-2 py-0.5 rounded-md bg-[#1ABC71]/10 text-[#1ABC71] text-[10px] border border-[#1ABC71]/20 flex items-center gap-1">
+                <span className="px-2 py-0.5 rounded-md bg-[#000000]/10 text-[#000000] text-[10px] border border-[#000000]/20 flex items-center gap-1">
                   <Activity size={8} />
                   AI tracking · {clip.edits.motionKeyframes?.length ?? 0} kf
                 </span>

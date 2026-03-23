@@ -582,16 +582,16 @@ export default function App() {
             </div>
 
             {/* Credits in sidebar */}
-            <div className="mb-4 px-3 py-3 rounded-xl bg-[#1ABC71]/5 border border-[#1ABC71]/20">
+            <div className="mb-4 px-3 py-3 rounded-xl bg-[#000000]/5 border border-[#000000]/20">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[10px] text-gray-400 uppercase tracking-wider">Kredit Tersisa</p>
-                  <p className={`text-2xl font-black mt-0.5 ${credits === 0 ? "text-red-500" : credits <= 3 ? "text-orange-500" : "text-[#1ABC71]"}`}>
+                  <p className={`text-2xl font-black mt-0.5 ${credits === 0 ? "text-red-500" : credits <= 3 ? "text-orange-500" : "text-[#000000]"}`}>
                     {credits}
                   </p>
                 </div>
                 <button onClick={() => { setShowMobileSidebar(false); setShowCreditModal(true); }}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#1ABC71] text-white text-xs font-bold hover:bg-[#16a085] transition-colors">
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#000000] text-white text-xs font-bold hover:bg-[#16a085] transition-colors">
                   <CreditCard size={12} /> Top Up
                 </button>
               </div>
@@ -599,8 +599,8 @@ export default function App() {
 
             <div className="rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-4 mb-4 shadow-sm">
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-lg bg-[#1ABC71]/10 border border-[#1ABC71]/20 flex items-center justify-center shrink-0">
-                  <Film size={18} className="text-[#1ABC71]" />
+                <div className="w-10 h-10 rounded-lg bg-[#000000]/10 border border-[#000000]/20 flex items-center justify-center shrink-0">
+                  <Film size={18} className="text-[#000000]" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-black dark:text-white truncate">{project.videoFileName}</p>
@@ -623,7 +623,7 @@ export default function App() {
                 { label: "Export & Download", done: Object.keys(exportedUrls).length > 0 },
               ].map((s, i) => (
                 <div key={i} className="flex items-center gap-2.5 text-xs">
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center border text-[10px] font-bold shrink-0 ${s.done ? "bg-[#1ABC71]/20 border-[#1ABC71]/40 text-[#1ABC71]" : "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-400"}`}>
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center border text-[10px] font-bold shrink-0 ${s.done ? "bg-[#000000]/20 border-[#000000]/40 text-[#000000]" : "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-400"}`}>
                     {s.done ? "✓" : i + 1}
                   </div>
                   <span className={s.done ? "text-gray-700 dark:text-gray-200" : "text-gray-400 dark:text-gray-500"}>{s.label}</span>

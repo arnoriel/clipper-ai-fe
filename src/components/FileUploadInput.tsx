@@ -185,21 +185,21 @@ export default function FileUploadInput({
           backgroundSize: "60px 60px",
         }}
       />
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#1ABC71]/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-[#1ABC71]/5 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#000000]/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-[#000000]/5 rounded-full blur-[100px] pointer-events-none" />
 
       <div className="relative z-10 w-full max-w-xl">
         {/* Header */}
         <div className="text-center mb-7 md:mb-9">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#1ABC71]/10 border border-[#1ABC71]/20 text-[#1ABC71] text-xs font-mono mb-5">
-            <Zap size={12} className="fill-[#1ABC71] text-[#1ABC71]" />
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#000000]/10 border border-[#000000]/20 text-[#000000] text-xs font-mono mb-5">
+            <Zap size={12} className="fill-[#000000] text-[#000000]" />
             POWERED BY COBAMULAI
           </div>
           <h1
             className="text-4xl md:text-5xl font-black text-black tracking-tight mb-3"
             style={{ fontFamily: "'Syne', sans-serif" }}
           >
-            AI Viral <span className="text-[#1ABC71]">Clipper</span>
+            AI Viral <span className="text-[#000000]">Clipper</span>
           </h1>
           <p className="text-gray-600 text-sm md:text-base px-2">
             Upload video kamu. AI mendeteksi momen viral. Kamu edit, auto-subtitle
@@ -215,7 +215,7 @@ export default function FileUploadInput({
                 ? "bg-red-50 border-red-200"
                 : creditsDisplay <= 3
                 ? "bg-orange-50 border-orange-200"
-                : "bg-[#1ABC71]/5 border-[#1ABC71]/20"
+                : "bg-[#000000]/5 border-[#000000]/20"
             }`}
           >
             <div className="flex items-center gap-3">
@@ -225,7 +225,7 @@ export default function FileUploadInput({
                     ? "bg-red-100 text-red-500"
                     : creditsDisplay <= 3
                     ? "bg-orange-100 text-orange-500"
-                    : "bg-[#1ABC71]/15 text-[#1ABC71]"
+                    : "bg-[#000000]/15 text-[#000000]"
                 }`}
               >
                 <CreditCard size={18} />
@@ -266,7 +266,7 @@ export default function FileUploadInput({
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
                 noCredits
                   ? "bg-red-500 text-white hover:bg-red-600"
-                  : "bg-[#1ABC71] text-white hover:bg-[#16a085]"
+                  : "bg-[#000000] text-white hover:bg-[#16a085]"
               }`}
             >
               <Zap size={12} />
@@ -276,13 +276,12 @@ export default function FileUploadInput({
         )}
 
         {/* Session warning */}
-        <div className="mb-5 flex items-start gap-3 px-4 py-3.5 rounded-xl bg-green-50 border border-green-200 text-green-800 text-xs leading-relaxed">
-          <span className="text-base shrink-0 mt-0.5">ΓÜá∩╕Å</span>
+        <div className="mb-5 flex items-start gap-3 px-4 py-3.5 rounded-xl bg-black-50 border border-black-200 text-black-800 text-xs leading-relaxed">
           <div>
             <p className="font-semibold mb-1">
               Selesaikan sesi editing sebelum pergi
             </p>
-            <p className="text-green-700">
+            <p className="text-black-700">
               Setelah upload video,{" "}
               <strong>jangan kembali ke halaman Upload</strong> sampai kamu
               selesai export clip. Mengulang dari awal akan memotong kredit
@@ -303,8 +302,8 @@ export default function FileUploadInput({
             onClick={() => inputRef.current?.click()}
             className={`relative cursor-pointer rounded-2xl border-2 border-dashed transition-all duration-200 p-8 md:p-10 text-center ${
               isDragging
-                ? "border-[#1ABC71]/70 bg-[#1ABC71]/5 scale-[1.01]"
-                : "border-gray-300 bg-gray-50 hover:border-[#1ABC71]/50 hover:bg-gray-100"
+                ? "border-[#000000]/70 bg-[#000000]/5 scale-[1.01]"
+                : "border-gray-300 bg-gray-50 hover:border-[#000000]/50 hover:bg-gray-100"
             }`}
           >
             <input
@@ -317,15 +316,15 @@ export default function FileUploadInput({
             <div className="flex flex-col items-center gap-3">
               <div
                 className={`w-14 h-14 md:w-16 md:h-16 rounded-2xl flex items-center justify-center transition-colors ${
-                  isDragging ? "bg-[#1ABC71]/20" : "bg-gray-100"
+                  isDragging ? "bg-[#000000]/20" : "bg-gray-100"
                 }`}
               >
                 {loadingDuration ? (
-                  <Loader2 size={26} className="text-[#1ABC71] animate-spin" />
+                  <Loader2 size={26} className="text-[#000000] animate-spin" />
                 ) : (
                   <Upload
                     size={26}
-                    className={isDragging ? "text-[#1ABC71]" : "text-gray-400"}
+                    className={isDragging ? "text-[#000000]" : "text-gray-400"}
                   />
                 )}
               </div>
@@ -344,7 +343,7 @@ export default function FileUploadInput({
                 </p>
                 <p className="text-xs text-gray-500">
                   <span className="hidden md:inline">atau </span>
-                  <span className="text-[#1ABC71] underline">
+                  <span className="text-[#000000] underline">
                     <span className="hidden md:inline">browse file</span>
                     <span className="md:hidden">
                       Pilih dari galeri / file manager
@@ -370,10 +369,10 @@ export default function FileUploadInput({
           </div>
         ) : (
           /* ΓöÇΓöÇ File selected: info chip ΓöÇΓöÇ */
-          <div className="rounded-2xl border border-[#1ABC71]/30 bg-[#1ABC71]/5 p-4 mb-4">
+          <div className="rounded-2xl border border-[#000000]/30 bg-[#000000]/5 p-4 mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-[#1ABC71]/10 border border-[#1ABC71]/20 flex items-center justify-center shrink-0">
-                <Film size={20} className="text-[#1ABC71]" />
+              <div className="w-11 h-11 rounded-xl bg-[#000000]/10 border border-[#000000]/20 flex items-center justify-center shrink-0">
+                <Film size={20} className="text-[#000000]" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-black truncate">
@@ -383,7 +382,7 @@ export default function FileUploadInput({
                   <span>{formatBytes(file.size)}</span>
                   <span>┬╖</span>
                   {duration !== null && (
-                    <span className="text-[#1ABC71]">
+                    <span className="text-[#000000]">
                       {formatDuration(duration)}
                     </span>
                   )}
@@ -400,7 +399,7 @@ export default function FileUploadInput({
               </button>
             </div>
             {duration !== null && (
-              <div className="mt-3 pt-3 border-t border-[#1ABC71]/15 flex items-center gap-2 text-xs text-[#1ABC71]">
+              <div className="mt-3 pt-3 border-t border-[#000000]/15 flex items-center gap-2 text-xs text-[#000000]">
                 <CheckCircle2 size={12} />
                 <span>
                   Video siap ΓÇö durasi {formatDuration(duration)}
@@ -440,23 +439,23 @@ export default function FileUploadInput({
                 onClick={() => setEditMode("auto")}
                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                   editMode === "auto"
-                    ? "bg-[#1ABC71] text-white shadow"
+                    ? "bg-[#000000] text-white shadow"
                     : "text-gray-500 hover:text-gray-700 hover:bg-white/60"
                 }`}
               >
                 <Wand2 size={13} />
-                Γ£¿ Auto Edit
+                Auto Edit
               </button>
               <button
                 onClick={() => setEditMode("manual")}
                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                   editMode === "manual"
-                    ? "bg-[#1ABC71] text-white shadow"
+                    ? "bg-[#000000] text-white shadow"
                     : "text-gray-500 hover:text-gray-700 hover:bg-white/60"
                 }`}
               >
                 <PenLine size={13} />
-                ≡ƒÄ¼ Manual Edit
+                Manual Edit
               </button>
             </div>
 
@@ -507,7 +506,7 @@ export default function FileUploadInput({
                   <button
                     type="submit"
                     disabled={isLoading || !file || !apiKeyOk || duration === null}
-                    className="w-full py-4 rounded-2xl font-bold text-sm tracking-wider bg-[#1ABC71] text-white hover:bg-[#16a085] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#1ABC71]/20 active:scale-[0.99]"
+                    className="w-full py-4 rounded-2xl font-bold text-sm tracking-wider bg-[#000000] text-white hover:bg-[#16a085] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3 shadow-lg shadow-[#000000]/20 active:scale-[0.99]"
                   >
                     {isLoading ? (
                       <>
@@ -540,7 +539,7 @@ export default function FileUploadInput({
               `Format: MP4, WebM, MOV, AVI, MKV (maks. ${MAX_SIZE_GB}GB).`,
             ].map((text, i) => (
               <div key={i} className="flex items-start gap-2">
-                <div className="w-1 h-1 rounded-full bg-[#1ABC71]/50 mt-1.5 shrink-0" />
+                <div className="w-1 h-1 rounded-full bg-[#000000]/50 mt-1.5 shrink-0" />
                 <span>{text}</span>
               </div>
             ))}

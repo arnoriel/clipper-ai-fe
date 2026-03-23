@@ -178,7 +178,6 @@ export const content = {
       madeWit: "Dibuat dengan"
     },
     auth: {
-      badge: "Auth System",
       signinTitle1: "Selamat",
       signinTitle2: "Datang",
       signinSub: "Masuk untuk membuat konten viral",
@@ -395,7 +394,6 @@ export const content = {
       madeWit: "Made with"
     },
     auth: {
-      badge: "Auth System",
       signinTitle1: "Welcome",
       signinTitle2: "Back",
       signinSub: "Sign in to keep creating viral content",

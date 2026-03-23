@@ -114,7 +114,7 @@ export default function MomentsList({
                   <button
                     onClick={(e) => { e.stopPropagation(); onToggleSelect(moment); }}
                     className="mt-0.5 shrink-0 w-5 h-5 border border-black/20 dark:border-white/20 flex items-center justify-center transition-colors"
-                    style={isSelected ? { background: "#1ABC71", borderColor: "#1ABC71" } : {}}>
+                    style={isSelected ? { background: "#000000", borderColor: "#000000" } : {}}>
                     {isSelected && <span className="text-black font-black text-[10px]">✓</span>}
                   </button>
 

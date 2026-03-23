@@ -46,10 +46,10 @@ const PACKAGES: Package[] = [
     price:         300000,
     pricePerCredit: 857,
     badge:         "POPULER",
-    badgeColor:    "bg-[#1ABC71]",
+    badgeColor:    "bg-[#000000]",
     highlight:     true,
     icon:          Star,
-    gradient:      "from-[#1ABC71] to-emerald-500",
+    gradient:      "from-[#000000] to-emerald-500",
   },
   {
     id:            "business",
@@ -123,7 +123,7 @@ export default function CreditModal({ currentCredits, onClose }: Props) {
                 Top Up Credit
               </h2>
               <p className="text-[11px] text-white/40 mt-0.5">
-                Saldo kamu: <span className="text-[#1ABC71] font-bold">{currentCredits} credit</span>
+                Saldo kamu: <span className="text-[#000000] font-bold">{currentCredits} credit</span>
               </p>
             </div>
           )}
@@ -153,7 +153,7 @@ export default function CreditModal({ currentCredits, onClose }: Props) {
                     onClick={() => handleSelectPackage(pkg)}
                     className={`w-full group relative rounded-2xl border overflow-hidden transition-all duration-200 text-left hover:scale-[1.01] active:scale-[0.99] ${
                       pkg.highlight
-                        ? "border-[#1ABC71]/50 bg-[#1ABC71]/8 hover:bg-[#1ABC71]/12"
+                        ? "border-[#000000]/50 bg-[#000000]/8 hover:bg-[#000000]/12"
                         : "border-white/10 bg-white/3 hover:border-white/25 hover:bg-white/6"
                     }`}
                   >
@@ -176,7 +176,7 @@ export default function CreditModal({ currentCredits, onClose }: Props) {
                             <span className="text-sm font-normal text-white/50 ml-1">credit</span>
                           </span>
                           {bonusCredits > 0 && (
-                            <span className="text-[10px] text-[#1ABC71] font-bold bg-[#1ABC71]/15 px-1.5 py-0.5 rounded-full">
+                            <span className="text-[10px] text-[#000000] font-bold bg-[#000000]/15 px-1.5 py-0.5 rounded-full">
                               +{bonusCredits} bonus
                             </span>
                           )}
@@ -241,13 +241,13 @@ export default function CreditModal({ currentCredits, onClose }: Props) {
                 <div className="w-full flex items-center gap-2 px-4 py-3 rounded-xl bg-white/5 border border-white/10">
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] text-white/30 mb-0.5">Jumlah transfer</p>
-                    <p className="text-xl font-black text-[#1ABC71]">{formatRp(selected.price)}</p>
+                    <p className="text-xl font-black text-[#000000]">{formatRp(selected.price)}</p>
                   </div>
                   <button
                     onClick={handleCopyAmount}
                     className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
                       copied
-                        ? "bg-[#1ABC71]/30 text-[#1ABC71] border border-[#1ABC71]/40"
+                        ? "bg-[#000000]/30 text-[#000000] border border-[#000000]/40"
                         : "bg-white/10 text-white/60 hover:bg-white/15 hover:text-white border border-white/10"
                     }`}
                   >
@@ -268,7 +268,7 @@ export default function CreditModal({ currentCredits, onClose }: Props) {
                   "Credit akan ditambahkan dalam 1×24 jam (biasanya dalam beberapa menit).",
                 ].map((step, i) => (
                   <div key={i} className="flex gap-3 items-start">
-                    <span className="w-5 h-5 rounded-full bg-[#1ABC71]/20 text-[#1ABC71] text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                    <span className="w-5 h-5 rounded-full bg-[#000000]/20 text-[#000000] text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
                       {i + 1}
                     </span>
                     <p className="text-[11px] text-white/50 leading-relaxed">{step}</p>

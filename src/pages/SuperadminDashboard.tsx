@@ -69,7 +69,7 @@ function SuperadminLogin({ onSuccess }: { onSuccess: () => void }) {
         <div className="bg-white rounded-3xl shadow-xl shadow-black/8 border border-gray-200/80 p-8">
           {/* Icon */}
           <div className="flex flex-col items-center mb-8">
-            <div className="w-14 h-14 rounded-2xl bg-[#1ABC71] flex items-center justify-center mb-4 shadow-lg shadow-[#1ABC71]/25">
+            <div className="w-14 h-14 rounded-2xl bg-[#000000] flex items-center justify-center mb-4 shadow-lg shadow-[#000000]/25">
               <Shield size={26} className="text-white" strokeWidth={2} />
             </div>
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
@@ -86,7 +86,7 @@ function SuperadminLogin({ onSuccess }: { onSuccess: () => void }) {
               <input
                 type="email" value={email} onChange={(e) => setEmail(e.target.value)}
                 required placeholder="admin@domain.com"
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-[#1ABC71] focus:bg-white focus:ring-2 focus:ring-[#1ABC71]/10 transition-all"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-[#000000] focus:bg-white focus:ring-2 focus:ring-[#000000]/10 transition-all"
               />
             </div>
             <div>
@@ -97,7 +97,7 @@ function SuperadminLogin({ onSuccess }: { onSuccess: () => void }) {
                 <input
                   type={showPw ? "text" : "password"} value={password}
                   onChange={(e) => setPassword(e.target.value)} required placeholder="••••••••"
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-[#1ABC71] focus:bg-white focus:ring-2 focus:ring-[#1ABC71]/10 transition-all pr-10"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-[#000000] focus:bg-white focus:ring-2 focus:ring-[#000000]/10 transition-all pr-10"
                 />
                 <button type="button" onClick={() => setShowPw(!showPw)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition-colors">
@@ -113,7 +113,7 @@ function SuperadminLogin({ onSuccess }: { onSuccess: () => void }) {
             )}
 
             <button type="submit" disabled={loading}
-              className="w-full py-3.5 rounded-xl bg-[#1ABC71] text-white font-semibold text-sm hover:bg-[#17a864] active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shadow-[#1ABC71]/20 flex items-center justify-center gap-2">
+              className="w-full py-3.5 rounded-xl bg-[#000000] text-white font-semibold text-sm hover:bg-[#17a864] active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shadow-[#000000]/20 flex items-center justify-center gap-2">
               {loading
                 ? <><Loader2 size={15} className="animate-spin" /> Memverifikasi...</>
                 : <><Shield size={15} /> Masuk ke Dashboard</>
@@ -176,8 +176,8 @@ function AddCreditsModal({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#1ABC71]/10 flex items-center justify-center shrink-0">
-              <Zap size={16} className="text-[#1ABC71]" />
+            <div className="w-9 h-9 rounded-xl bg-[#000000]/10 flex items-center justify-center shrink-0">
+              <Zap size={16} className="text-[#000000]" />
             </div>
             <div>
               <h3 className="text-sm font-bold text-gray-900">Tambah Kredit</h3>
@@ -202,10 +202,10 @@ function AddCreditsModal({
             </div>
             {preview > 0 && (
               <div className="text-right">
-                <p className="text-[10px] text-[#1ABC71] font-semibold uppercase tracking-wider">Setelah Top Up</p>
-                <p className="text-2xl font-black text-[#1ABC71] tabular-nums mt-0.5">
+                <p className="text-[10px] text-[#000000] font-semibold uppercase tracking-wider">Setelah Top Up</p>
+                <p className="text-2xl font-black text-[#000000] tabular-nums mt-0.5">
                   {(user.credits + preview).toLocaleString()}
-                  <span className="text-sm font-medium text-[#1ABC71]/60 ml-1">cr</span>
+                  <span className="text-sm font-medium text-[#000000]/60 ml-1">cr</span>
                 </p>
               </div>
             )}
@@ -219,8 +219,8 @@ function AddCreditsModal({
                 <button key={n} type="button" onClick={() => setAmount(String(n))}
                   className={`py-2.5 rounded-xl text-xs font-bold border transition-all ${
                     amount === String(n)
-                      ? "bg-[#1ABC71] border-[#1ABC71] text-white shadow-md shadow-[#1ABC71]/20"
-                      : "bg-white border-gray-200 text-gray-600 hover:border-[#1ABC71]/40 hover:text-[#1ABC71]"
+                      ? "bg-[#000000] border-[#000000] text-white shadow-md shadow-[#000000]/20"
+                      : "bg-white border-gray-200 text-gray-600 hover:border-[#000000]/40 hover:text-[#000000]"
                   }`}>
                   +{n}
                 </button>
@@ -236,7 +236,7 @@ function AddCreditsModal({
             <input
               type="number" min="1" max="100000" value={amount}
               onChange={(e) => setAmount(e.target.value)} placeholder="Masukkan jumlah..."
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-[#1ABC71] focus:bg-white focus:ring-2 focus:ring-[#1ABC71]/10 transition-all"
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-[#000000] focus:bg-white focus:ring-2 focus:ring-[#000000]/10 transition-all"
             />
           </div>
 
@@ -248,7 +248,7 @@ function AddCreditsModal({
             <input
               type="text" value={note} onChange={(e) => setNote(e.target.value)}
               placeholder="mis. Transfer BCA #REF123..."
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-[#1ABC71] focus:bg-white focus:ring-2 focus:ring-[#1ABC71]/10 transition-all"
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-[#000000] focus:bg-white focus:ring-2 focus:ring-[#000000]/10 transition-all"
             />
           </div>
 
@@ -259,7 +259,7 @@ function AddCreditsModal({
           )}
 
           <button type="submit" disabled={loading || !amount || parseInt(amount) <= 0}
-            className="w-full py-3.5 rounded-xl bg-[#1ABC71] text-white font-bold text-sm hover:bg-[#17a864] active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shadow-[#1ABC71]/20 flex items-center justify-center gap-2">
+            className="w-full py-3.5 rounded-xl bg-[#000000] text-white font-bold text-sm hover:bg-[#17a864] active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shadow-[#000000]/20 flex items-center justify-center gap-2">
             {loading
               ? <><Loader2 size={14} className="animate-spin" /> Memproses...</>
               : <><Plus size={14} /> Tambahkan {preview > 0 ? `${preview.toLocaleString()} Credit` : "Kredit"}</>
@@ -362,7 +362,7 @@ export default function SuperadminDashboard() {
 
   const SortIcon = ({ field }: { field: typeof sortBy }) =>
     sortBy === field
-      ? (sortDir === "asc" ? <ChevronUp size={11} className="text-[#1ABC71]" /> : <ChevronDown size={11} className="text-[#1ABC71]" />)
+      ? (sortDir === "asc" ? <ChevronUp size={11} className="text-[#000000]" /> : <ChevronDown size={11} className="text-[#000000]" />)
       : <ChevronDown size={11} className="text-gray-300" />;
 
   const filtered = users
@@ -384,20 +384,20 @@ export default function SuperadminDashboard() {
   return (
     <div className="min-h-screen bg-gray-50" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       {/* Accent top bar */}
-      <div className="h-1 bg-[#1ABC71]" />
+      <div className="h-1 bg-[#000000]" />
 
       {/* ── Header ── */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 md:px-8 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-[#1ABC71] flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-[#000000] flex items-center justify-center">
               <Zap size={13} className="text-white fill-white" />
             </div>
             <span className="text-sm font-bold text-gray-900" style={{ fontFamily: "'Syne', sans-serif" }}>
               AI Viral Clipper
             </span>
             <div className="h-4 w-px bg-gray-200" />
-            <span className="text-xs font-semibold text-[#1ABC71] bg-[#1ABC71]/8 px-2 py-0.5 rounded-full">
+            <span className="text-xs font-semibold text-[#000000] bg-[#000000]/8 px-2 py-0.5 rounded-full">
               Admin Panel
             </span>
           </div>
@@ -439,7 +439,7 @@ export default function SuperadminDashboard() {
             <StatCard
               label="Total Kredit" value={stats.total_credits.toLocaleString()}
               sub="Saldo aktif seluruh user"
-              icon={CreditCard} accent="bg-[#1ABC71]/10 text-[#1ABC71]"
+              icon={CreditCard} accent="bg-[#000000]/10 text-[#000000]"
             />
             <StatCard
               label="Kredit Hampir Habis" value={String(lowCreditCount)}
@@ -470,7 +470,7 @@ export default function SuperadminDashboard() {
               <input
                 type="text" value={search} onChange={(e) => setSearch(e.target.value)}
                 placeholder="Cari nama atau email..."
-                className="pl-8 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-700 placeholder-gray-300 focus:outline-none focus:border-[#1ABC71] focus:ring-2 focus:ring-[#1ABC71]/10 w-56 transition-all"
+                className="pl-8 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-700 placeholder-gray-300 focus:outline-none focus:border-[#000000] focus:ring-2 focus:ring-[#000000]/10 w-56 transition-all"
               />
             </div>
           </div>
@@ -510,7 +510,7 @@ export default function SuperadminDashboard() {
                 {loading && !users.length ? (
                   <tr>
                     <td colSpan={6} className="py-16 text-center">
-                      <Loader2 size={22} className="animate-spin mx-auto text-[#1ABC71] mb-2" />
+                      <Loader2 size={22} className="animate-spin mx-auto text-[#000000] mb-2" />
                       <p className="text-sm text-gray-400">Memuat data pengguna...</p>
                     </td>
                   </tr>
@@ -546,7 +546,7 @@ export default function SuperadminDashboard() {
                     </td>
                     <td className="px-5 py-4">
                       <button onClick={() => setAddCreditUser(user)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-gray-200 text-xs font-semibold text-gray-600 hover:border-[#1ABC71]/40 hover:text-[#1ABC71] hover:bg-[#1ABC71]/5 transition-all shadow-sm opacity-0 group-hover:opacity-100">
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-gray-200 text-xs font-semibold text-gray-600 hover:border-[#000000]/40 hover:text-[#000000] hover:bg-[#000000]/5 transition-all shadow-sm opacity-0 group-hover:opacity-100">
                         <Plus size={12} /> Top Up
                       </button>
                     </td>
@@ -560,7 +560,7 @@ export default function SuperadminDashboard() {
           <div className="md:hidden divide-y divide-gray-50">
             {loading && !users.length ? (
               <div className="py-12 flex flex-col items-center gap-2 text-gray-400">
-                <Loader2 size={20} className="animate-spin text-[#1ABC71]" />
+                <Loader2 size={20} className="animate-spin text-[#000000]" />
                 <p className="text-sm">Memuat data...</p>
               </div>
             ) : filtered.length === 0 ? (
@@ -581,7 +581,7 @@ export default function SuperadminDashboard() {
                 <div className="flex flex-col items-end gap-2 shrink-0">
                   <CreditPill value={user.credits} />
                   <button onClick={() => setAddCreditUser(user)}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#1ABC71]/8 border border-[#1ABC71]/20 text-[#1ABC71] text-[11px] font-semibold hover:bg-[#1ABC71]/15 transition-colors">
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#000000]/8 border border-[#000000]/20 text-[#000000] text-[11px] font-semibold hover:bg-[#000000]/15 transition-colors">
                     <Plus size={11} /> Top Up
                   </button>
                 </div>
@@ -617,7 +617,7 @@ export default function SuperadminDashboard() {
       {/* ── Toast ── */}
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-5 py-3 bg-white border border-gray-200 rounded-2xl shadow-xl shadow-black/8 text-sm text-gray-700 whitespace-nowrap animate-in slide-in-from-bottom-2">
-          <div className="w-5 h-5 rounded-full bg-[#1ABC71] flex items-center justify-center shrink-0">
+          <div className="w-5 h-5 rounded-full bg-[#000000] flex items-center justify-center shrink-0">
             <Check size={11} className="text-white" strokeWidth={3} />
           </div>
           {toast}

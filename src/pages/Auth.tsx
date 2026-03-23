@@ -231,10 +231,6 @@ export default function Auth() {
 
         {/* Logo */}
         <div className="flex flex-col items-center justify-center gap-4 mb-8 md:mb-10">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 border border-black dark:border-white text-black dark:text-white text-xs font-mono font-bold tracking-widest uppercase mb-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-black dark:bg-white animate-pulse" />
-            {t.auth.badge}
-          </span>
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 bg-black dark:bg-white flex items-center justify-center">
               <BrandLogo size={18} className="text-white dark:text-black" />
