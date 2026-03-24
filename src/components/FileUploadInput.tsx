@@ -402,7 +402,7 @@ export default function FileUploadInput({
               <div className="mt-3 pt-3 border-t border-[#000000]/15 flex items-center gap-2 text-xs text-[#000000]">
                 <CheckCircle2 size={12} />
                 <span>
-                  Video siap ΓÇö durasi {formatDuration(duration)}
+                  Video siap durasi {formatDuration(duration)}
                 </span>
               </div>
             )}
@@ -423,7 +423,7 @@ export default function FileUploadInput({
                     onClick={onTopUpClick}
                     className="ml-2 underline font-semibold hover:no-underline"
                   >
-                    Top Up Sekarang ΓåÆ
+                    Top Up Sekarang
                   </button>
                 )}
             </div>

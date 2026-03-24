@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Users, CreditCard, Search, Plus, LogOut, RefreshCw,
   TrendingUp, Shield, ChevronDown, ChevronUp,
-  Check, AlertCircle, Loader2, X, Eye, EyeOff, Zap,
+  Check, AlertCircle, Loader2, X, Eye, EyeOff, Zap, Pencil
 } from "lucide-react";
 import { clearAuth, getToken, signIn, saveAuth } from "../lib/Auth";
 import { useNavigate } from "react-router-dom";
@@ -271,6 +271,131 @@ function AddCreditsModal({
   );
 }
 
+// ─── Set Credits Modal ────────────────────────────────────────────────────────
+function SetCreditsModal({
+  user, onClose, onSuccess,
+}: {
+  user: AdminUser;
+  onClose: () => void;
+  onSuccess: (newBalance: number) => void;
+}) {
+  const [amount, setAmount]   = useState(String(user.credits));
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const n = parseInt(amount, 10);
+    if (isNaN(n) || n < 0) { setError("Masukkan jumlah kredit yang valid (≥ 0)"); return; }
+    setLoading(true); setError("");
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/users/${user.id}/set-credits`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ amount: n }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || "Gagal mengatur kredit");
+      onSuccess((await res.json()).new_balance);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const parsed = parseInt(amount || "0");
+  const diff   = isNaN(parsed) ? 0 : parsed - user.credits;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm"
+      onClick={onClose}>
+      <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl shadow-black/10 border border-gray-200 overflow-hidden"
+        style={{ fontFamily: "'DM Sans', sans-serif" }}
+        onClick={(e) => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
+              <Pencil size={16} className="text-violet-500" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-gray-900">Edit Kredit</h3>
+              <p className="text-[11px] text-gray-400 truncate max-w-[160px]">{user.name}</p>
+            </div>
+          </div>
+          <button onClick={onClose}
+            className="p-1.5 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {/* Preview */}
+          <div className="flex items-center justify-between px-4 py-3.5 rounded-2xl bg-gray-50 border border-gray-100">
+            <div>
+              <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Saldo Saat Ini</p>
+              <p className="text-2xl font-black text-gray-900 tabular-nums mt-0.5">
+                {user.credits.toLocaleString()}
+                <span className="text-sm font-medium text-gray-400 ml-1">cr</span>
+              </p>
+            </div>
+            {!isNaN(parsed) && parsed !== user.credits && (
+              <div className="text-right">
+                <p className={`text-[10px] font-semibold uppercase tracking-wider ${diff > 0 ? "text-emerald-500" : "text-red-400"}`}>
+                  {diff > 0 ? `+${diff.toLocaleString()}` : diff.toLocaleString()} cr
+                </p>
+                <p className="text-2xl font-black text-gray-900 tabular-nums mt-0.5">
+                  {parsed.toLocaleString()}
+                  <span className="text-sm font-medium text-gray-400 ml-1">cr</span>
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Input */}
+          <div>
+            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+              Jumlah Kredit Baru
+            </label>
+            <input
+              type="number" min="0" max="1000000" value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="Masukkan jumlah kredit..."
+              autoFocus
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:border-violet-400 focus:bg-white focus:ring-2 focus:ring-violet-400/10 transition-all"
+            />
+            <p className="text-[10px] text-gray-400 mt-1.5">
+              Nilai ini akan <span className="font-semibold text-gray-600">menggantikan</span> saldo kredit saat ini secara langsung.
+            </p>
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 border border-red-100 px-3 py-2 rounded-xl">
+              <AlertCircle size={12} className="shrink-0" /> {error}
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button type="button" onClick={onClose}
+              className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-500 hover:bg-gray-50 transition-all">
+              Batal
+            </button>
+            <button type="submit"
+              disabled={loading || isNaN(parsed) || parsed < 0 || parsed === user.credits}
+              className="flex-1 py-3 rounded-xl bg-violet-500 text-white font-bold text-sm hover:bg-violet-600 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md shadow-violet-500/20 flex items-center justify-center gap-2">
+              {loading
+                ? <><Loader2 size={14} className="animate-spin" /> Menyimpan...</>
+                : <><Check size={14} /> Simpan Perubahan</>
+              }
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 function StatCard({
   label, value, sub, icon: Icon, accent,
@@ -315,6 +440,7 @@ export default function SuperadminDashboard() {
   const [sortDir, setSortDir]       = useState<"asc" | "desc">("desc");
   const [addCreditUser, setAddCreditUser] = useState<AdminUser | null>(null);
   const [toast, setToast]           = useState("");
+  const [setCreditsUser, setSetCreditsUser] = useState<AdminUser | null>(null);
 
   // Check token on mount
   useEffect(() => {
@@ -545,11 +671,17 @@ export default function SuperadminDashboard() {
                       <span className="text-xs text-gray-400">{formatDate(user.created_at)}</span>
                     </td>
                     <td className="px-5 py-4">
+                    <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button onClick={() => setAddCreditUser(user)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-gray-200 text-xs font-semibold text-gray-600 hover:border-[#000000]/40 hover:text-[#000000] hover:bg-[#000000]/5 transition-all shadow-sm opacity-0 group-hover:opacity-100">
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-gray-200 text-xs font-semibold text-gray-600 hover:border-[#000000]/40 hover:text-[#000000] hover:bg-[#000000]/5 transition-all shadow-sm">
                         <Plus size={12} /> Top Up
                       </button>
-                    </td>
+                      <button onClick={() => setSetCreditsUser(user)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-gray-200 text-xs font-semibold text-gray-600 hover:border-violet-400 hover:text-violet-500 hover:bg-violet-50 transition-all shadow-sm">
+                        <Pencil size={12} /> Edit
+                      </button>
+                    </div>
+                  </td>
                   </tr>
                 ))}
               </tbody>
@@ -579,12 +711,18 @@ export default function SuperadminDashboard() {
                   <p className="text-[10px] text-gray-300 mt-0.5">{formatDate(user.created_at)}</p>
                 </div>
                 <div className="flex flex-col items-end gap-2 shrink-0">
-                  <CreditPill value={user.credits} />
+                <CreditPill value={user.credits} />
+                <div className="flex gap-1.5">
                   <button onClick={() => setAddCreditUser(user)}
                     className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#000000]/8 border border-[#000000]/20 text-[#000000] text-[11px] font-semibold hover:bg-[#000000]/15 transition-colors">
                     <Plus size={11} /> Top Up
                   </button>
+                  <button onClick={() => setSetCreditsUser(user)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-violet-50 border border-violet-200 text-violet-500 text-[11px] font-semibold hover:bg-violet-100 transition-colors">
+                    <Pencil size={11} /> Edit
+                  </button>
                 </div>
+              </div>
               </div>
             ))}
           </div>
@@ -610,6 +748,24 @@ export default function SuperadminDashboard() {
             if (stats) setStats({ ...stats, total_credits: stats.total_credits - addCreditUser.credits + newBalance });
             showToast(`Berhasil! ${addCreditUser.name} kini punya ${newBalance.toLocaleString()} credit`);
             setAddCreditUser(null);
+          }}
+        />
+      )}
+
+      {setCreditsUser && (
+        <SetCreditsModal
+          user={setCreditsUser}
+          onClose={() => setSetCreditsUser(null)}
+          onSuccess={(newBalance) => {
+            setUsers((prev) =>
+              prev.map((u) => u.id === setCreditsUser.id ? { ...u, credits: newBalance } : u)
+            );
+            if (stats) setStats({
+              ...stats,
+              total_credits: stats.total_credits - setCreditsUser.credits + newBalance,
+            });
+            showToast(`Kredit ${setCreditsUser.name} diatur ke ${newBalance.toLocaleString()} credit`);
+            setSetCreditsUser(null);
           }}
         />
       )}
