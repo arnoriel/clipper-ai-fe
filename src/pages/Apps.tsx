@@ -489,6 +489,44 @@ export default function App() {
    if (step === "input" || step === "analyzing") {
     return (
       <>
+        {/* ── Minimal header with logout ── */}
+        <header className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-5 py-3 bg-white/90 dark:bg-black/90 backdrop-blur border-b border-black/8 dark:border-white/8">
+          <div className="flex items-center gap-2">
+            <div className="h-6 w-6 bg-black dark:bg-white flex items-center justify-center">
+              <BrandLogo size={14} className="text-white dark:text-black" />
+            </div>
+            <span className="font-black text-xs uppercase tracking-widest text-black dark:text-white">TryKlip</span>
+          </div>
+
+          {currentUser && (
+            <button
+              onClick={() => setShowLogoutConfirm(true)}
+              className="flex items-center gap-2 px-3 py-1.5 border border-black/15 dark:border-white/15 text-black/50 dark:text-white/40 hover:text-red-500 hover:border-red-300 dark:hover:border-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 font-mono text-[11px] font-bold uppercase tracking-widest transition-all"
+            >
+              <LogOut size={12} />
+              {currentUser.name?.split(" ")[0] ?? "Logout"}
+            </button>
+          )}
+        </header>
+
+        {/* Logout confirm */}
+        {showLogoutConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm" onClick={() => setShowLogoutConfirm(false)}>
+            <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-2xl p-6 w-full max-w-xs" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-100 dark:border-red-900 mx-auto mb-4">
+                <LogOut size={20} className="text-red-500" />
+              </div>
+              <h3 className="text-base font-bold text-gray-900 dark:text-white text-center mb-1">Logout?</h3>
+              <p className="text-xs text-gray-400 text-center mb-5">Kamu akan keluar dari akun{currentUser?.name ? ` ${currentUser.name}` : ""}.</p>
+              <div className="flex gap-2">
+                <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Batal</button>
+                <button onClick={handleLogout} className="flex-1 py-2.5 rounded-xl bg-red-500 text-xs font-semibold text-white hover:bg-red-600 transition-colors">Ya, Logout</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="h-[49px]" />
         <FileUploadInput
           onAnalyze={handleAnalyze}
           onAutoGenerate={handleAutoGenerate}
