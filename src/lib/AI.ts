@@ -36,17 +36,21 @@ function authHeader(): Record<string, string> {
 export async function detectViralMomentsFromFile(
   videoInfo: VideoFileInfo,
   _apiKey: string,
-  onProgress?: (msg: string) => void
+  onProgress?: (msg: string) => void,
+  numClips: number = 5
 ): Promise<VideoAnalysisResult> {
   onProgress?.("Mengirim metadata video ke server AI...");
+
+  const clampedClips = Math.min(Math.max(Math.round(numClips), 1), 7);
 
   const form = new FormData();
   form.append("file_name",  videoInfo.fileName);
   form.append("file_size",  String(videoInfo.fileSize));
   form.append("duration",   String(videoInfo.duration));
   form.append("mime_type",  videoInfo.mimeType);
+  form.append("num_clips",  String(clampedClips));
 
-  onProgress?.("AI sedang menganalisis dan membagi video menjadi momen viral...");
+  onProgress?.(`AI sedang menganalisis dan memilih ${clampedClips} momen viral terbaik...`);
 
   const resp = await fetch(`${API_BASE}/api/analyze-video`, {
     method:  "POST",

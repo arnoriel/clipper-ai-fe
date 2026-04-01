@@ -6,7 +6,7 @@
 import { useState, useRef, useCallback } from "react";
 import {
   Upload, Zap, AlertCircle, Loader2, Film, CheckCircle2,
-  CreditCard, Wand2, PenLine,
+  CreditCard, Wand2, PenLine, Youtube,
 } from "lucide-react";
 import { isApiKeyConfigured } from "../lib/storage";
 import AutoEditPanel from "./AutoEditPanel";
@@ -16,13 +16,14 @@ import type { ClipTemplate } from "../lib/templates";
 
 interface Props {
   /** Manual flow: analyze video without template */
-  onAnalyze: (file: File, duration: number) => void;
+  onAnalyze: (file: File, duration: number, numClips: number) => void;
   /** Auto flow: analyze + apply template to all clips automatically */
   onAutoGenerate: (
     file: File,
     duration: number,
     template: ClipTemplate,
-    watermarkSrc: string | null
+    watermarkSrc: string | null,
+    numClips: number
   ) => Promise<void>;
   isLoading: boolean;
   error?: string;
@@ -78,6 +79,8 @@ export default function FileUploadInput({
   const [loadingDuration, setLoadingDuration] = useState(false);
   /** Which tab is active once a file is selected */
   const [editMode, setEditMode] = useState<"auto" | "manual">("auto");
+  /** How many clips the AI should generate (1–7) */
+  const [numClips, setNumClips] = useState(5);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -163,7 +166,7 @@ export default function FileUploadInput({
       onTopUpClick?.();
       return;
     }
-    onAnalyze(file, duration);
+    onAnalyze(file, duration, numClips);
   }
 
   async function handleAutoGenerate(
@@ -171,7 +174,7 @@ export default function FileUploadInput({
     watermarkSrc: string | null
   ) {
     if (!file || duration === null) return;
-    await onAutoGenerate(file, duration, template, watermarkSrc);
+    await onAutoGenerate(file, duration, template, watermarkSrc, numClips);
   }
 
   // ΓöÇΓöÇΓöÇ Render ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
@@ -292,6 +295,7 @@ export default function FileUploadInput({
 
         {/* ΓöÇΓöÇ File drop zone ΓöÇΓöÇ */}
         {!file ? (
+          <>
           <div
             onDragOver={(e) => {
               e.preventDefault();
@@ -367,6 +371,20 @@ export default function FileUploadInput({
               </p>
             </div>
           </div>
+          {/* ── YouTube Download button ── */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <a
+              href="https://ytdownloadpro.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="w-full flex items-center justify-center gap-2.5 py-3 rounded-xl bg-red-500 text-white text-xs font-bold hover:bg-red-600 active:scale-[0.99] transition-all shadow-md shadow-red-500/20"
+            >
+              <Youtube size={15} />
+              Download Video dari Link YouTube
+            </a>
+          </div>
+          </>
         ) : (
           /* ΓöÇΓöÇ File selected: info chip ΓöÇΓöÇ */
           <div className="rounded-2xl border border-[#000000]/30 bg-[#000000]/5 p-4 mb-4">
@@ -376,10 +394,10 @@ export default function FileUploadInput({
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-black truncate">
-                  {file.name}
+                  {file!.name}
                 </p>
                 <div className="flex items-center gap-2 mt-1 text-xs text-gray-500 font-mono flex-wrap">
-                  <span>{formatBytes(file.size)}</span>
+                  <span>{formatBytes(file!.size)}</span>
                   <span>┬╖</span>
                   {duration !== null && (
                     <span className="text-[#000000]">
@@ -387,7 +405,7 @@ export default function FileUploadInput({
                     </span>
                   )}
                   <span>┬╖</span>
-                  <span>{file.type || "video"}</span>
+                  <span>{file!.type || "video"}</span>
                 </div>
               </div>
               <button
@@ -433,6 +451,49 @@ export default function FileUploadInput({
         {/* ΓöÇΓöÇ Edit mode tabs (only shown after file is selected) ΓöÇΓöÇ */}
         {file && duration !== null && (
           <div className="mt-4 space-y-3">
+            {/* ── Jumlah Clip Slider ── */}
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Film size={13} className="text-[#000000]" />
+                  <span className="text-xs font-semibold text-gray-700">
+                    Jumlah Clip yang Digenerate
+                  </span>
+                </div>
+                <span className="text-sm font-black text-[#000000] tabular-nums">
+                  {numClips} clip
+                </span>
+              </div>
+              <input
+                type="range"
+                min={1}
+                max={7}
+                step={1}
+                value={numClips}
+                onChange={(e) => setNumClips(+e.target.value)}
+                className="w-full accent-[#000000] h-1.5 cursor-pointer"
+              />
+              <div className="flex justify-between mt-1.5">
+                {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setNumClips(n)}
+                    className={`text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center transition-all ${
+                      numClips === n
+                        ? "bg-[#000000] text-white"
+                        : "text-gray-400 hover:text-gray-600"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-gray-400 mt-2 text-center">
+                AI akan memilih {numClips} momen terbaik berpotensi viral
+              </p>
+            </div>
+
             {/* Tab switcher */}
             <div className="flex rounded-2xl border border-gray-200 overflow-hidden bg-gray-50 p-1 gap-1">
               <button

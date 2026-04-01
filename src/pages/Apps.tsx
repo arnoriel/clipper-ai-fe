@@ -159,7 +159,7 @@ export default function App() {
   }, [project?.id, step, selectedClipIds, clipEdits]);
 
   // ── STEP 1: Upload + AI analysis ─────────────────────────────────────────
-  async function handleAnalyze(file: File, duration: number) {
+  async function handleAnalyze(file: File, duration: number, numClips: number = 5) {
     // Pre-flight credit check
     if (credits <= 0) {
       setShowCreditModal(true);
@@ -183,7 +183,7 @@ export default function App() {
 
       const videoInfo = { fileName: file.name, fileSize: file.size, duration, mimeType: file.type || "video/mp4" };
 
-      const result = await detectViralMomentsFromFile(videoInfo, apiKey, (msg) => setProgressMsg(msg));
+      const result = await detectViralMomentsFromFile(videoInfo, apiKey, (msg) => setProgressMsg(msg), numClips);
 
       // ── Sync credits after deduction ────────────────────────────────────
       if (typeof result.credits_remaining === "number") {
@@ -228,6 +228,7 @@ export default function App() {
     duration: number,
     templateArg: ClipTemplate,
     watermarkSrc: string | null,
+    numClips: number = 5,
   ) {
     if (credits <= 0) {
       setShowCreditModal(true);
@@ -261,6 +262,7 @@ export default function App() {
         videoInfo,
         getApiKey(),
         (msg) => setProgressMsg(msg),
+        numClips,
       );
  
       if (typeof result.credits_remaining === "number") {

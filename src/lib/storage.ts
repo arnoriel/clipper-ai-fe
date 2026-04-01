@@ -153,18 +153,6 @@ export interface SubtitlePreset {
 
 export const SUBTITLE_PRESETS: SubtitlePreset[] = [
   {
-    id: "bold-impact", name: "Bold Impact",
-    description: "Thick white text, black outline. Maximum legibility.",
-    emoji: "💥", previewBg: "#111", previewText: "#ffffff", previewAccent: "#ffffff",
-    overrides: {
-      fontFamily: "Montserrat", fontSize: 52, color: "#FFFFFF",
-      bold: true, italic: false, uppercase: true, textAlign: "center",
-      letterSpacing: 1, opacity: 1, outlineWidth: 4, outlineColor: "#000000",
-      shadowEnabled: true, shadowColor: "#000000", shadowX: 3, shadowY: 3, shadowBlur: 10,
-      backgroundEnabled: false, x: 0.5, y: 0.82,
-    },
-  },
-  {
     id: "tiktok-yellow", name: "TikTok Yellow",
     description: "Bold yellow on a dark pill — iconic short-form style.",
     emoji: "⚡", previewBg: "#0a0a0a", previewText: "#FFE600", previewAccent: "#FFE600",
