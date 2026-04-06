@@ -60,7 +60,7 @@ export interface ClipTemplate {
 export const DEFAULT_TEMPLATE: ClipTemplate = {
   name: "Template Saya",
   aspect_ratio: "9:16",
-  subtitle_preset_id: "bold-impact",
+  subtitle_preset_id: "void-white",
   subtitle_enabled: true,
   watermark_name: null,
   watermark_x: 0.88,

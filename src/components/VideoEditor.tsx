@@ -38,7 +38,7 @@ interface Props {
   credits?: number;
 }
 
-type Tab = "subtitle" | "trim" | "crop" | "color" | "speed" | "media";
+type Tab = "subtitle" | "trim" | "crop" | "color" | "speed" | "media" | "intro";
 
 const ASPECT_RATIOS: { label: string; value: ClipEdits["aspectRatio"]; desc: string }[] = [
   { label: "Original", value: "original", desc: "Keep source dimensions" },
@@ -837,6 +837,7 @@ export default function VideoEditor({
     { id: "color",    label: "Color", icon: Sliders },
     { id: "speed",    label: "Speed", icon: Zap },
     { id: "media",    label: "Media", icon: ImageIcon },
+    { id: "intro",    label: "Intro", icon: Sparkles },
   ];
 
   // ΓöÇΓöÇ Right panel content ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
@@ -1310,9 +1311,93 @@ export default function VideoEditor({
             )}
           </div>
         )}
+        {/* ── INTRO TEXT TAB ── */}
+        {activeTab === "intro" && (
+          <div className="p-4 space-y-5">
+            <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">
+              Intro Copywriting
+            </div>
+
+            {/* Info card */}
+            <div className="bg-white/5 border border-white/10 rounded-xl p-3 space-y-1">
+              <p className="text-xs text-white/70 font-medium leading-snug">
+                ✦ Teks headline di 4 detik pertama
+              </p>
+              <p className="text-[11px] text-white/35 leading-relaxed">
+                Muncul langsung saat video mulai, lalu fade-out halus di detik ke-3→4.
+                Font mengikuti preset subtitle yang aktif.
+              </p>
+            </div>
+
+            {/* Text input */}
+            <div className="space-y-2">
+              <label className="text-[11px] text-white/50 font-medium">Teks Headline</label>
+              <textarea
+                value={edits.introText ?? ""}
+                onChange={(e) => updateEdits({ introText: e.target.value })}
+                placeholder={"Contoh: The moment everything changed."}
+                rows={3}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-white/20 resize-none focus:outline-none focus:border-white/30 transition-colors"
+              />
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] text-white/25">
+                  Singkat dan padat — maks ~8 kata
+                </p>
+                {(edits.introText ?? "").length > 0 && (
+                  <button
+                    onClick={() => updateEdits({ introText: "" })}
+                    className="text-[10px] text-white/30 hover:text-white/60 transition-colors"
+                  >
+                    Hapus
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Quick picks */}
+            <div className="space-y-2">
+              <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Quick Pick</div>
+              <div className="grid grid-cols-1 gap-1.5">
+                {[
+                  "The moment everything changed.",
+                  "You need to see this.",
+                  "This changes everything.",
+                  "Nobody talks about this.",
+                  "Watch until the end.",
+                  "This is why it works.",
+                ].map((phrase) => (
+                  <button
+                    key={phrase}
+                    onClick={() => updateEdits({ introText: phrase })}
+                    className={`text-left px-3 py-2 rounded-lg text-xs transition-all border ${
+                      edits.introText === phrase
+                        ? "bg-white/15 border-white/30 text-white"
+                        : "bg-white/5 border-white/8 text-white/45 hover:text-white/80 hover:bg-white/10"
+                    }`}
+                  >
+                    {phrase}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Active state indicator */}
+            {(edits.introText ?? "").trim().length > 0 && (
+              <div className="flex items-center gap-2 bg-white/8 border border-white/15 rounded-xl px-3 py-2.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+                <p className="text-[11px] text-white/60">
+                  Intro aktif — akan dirender saat export
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
       </>
     );
   }
+
+  // ─── RENDER
 
   // ΓöÇΓöÇΓöÇ RENDER ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   return (
@@ -1553,6 +1638,7 @@ export default function VideoEditor({
                   {edits.speed !== 1 && <span>{edits.speed}├ù</span>}
                   {edits.aspectRatio !== "original" && <span>{edits.aspectRatio}</span>}
                   {hasMotionTracking && <span className="flex items-center gap-0.5 text-[#000000]/60"><Activity size={9} />AI</span>}
+                  {(edits.introText ?? "").trim().length > 0 && <span className="flex items-center gap-0.5 text-purple-400/70"><Sparkles size={9} />Intro</span>}
                 </div>
               </div>
             </div>

@@ -374,7 +374,7 @@ export default function FileUploadInput({
           {/* ── YouTube Download button ── */}
           <div className="mt-4 pt-4 border-t border-gray-200">
             <a
-              href="https://ytdownloadpro.com/"
+              href="https://app.ytdown.to/en23/"
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
