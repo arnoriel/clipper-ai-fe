@@ -1578,6 +1578,26 @@ export default function VideoEditor({
                     );
                   })}
 
+                  {/* ── Vintage Cinematic Frame Overlay ── */}
+                  {/* Sits above video & text/image overlays, below UI badges. pointer-events:none so drag still works. */}
+                  <div
+                    className="absolute inset-0 select-none pointer-events-none"
+                    style={{
+                      zIndex: 36,
+                      borderRadius: isCropped ? "10px" : "4px",
+                      // Outer dark cinematic frame — strong at corners, fades to transparent center
+                      background: [
+                        "radial-gradient(ellipse 82% 80% at 50% 50%, transparent 48%, rgba(0,0,0,0.28) 65%, rgba(0,0,0,0.78) 82%, rgba(0,0,0,0.97) 100%)",
+                      ].join(", "),
+                      // Inner edge glow (subtle white bleed from the "projector light")
+                      boxShadow: [
+                        "inset 0 0 60px 5px rgba(0,0,0,0.55)",
+                        "inset 0 0 22px 2px rgba(255,255,255,0.065)",
+                        "inset 0 0 6px  1px rgba(255,255,255,0.04)",
+                      ].join(", "),
+                    }}
+                  />
+
                   {/* Crop & motion tracking overlay badges */}
                   {isCropped && (
                     <div className="absolute top-2 left-2 flex items-center gap-1.5 pointer-events-none">
