@@ -1579,21 +1579,30 @@ export default function VideoEditor({
                   })}
 
                   {/* ── Vintage Cinematic Frame Overlay ── */}
-                  {/* Sits above video & text/image overlays, below UI badges. pointer-events:none so drag still works. */}
+                  {/* True FILM FRAME: dark border on all 4 sides, center 100% transparent.
+                      NOT a vignette (vignette = radial gradient that also darkens center).
+                      Uses inset box-shadow spread so border follows border-radius at corners.
+                      pointer-events:none so drag/click on video/overlays still works. */}
                   <div
                     className="absolute inset-0 select-none pointer-events-none"
                     style={{
                       zIndex: 36,
-                      borderRadius: isCropped ? "10px" : "4px",
-                      // Outer dark cinematic frame — strong at corners, fades to transparent center
-                      background: [
-                        "radial-gradient(ellipse 82% 80% at 50% 50%, transparent 48%, rgba(0,0,0,0.28) 65%, rgba(0,0,0,0.78) 82%, rgba(0,0,0,0.97) 100%)",
-                      ].join(", "),
-                      // Inner edge glow (subtle white bleed from the "projector light")
+                      // Rounded corners matching film/projector gate aesthetic
+                      borderRadius: isCropped ? "12px" : "6px",
+                      // Center is completely transparent — video shows through with zero darkening.
+                      background: "transparent",
+                      // Film frame border built from layered inset shadows:
+                      //  Layer 1: solid ~30px frame border (near-opaque black)
+                      //  Layer 2: 37px softer fade (transition zone)
+                      //  Layer 3: 44px feather to transparent (inner edge blend)
+                      //  Layer 4: corner depth — subtle extra dark at corners via blur
+                      //  Layer 5: inner highlight — thin white glow at frame inner edge (vintage projector light bleed)
                       boxShadow: [
-                        "inset 0 0 60px 5px rgba(0,0,0,0.55)",
-                        "inset 0 0 22px 2px rgba(255,255,255,0.065)",
-                        "inset 0 0 6px  1px rgba(255,255,255,0.04)",
+                        "inset 0 0 0 30px rgba(0,0,0,0.93)",      // solid frame border
+                        "inset 0 0 0 38px rgba(0,0,0,0.52)",      // transition band
+                        "inset 0 0 0 46px rgba(0,0,0,0.18)",      // feather to transparent
+                        "inset 0 0 10px 29px rgba(0,0,0,0.35)",   // corner/depth shadow
+                        "inset 0 0 3px 29px rgba(255,255,255,0.07)", // inner film highlight
                       ].join(", "),
                     }}
                   />
