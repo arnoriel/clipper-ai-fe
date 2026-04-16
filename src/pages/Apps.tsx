@@ -452,6 +452,18 @@ export default function App() {
         motionKeyframes: edits.motionKeyframes ?? null,
         motionVidW:      edits.motionVidW ?? null,
         motionVidH:      edits.motionVidH ?? null,
+        // ── Text watermark fields ──────────────────────────────────────────
+        watermarkType:       edits.watermarkType       ?? "image",
+        watermarkText:       edits.watermarkText       ?? null,
+        watermarkFontFamily: edits.watermarkFontFamily ?? "Montserrat",
+        watermarkTextColor:  edits.watermarkTextColor  ?? "#FFFFFF",
+        watermarkBold:       edits.watermarkBold       ?? false,
+        watermarkItalic:     edits.watermarkItalic     ?? false,
+        watermarkFontSize:   edits.watermarkFontSize   ?? 0.04,
+        watermarkX:          edits.watermarkX          ?? 0.88,
+        watermarkY:          edits.watermarkY          ?? 0.06,
+        watermarkOpacity:    edits.watermarkOpacity    ?? 0.85,
+        // ──────────────────────────────────────────────────────────────────
         textOverlays:    edits.textOverlays.map((t) => ({
           id: t.id, text: t.text, x: t.x, y: t.y, fontSize: t.fontSize,
           fontFamily: t.fontFamily, color: t.color, bold: t.bold, italic: t.italic,

@@ -49,6 +49,15 @@ export interface ClipTemplate {
   watermark_y: number;
   watermark_width: number;
   watermark_opacity: number;
+  // ── Text watermark fields (new) ────────────────────────────────────────────
+  watermark_type: "text" | "image";
+  watermark_text?: string | null;
+  watermark_font_family: string;
+  watermark_text_color: string;
+  watermark_bold: boolean;
+  watermark_italic: boolean;
+  watermark_font_size: number;
+  // ──────────────────────────────────────────────────────────────────────────
   brightness: number;
   contrast: number;
   saturation: number;
@@ -67,6 +76,13 @@ export const DEFAULT_TEMPLATE: ClipTemplate = {
   watermark_y: 0.06,
   watermark_width: 0.18,
   watermark_opacity: 0.85,
+  watermark_type: "text",
+  watermark_text: null,
+  watermark_font_family: "Montserrat",
+  watermark_text_color: "#FFFFFF",
+  watermark_bold: false,
+  watermark_italic: false,
+  watermark_font_size: 0.04,
   brightness: 0,
   contrast: 0,
   saturation: 0,
@@ -192,10 +208,25 @@ export function applyTemplateToEdits(
     motionKeyframes: null,
     motionAnalyzed: false,
     isStaticMotion: false,
+    // ── Text watermark fields passed through to edits ──────────────────────
+    watermarkType: template.watermark_type ?? "image",
+    watermarkText: template.watermark_text ?? null,
+    watermarkFontFamily: template.watermark_font_family ?? "Montserrat",
+    watermarkTextColor: template.watermark_text_color ?? "#FFFFFF",
+    watermarkBold: template.watermark_bold ?? false,
+    watermarkItalic: template.watermark_italic ?? false,
+    watermarkFontSize: template.watermark_font_size ?? 0.04,
+    watermarkX: template.watermark_x,
+    watermarkY: template.watermark_y,
+    watermarkOpacity: template.watermark_opacity,
   };
 
-  // Watermark overlay
-  if (watermarkSrc && template.watermark_name) {
+  // Image watermark overlay (only when type is "image")
+  if (
+    template.watermark_type !== "text" &&
+    watermarkSrc &&
+    template.watermark_name
+  ) {
     partial.imageOverlays = [
       defaultImageOverlay({
         id: generateId(),

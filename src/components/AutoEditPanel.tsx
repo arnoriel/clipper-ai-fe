@@ -8,6 +8,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   Wand2, Save, ChevronDown, ChevronUp, Trash2, Loader2, Check,
   CreditCard, Zap, Image as ImageIcon, AlertCircle, Sparkles, Crop, RefreshCw,
+  Type, Bold, Italic,
 } from "lucide-react";
 import type { ClipTemplate } from "../lib/templates";
 import {
@@ -48,6 +49,110 @@ const ASPECT_RATIOS: {
   { value: "4:3",      label: "4:3",      desc: "Classic" },
   { value: "original", label: "Original", desc: "Keep" },
 ];
+
+// ─── WatermarkTextPreview ─────────────────────────────────────────────────────
+// Shows a scaled-down "video frame" with the text watermark rendered at the
+// correct position, font size, color, opacity — mirrors what FFmpeg will produce.
+
+function WatermarkTextPreview({
+  text,
+  x,
+  y,
+  opacity,
+  fontSizeRatio,
+  color,
+  bold,
+  italic,
+  aspectRatio,
+}: {
+  text: string;
+  x: number;
+  y: number;
+  opacity: number;
+  fontSizeRatio: number;
+  color: string;
+  bold: boolean;
+  italic: boolean;
+  aspectRatio: ClipTemplate["aspect_ratio"];
+}) {
+  const ratioNum =
+    aspectRatio === "9:16"   ? 9 / 16 :
+    aspectRatio === "16:9"   ? 16 / 9 :
+    aspectRatio === "1:1"    ? 1 :
+    aspectRatio === "4:3"    ? 4 / 3 :
+    16 / 9;
+
+  const isPortrait = ratioNum < 1;
+  const displayLabel = aspectRatio === "original" ? "16:9 (original)" : aspectRatio;
+
+  // Frame pixel size for preview
+  const frameH = 148;
+  const frameW = isPortrait ? frameH * ratioNum : undefined;
+
+  // font-size as % of frame width in preview
+  const fontSizePct = fontSizeRatio * 100;
+
+  return (
+    <div className="mt-3 pt-3 border-t border-gray-100">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+          Preview Posisi Watermark
+        </p>
+        <span className="text-[9px] font-mono text-[#000000] bg-[#000000]/10 border border-[#000000]/20 px-1.5 py-0.5 rounded-md">
+          {displayLabel}
+        </span>
+      </div>
+
+      <div className={`flex ${isPortrait ? "justify-center" : ""}`}>
+        <div
+          style={
+            isPortrait
+              ? { position: "relative", height: `${frameH}px`, width: `${frameW}px`, flexShrink: 0 }
+              : { position: "relative", width: "100%", aspectRatio: `${ratioNum}` }
+          }
+          className="rounded-xl overflow-hidden border border-white/10 shadow-lg"
+        >
+          {/* Dark video background */}
+          <div className="absolute inset-0 bg-gray-400" />
+          {/* Grid */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              backgroundImage: [
+                "linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px)",
+                "linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)",
+              ].join(", "),
+              backgroundSize: "33.33% 33.33%",
+            }}
+          />
+
+          {/* Text watermark */}
+          {text && (
+            <div
+              style={{
+                position: "absolute",
+                left: `${x * 100}%`,
+                top: `${y * 100}%`,
+                transform: "translate(-50%, -50%)",
+                fontSize: `${fontSizePct}cqw`,
+                color: color,
+                opacity: opacity,
+                fontWeight: bold ? 700 : 400,
+                fontStyle: italic ? "italic" : "normal",
+                whiteSpace: "nowrap",
+                textShadow: "1px 1px 2px rgba(0,0,0,0.8)",
+                pointerEvents: "none",
+                userSelect: "none",
+              }}
+            >
+              {text}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── WatermarkPreview ─────────────────────────────────────────────────────────
 // Shows a scaled-down "video frame" with the correct aspect ratio, with the
@@ -278,7 +383,16 @@ export default function AutoEditPanel({
   }
 
   function loadSavedTemplate(saved: ClipTemplate) {
-    setTemplate({ ...saved });
+    setTemplate({
+      ...saved,
+      // Fallback for templates saved before watermark_type was added
+      watermark_type:        saved.watermark_type        ?? "image",
+      watermark_font_family: saved.watermark_font_family ?? "Montserrat",
+      watermark_text_color:  saved.watermark_text_color  ?? "#FFFFFF",
+      watermark_bold:        saved.watermark_bold        ?? false,
+      watermark_italic:      saved.watermark_italic      ?? false,
+      watermark_font_size:   saved.watermark_font_size   ?? 0.04,
+    });
     if (saved.id && saved.watermark_name) {
       setWatermarkSrc(getCachedWatermark(saved.id));
     } else {
@@ -532,89 +646,174 @@ export default function AutoEditPanel({
 
       {/* ── Watermark ── */}
       <div className="rounded-xl border border-gray-200 overflow-hidden">
+        {/* Header */}
         <button
           onClick={() => toggleSection("watermark")}
           className="w-full flex items-center gap-2 px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
         >
-          <ImageIcon size={13} className="text-[#000000] shrink-0" />
+          {template.watermark_type === "text"
+            ? <Type size={13} className="text-[#000000] shrink-0" />
+            : <ImageIcon size={13} className="text-[#000000] shrink-0" />
+          }
           <span className="text-xs font-semibold text-gray-700 flex-1">
             Watermark / Logo
           </span>
           <span className="text-[10px] text-gray-400 mr-2">
-            {template.watermark_name ? "✓" : "—"}
+            {template.watermark_type === "text"
+              ? (template.watermark_text?.trim() ? "✓ Teks" : "—")
+              : (template.watermark_name ? "✓ Gambar" : "—")
+            }
           </span>
-          {expandedSection === "watermark" ? (
-            <ChevronUp size={12} className="text-gray-400" />
-          ) : (
-            <ChevronDown size={12} className="text-gray-400" />
-          )}
+          {expandedSection === "watermark"
+            ? <ChevronUp size={12} className="text-gray-400" />
+            : <ChevronDown size={12} className="text-gray-400" />
+          }
         </button>
 
         {expandedSection === "watermark" && (
           <div className="p-3 space-y-3">
-            {watermarkSrc ? (
+
+            {/* ── Mode Toggle: Texts (left) | Image (right) ── */}
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden bg-gray-50 p-0.5 gap-0.5">
+              <button
+                onClick={() => upd({ watermark_type: "text" })}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-[11px] font-semibold transition-all ${
+                  template.watermark_type === "text"
+                    ? "bg-white text-gray-800 shadow-sm border border-gray-200"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                <Type size={11} />
+                Texts
+              </button>
+              <button
+                onClick={() => upd({ watermark_type: "image" })}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-[11px] font-semibold transition-all ${
+                  template.watermark_type === "image"
+                    ? "bg-white text-gray-800 shadow-sm border border-gray-200"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                <ImageIcon size={11} />
+                Image
+              </button>
+            </div>
+
+            {/* ══════════════ TEXT MODE ══════════════ */}
+            {template.watermark_type === "text" && (
               <>
-                {/* ── File info row ── */}
-                <div className="flex items-center gap-3 p-2 rounded-xl bg-gray-50 border border-gray-200">
-                  <img
-                    src={watermarkSrc}
-                    alt="watermark"
-                    className="w-12 h-12 object-contain rounded-lg bg-white border border-gray-200 shrink-0"
+                {/* Text input */}
+                <div>
+                  <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">
+                    Teks Watermark
+                  </label>
+                  <input
+                    type="text"
+                    value={template.watermark_text ?? ""}
+                    onChange={(e) => upd({ watermark_text: e.target.value })}
+                    placeholder="Contoh: @yourbrand"
+                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-black/30 bg-white placeholder-gray-300"
                   />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-gray-700 truncate">
-                      {template.watermark_name}
-                    </p>
-                    <p className="text-[10px] text-gray-400 mt-0.5">
-                      X {Math.round(template.watermark_x * 100)}% · Y{" "}
-                      {Math.round(template.watermark_y * 100)}% · W{" "}
-                      {Math.round(template.watermark_width * 100)}%
-                    </p>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="cursor-pointer p-1.5 rounded-lg text-gray-400 hover:text-[#000000] hover:bg-[#000000]/10 transition-colors">
-                      <input
-                        type="file"
-                        accept="image/png,image/jpeg,image/svg+xml,image/webp"
-                        className="hidden"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          if (f) handleWatermarkFile(f);
-                        }}
-                      />
-                      <RefreshCw size={12} />
-                    </label>
-                    <button
-                      onClick={removeWatermark}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                </div>
+
+                {/* Font family + Bold/Italic */}
+                <div>
+                  <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">
+                    Font
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={template.watermark_font_family}
+                      onChange={(e) => upd({ watermark_font_family: e.target.value })}
+                      className="flex-1 px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-black/30 bg-white"
                     >
-                      <Trash2 size={12} />
+                      {[
+                        "Montserrat","Roboto","Open Sans","Lato","Poppins",
+                        "Oswald","Raleway","Nunito","Inter","Playfair Display",
+                        "Ubuntu","Source Sans Pro","Merriweather","Bebas Neue",
+                      ].map((f) => (
+                        <option key={f} value={f}>{f}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => upd({ watermark_bold: !template.watermark_bold })}
+                      className={`p-1.5 rounded-lg border transition-all ${
+                        template.watermark_bold
+                          ? "bg-black text-white border-black"
+                          : "bg-white text-gray-400 border-gray-200 hover:border-gray-400"
+                      }`}
+                      title="Bold"
+                    >
+                      <Bold size={12} />
+                    </button>
+                    <button
+                      onClick={() => upd({ watermark_italic: !template.watermark_italic })}
+                      className={`p-1.5 rounded-lg border transition-all ${
+                        template.watermark_italic
+                          ? "bg-black text-white border-black"
+                          : "bg-white text-gray-400 border-gray-200 hover:border-gray-400"
+                      }`}
+                      title="Italic"
+                    >
+                      <Italic size={12} />
                     </button>
                   </div>
                 </div>
 
-                {/* ── Sliders ── */}
+                {/* Color + Font size */}
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">
+                      Warna
+                    </label>
+                    <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-2 py-1 bg-white">
+                      <input
+                        type="color"
+                        value={template.watermark_text_color}
+                        onChange={(e) => upd({ watermark_text_color: e.target.value })}
+                        className="w-6 h-6 rounded cursor-pointer border-0 bg-transparent p-0"
+                      />
+                      <span className="text-[10px] font-mono text-gray-500">
+                        {template.watermark_text_color.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex justify-between mb-1">
+                      <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+                        Ukuran Font
+                      </label>
+                      <span className="text-[10px] font-mono text-[#000000]">
+                        {Math.round(template.watermark_font_size * 100)}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0.01} max={0.12} step={0.005}
+                      value={template.watermark_font_size}
+                      onChange={(e) => upd({ watermark_font_size: +e.target.value })}
+                      className="w-full accent-[#000000]"
+                    />
+                  </div>
+                </div>
+
+                {/* Position + Opacity sliders */}
                 <div className="space-y-2">
-                  {[
-                    { key: "watermark_width"   as const, label: "Ukuran",          min: 0.05, max: 0.5,  step: 0.01 },
-                    { key: "watermark_opacity" as const, label: "Opacity",         min: 0.1,  max: 1,    step: 0.05 },
-                    { key: "watermark_x"       as const, label: "X (kiri←→kanan)", min: 0,    max: 1,    step: 0.01 },
-                    { key: "watermark_y"       as const, label: "Y (atas↕bawah)",  min: 0,    max: 1,    step: 0.01 },
-                  ].map((f) => (
+                  {([
+                    { key: "watermark_opacity" as const, label: "Opacity",         min: 0.1, max: 1,   step: 0.05, pct: true },
+                    { key: "watermark_x"       as const, label: "X (kiri←→kanan)", min: 0,   max: 1,   step: 0.01, pct: true },
+                    { key: "watermark_y"       as const, label: "Y (atas↕bawah)",  min: 0,   max: 1,   step: 0.01, pct: true },
+                  ] as const).map((f) => (
                     <div key={f.key}>
                       <div className="flex justify-between mb-1">
-                        <span className="text-[10px] text-gray-500">
-                          {f.label}
-                        </span>
+                        <span className="text-[10px] text-gray-500">{f.label}</span>
                         <span className="text-[10px] font-mono text-[#000000]">
                           {Math.round(template[f.key] * 100)}%
                         </span>
                       </div>
                       <input
                         type="range"
-                        min={f.min}
-                        max={f.max}
-                        step={f.step}
+                        min={f.min} max={f.max} step={f.step}
                         value={template[f.key]}
                         onChange={(e) => upd({ [f.key]: +e.target.value })}
                         className="w-full accent-[#000000]"
@@ -623,41 +822,131 @@ export default function AutoEditPanel({
                   ))}
                 </div>
 
-                {/* ── Live frame preview — appears after sliders ── */}
-                <WatermarkPreview
-                  src={watermarkSrc}
-                  x={template.watermark_x}
-                  y={template.watermark_y}
-                  width={template.watermark_width}
-                  opacity={template.watermark_opacity}
-                  aspectRatio={template.aspect_ratio}
-                />
+                {/* Text watermark preview */}
+                {template.watermark_text?.trim() && (
+                  <WatermarkTextPreview
+                    text={template.watermark_text}
+                    x={template.watermark_x}
+                    y={template.watermark_y}
+                    opacity={template.watermark_opacity}
+                    fontSizeRatio={template.watermark_font_size}
+                    color={template.watermark_text_color}
+                    bold={template.watermark_bold}
+                    italic={template.watermark_italic}
+                    aspectRatio={template.aspect_ratio}
+                  />
+                )}
               </>
-            ) : (
-              /* ── Upload area ── */
-              <label className="block cursor-pointer">
-                <input
-                  ref={watermarkInputRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/svg+xml,image/webp"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleWatermarkFile(f);
-                    if (e.target) e.target.value = "";
-                  }}
-                />
-                <div className="flex flex-col items-center gap-2 py-5 rounded-xl border-2 border-dashed border-gray-300 hover:border-[#000000]/50 hover:bg-[#000000]/5 transition-all text-center">
-                  <ImageIcon size={20} className="text-gray-400" />
-                  <p className="text-xs text-gray-500 font-medium">
-                    Upload watermark / logo
-                  </p>
-                  <p className="text-[10px] text-gray-400">
-                    PNG · SVG · WebP · JPG
-                  </p>
-                </div>
-              </label>
             )}
+
+            {/* ══════════════ IMAGE MODE ══════════════ */}
+            {template.watermark_type === "image" && (
+              <>
+                {watermarkSrc ? (
+                  <>
+                    {/* File info row */}
+                    <div className="flex items-center gap-3 p-2 rounded-xl bg-gray-50 border border-gray-200">
+                      <img
+                        src={watermarkSrc}
+                        alt="watermark"
+                        className="w-12 h-12 object-contain rounded-lg bg-white border border-gray-200 shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-700 truncate">
+                          {template.watermark_name}
+                        </p>
+                        <p className="text-[10px] text-gray-400 mt-0.5">
+                          X {Math.round(template.watermark_x * 100)}% · Y{" "}
+                          {Math.round(template.watermark_y * 100)}% · W{" "}
+                          {Math.round(template.watermark_width * 100)}%
+                        </p>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="cursor-pointer p-1.5 rounded-lg text-gray-400 hover:text-[#000000] hover:bg-[#000000]/10 transition-colors">
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handleWatermarkFile(f);
+                            }}
+                          />
+                          <RefreshCw size={12} />
+                        </label>
+                        <button
+                          onClick={removeWatermark}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Sliders */}
+                    <div className="space-y-2">
+                      {([
+                        { key: "watermark_width"   as const, label: "Ukuran",          min: 0.05, max: 0.5,  step: 0.01 },
+                        { key: "watermark_opacity" as const, label: "Opacity",         min: 0.1,  max: 1,    step: 0.05 },
+                        { key: "watermark_x"       as const, label: "X (kiri←→kanan)", min: 0,    max: 1,    step: 0.01 },
+                        { key: "watermark_y"       as const, label: "Y (atas↕bawah)",  min: 0,    max: 1,    step: 0.01 },
+                      ] as const).map((f) => (
+                        <div key={f.key}>
+                          <div className="flex justify-between mb-1">
+                            <span className="text-[10px] text-gray-500">{f.label}</span>
+                            <span className="text-[10px] font-mono text-[#000000]">
+                              {Math.round(template[f.key] * 100)}%
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min={f.min} max={f.max} step={f.step}
+                            value={template[f.key]}
+                            onChange={(e) => upd({ [f.key]: +e.target.value })}
+                            className="w-full accent-[#000000]"
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Live image preview */}
+                    <WatermarkPreview
+                      src={watermarkSrc}
+                      x={template.watermark_x}
+                      y={template.watermark_y}
+                      width={template.watermark_width}
+                      opacity={template.watermark_opacity}
+                      aspectRatio={template.aspect_ratio}
+                    />
+                  </>
+                ) : (
+                  /* Upload area */
+                  <label className="block cursor-pointer">
+                    <input
+                      ref={watermarkInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleWatermarkFile(f);
+                        if (e.target) e.target.value = "";
+                      }}
+                    />
+                    <div className="flex flex-col items-center gap-2 py-5 rounded-xl border-2 border-dashed border-gray-300 hover:border-[#000000]/50 hover:bg-[#000000]/5 transition-all text-center">
+                      <ImageIcon size={20} className="text-gray-400" />
+                      <p className="text-xs text-gray-500 font-medium">
+                        Upload watermark / logo
+                      </p>
+                      <p className="text-[10px] text-gray-400">
+                        PNG · SVG · WebP · JPG
+                      </p>
+                    </div>
+                  </label>
+                )}
+              </>
+            )}
+
           </div>
         )}
       </div>

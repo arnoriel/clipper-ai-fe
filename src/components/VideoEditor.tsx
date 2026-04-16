@@ -1578,6 +1578,29 @@ export default function VideoEditor({
                     );
                   })}
 
+                  {/* ── Text Watermark Preview ── */}
+                  {edits.watermarkType === "text" && edits.watermarkText?.trim() && (
+                    <div
+                      className="absolute select-none pointer-events-none"
+                      style={{
+                        left: `${(edits.watermarkX ?? 0.88) * 100}%`,
+                        top:  `${(edits.watermarkY ?? 0.06) * 100}%`,
+                        transform: "translate(-50%, -50%)",
+                        opacity: edits.watermarkOpacity ?? 0.85,
+                        fontSize: `${(edits.watermarkFontSize ?? 0.04) * 100}cqw`,
+                        fontFamily: `'${edits.watermarkFontFamily ?? "Montserrat"}', sans-serif`,
+                        fontWeight: edits.watermarkBold ? 700 : 400,
+                        fontStyle: edits.watermarkItalic ? "italic" : "normal",
+                        color: edits.watermarkTextColor ?? "#FFFFFF",
+                        textShadow: "1px 1px 3px rgba(0,0,0,0.85)",
+                        whiteSpace: "nowrap",
+                        zIndex: 35,
+                      }}
+                    >
+                      {edits.watermarkText}
+                    </div>
+                  )}
+
                   {/* ── Vintage Cinematic Frame Overlay ── */}
                   {/* True FILM FRAME: dark border on all 4 sides, center 100% transparent.
                       NOT a vignette (vignette = radial gradient that also darkens center).

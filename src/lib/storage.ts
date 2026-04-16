@@ -439,6 +439,25 @@ export interface ClipEdits {
   motionMessage?:           string;
   /** Whether the server has OpenCV available for motion analysis */
   motionAvailable?:         boolean;
+
+  // ── Text Watermark ────────────────────────────────────────────────────────
+  /** "text" | "image" — which watermark mode is active */
+  watermarkType?:       "text" | "image";
+  /** The watermark text content (mode = text) */
+  watermarkText?:       string | null;
+  /** Google Font family name for text watermark */
+  watermarkFontFamily?: string;
+  /** Hex color string e.g. "#FFFFFF" */
+  watermarkTextColor?:  string;
+  watermarkBold?:       boolean;
+  watermarkItalic?:     boolean;
+  /** Font size relative to frame width (e.g. 0.04 = 4%) */
+  watermarkFontSize?:   number;
+  /** X center position relative to frame width */
+  watermarkX?:          number;
+  /** Y center position relative to frame height */
+  watermarkY?:          number;
+  watermarkOpacity?:    number;
 }
 
 export interface ProjectClip {
