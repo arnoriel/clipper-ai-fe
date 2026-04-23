@@ -53,6 +53,16 @@ const ASPECT_RATIOS: {
 // ─── WatermarkTextPreview ─────────────────────────────────────────────────────
 // Shows a scaled-down "video frame" with the text watermark rendered at the
 // correct position, font size, color, opacity — mirrors what FFmpeg will produce.
+//
+// FIX: fontSize was `${fontSizePct}cqw` which requires container-type:inline-size
+// on the parent. Without it the browser falls back to viewport width → font appears
+// far too large. Replaced with px computed from the measured frame pixel width,
+// matching the FFmpeg formula: fontsize = w * fontSizeRatio.
+//
+// FIX: shadow and outline now mirror build_watermark_text_filter in ffmpeg.py:
+//   - shadow: fixed offset +2,+2 (scaled to preview), no blur (drawtext has no blur)
+//   - outline: ~2px at 1080p baseline → FONT_REFERENCE_WIDTH * 0.002, scaled to preview
+//   - paint-order: stroke fill so outline doesn't eat into the fill (same visual as FFmpeg borderw)
 
 function WatermarkTextPreview({
   text,
@@ -85,12 +95,36 @@ function WatermarkTextPreview({
   const isPortrait = ratioNum < 1;
   const displayLabel = aspectRatio === "original" ? "16:9 (original)" : aspectRatio;
 
-  // Frame pixel size for preview
+  // Frame pixel size for preview — portrait has fixed height, landscape fills width.
   const frameH = 148;
-  const frameW = isPortrait ? frameH * ratioNum : undefined;
+  const portraitFrameW = isPortrait ? frameH * ratioNum : undefined;
 
-  // font-size as % of frame width in preview
-  const fontSizePct = fontSizeRatio * 100;
+  // Measure the rendered frame width so we can compute px font sizes accurately.
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [framePixelWidth, setFramePixelWidth] = useState<number>(
+    // Seed with a reasonable estimate so text renders on first paint, not blank.
+    isPortrait ? (frameH * ratioNum) : 240
+  );
+  useEffect(() => {
+    const el = frameRef.current;
+    if (!el) return;
+    const obs = new ResizeObserver(([entry]) => {
+      setFramePixelWidth(entry.contentRect.width);
+    });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  // Mirrors FFmpeg formula: fontsize = W * fontSizeRatio
+  const fontSizePx = fontSizeRatio * framePixelWidth;
+
+  // Mirrors FFmpeg build_watermark_text_filter:
+  //   borderw = max(1, round(FONT_REFERENCE_WIDTH * 0.002))  → ~2px at 1080p
+  //   shadow: +2,+2 offset, no blur, color 0x00000077
+  const FONT_REFERENCE_WIDTH = 1080;
+  const previewScale = framePixelWidth / FONT_REFERENCE_WIDTH;
+  const borderPx = Math.max(1, Math.round(FONT_REFERENCE_WIDTH * 0.002) * previewScale);
+  const shadowOffset = 2 * previewScale;
 
   return (
     <div className="mt-3 pt-3 border-t border-gray-100">
@@ -105,9 +139,10 @@ function WatermarkTextPreview({
 
       <div className={`flex ${isPortrait ? "justify-center" : ""}`}>
         <div
+          ref={frameRef}
           style={
             isPortrait
-              ? { position: "relative", height: `${frameH}px`, width: `${frameW}px`, flexShrink: 0 }
+              ? { position: "relative", height: `${frameH}px`, width: `${portraitFrameW}px`, flexShrink: 0 }
               : { position: "relative", width: "100%", aspectRatio: `${ratioNum}` }
           }
           className="rounded-xl overflow-hidden border border-white/10 shadow-lg"
@@ -126,7 +161,7 @@ function WatermarkTextPreview({
             }}
           />
 
-          {/* Text watermark */}
+          {/* Text watermark — styled to match FFmpeg build_watermark_text_filter output */}
           {text && (
             <div
               style={{
@@ -134,13 +169,18 @@ function WatermarkTextPreview({
                 left: `${x * 100}%`,
                 top: `${y * 100}%`,
                 transform: "translate(-50%, -50%)",
-                fontSize: `${fontSizePct}cqw`,
+                // px font size mirrors FFmpeg's w*fontSizeRatio; avoids broken cqw fallback.
+                fontSize: `${fontSizePx}px`,
                 color: color,
                 opacity: opacity,
                 fontWeight: bold ? 700 : 400,
                 fontStyle: italic ? "italic" : "normal",
                 whiteSpace: "nowrap",
-                textShadow: "1px 1px 2px rgba(0,0,0,0.8)",
+                // Outer stroke matches FFmpeg borderw (paint-order:stroke fill keeps fill intact)
+                WebkitTextStroke: `${borderPx}px rgba(0,0,0,${Math.min(opacity, 0.7)})`,
+                paintOrder: "stroke fill",
+                // Shadow at +2,+2 scaled to preview; no blur (drawtext doesn't support it)
+                textShadow: `${shadowOffset}px ${shadowOffset}px 0px rgba(0,0,0,0.47)`,
                 pointerEvents: "none",
                 userSelect: "none",
               }}

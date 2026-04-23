@@ -73,11 +73,12 @@ function buildTextShadow(t: TextOverlay, scale: number): string {
   const color = hexToRgba(t.shadowColor || "#000000", 0.85);
   const sx = (t.shadowX ?? 2) * scale;
   const sy = (t.shadowY ?? 2) * scale;
-  const blur = (t.shadowBlur ?? 8) * scale;
-  return `${sx}px ${sy}px ${blur}px ${color}`;
+  // FFmpeg drawtext does NOT support shadow blur — blur is always 0 in export.
+  // Preview intentionally omits blur to match the exported video exactly.
+  return `${sx}px ${sy}px 0px ${color}`;
 }
 
-// ΓöÇΓöÇΓöÇ Font picker ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ─── Font picker ──────────────────────────────────────────────────────────────
 function FontPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -134,7 +135,7 @@ function FontPicker({ value, onChange }: { value: string; onChange: (v: string) 
   );
 }
 
-// ΓöÇΓöÇΓöÇ Color swatch ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ─── Color swatch ─────────────────────────────────────────────────────────────
 function ColorSwatch({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <div className="flex items-center gap-2">
@@ -152,7 +153,7 @@ function ColorSwatch({ label, value, onChange }: { label: string; value: string;
   );
 }
 
-// ΓöÇΓöÇΓöÇ Preset card ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ─── Preset card ─────────────────────────────────────────────────────────────
 function PresetCard({
   preset, isActive, onClick,
 }: {
@@ -181,6 +182,7 @@ function PresetCard({
             WebkitTextStroke: (preset.overrides.outlineWidth ?? 0) > 0
               ? `${Math.min(1.5, preset.overrides.outlineWidth ?? 0)}px ${preset.overrides.outlineColor ?? "#000"}`
               : undefined,
+            paintOrder: (preset.overrides.outlineWidth ?? 0) > 0 ? "stroke fill" : undefined,
             ...(preset.overrides.backgroundEnabled
               ? {
                 background: hexToRgba(preset.overrides.backgroundColor ?? "#000", preset.overrides.backgroundOpacity ?? 0.8),
@@ -203,7 +205,7 @@ function PresetCard({
   );
 }
 
-// ΓöÇΓöÇΓöÇ SliderField ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ─── SliderField ──────────────────────────────────────────────────────────────
 function SliderField({ label, value, min, max, step, format, onChange, dark }: {
   label: string; value: number; min: number; max: number; step: number;
   format: (v: number) => string; onChange: (v: number) => void; dark?: boolean;
@@ -221,7 +223,7 @@ function SliderField({ label, value, min, max, step, format, onChange, dark }: {
   );
 }
 
-// ΓöÇΓöÇΓöÇ Motion Status Badge ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ─── Motion Status Badge ──────────────────────────────────────────────────────
 function MotionStatusBadge({ edits }: { edits: ClipEdits }) {
   if (!edits.motionAnalyzed) return null;
 
@@ -238,7 +240,7 @@ function MotionStatusBadge({ edits }: { edits: ClipEdits }) {
     return (
       <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#000000]/10 border border-[#000000]/20 text-[#000000] text-[10px]">
         <Activity size={10} className="shrink-0" />
-        <span>AI Tracking aktif ┬╖ {edits.motionKeyframes.length} keyframes</span>
+        <span>AI Tracking aktif · {edits.motionKeyframes.length} keyframes</span>
       </div>
     );
   }
@@ -247,7 +249,7 @@ function MotionStatusBadge({ edits }: { edits: ClipEdits }) {
     return (
       <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px]">
         <User size={10} className="shrink-0" />
-        <span>Wajah ditemukan ┬╖ crop statis ke posisi orang</span>
+        <span>Wajah ditemukan · crop statis ke posisi orang</span>
       </div>
     );
   }
@@ -255,12 +257,12 @@ function MotionStatusBadge({ edits }: { edits: ClipEdits }) {
   return (
     <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-white/40 text-[10px]">
       <Info size={10} className="shrink-0" />
-      <span>Tidak ada orang terdeteksi ┬╖ center crop</span>
+      <span>Tidak ada orang terdeteksi · center crop</span>
     </div>
   );
 }
 
-// ΓöÇΓöÇΓöÇ Main component ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ─── Main component ───────────────────────────────────────────────────────────
 export default function VideoEditor({
   moment, edits, videoSrc, onUpdateEdits, onExport, onClose, isExporting,
   onAutoSubtitle, onAnalyzeMotion,
@@ -289,7 +291,7 @@ export default function VideoEditor({
   const [transcribeError, setTranscribeError] = useState("");
   const [subtitleSubTab, setSubtitleSubTab] = useState<"presets" | "layers" | "add">("presets");
 
-  // ΓöÇΓöÇΓöÇ Motion tracking state ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ─── Motion tracking state ────────────────────────────────────────────────
   const [isAnalyzingMotion, setIsAnalyzingMotion] = useState(false);
   const [motionError, setMotionError] = useState("");
   // Track which ratio was last analyzed to detect when re-analysis is needed
@@ -331,7 +333,7 @@ export default function VideoEditor({
 
   useEffect(() => { loadAllSubtitleFonts(); }, []);
 
-  // ΓöÇΓöÇΓöÇ Auto-trigger motion analysis when aspect ratio changes ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ─── Auto-trigger motion analysis when aspect ratio changes ──────────────
   useEffect(() => {
     const ratio = edits.aspectRatio;
 
@@ -362,7 +364,7 @@ export default function VideoEditor({
     }
   }
 
-  // ΓöÇΓöÇ Image overlay drag ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Image overlay drag ──────────────────────────────────────────────────────
   const imageDragStartRef = useRef<{ mouseX: number; mouseY: number; imgX: number; imgY: number } | null>(null);
 
   function addImageOverlay(file: File) {
@@ -439,7 +441,7 @@ export default function VideoEditor({
     v.currentTime = Math.min(Math.max(v.currentTime + delta, clipStart), clipEnd);
   }
 
-  // ΓöÇΓöÇ Spacebar play/pause ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Spacebar play/pause ───────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
@@ -450,7 +452,7 @@ export default function VideoEditor({
     return () => window.removeEventListener("keydown", onKey);
   }, [isPlaying]);
 
-  // ΓöÇΓöÇ Progress bar drag ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Progress bar drag ─────────────────────────────────────────────────────
   function seekToClientX(clientX: number) {
     const bar = progressBarRef.current;
     if (!bar || !videoRef.current) return;
@@ -495,10 +497,10 @@ export default function VideoEditor({
     onUpdateEdits({ ...edits, ...partial });
   }
 
-  // ΓöÇΓöÇ Get current active preset ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Get current active preset ─────────────────────────────────────────────
   const currentPreset = SUBTITLE_PRESETS.find((p) => p.id === activePresetId) ?? SUBTITLE_PRESETS[0];
 
-  // ΓöÇΓöÇ Apply preset to all auto-subtitles ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Apply preset to all auto-subtitles ───────────────────────────────────
   function applyPresetToAllAuto(presetId: string) {
     const preset = SUBTITLE_PRESETS.find((p) => p.id === presetId);
     if (!preset) return;
@@ -508,7 +510,7 @@ export default function VideoEditor({
     updateEdits({ textOverlays: updated, activePresetId: presetId });
   }
 
-  // ΓöÇΓöÇ Auto-subtitle ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Auto-subtitle ──────────────────────────────────────────────────────────
   async function handleAutoSubtitle() {
     if (!onAutoSubtitle) return;
     setIsTranscribing(true);
@@ -547,7 +549,7 @@ export default function VideoEditor({
     updateEdits({ textOverlays: edits.textOverlays.filter((t) => !t.isAutoSubtitle) });
   }
 
-  // ΓöÇΓöÇ Text overlay CRUD ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Text overlay CRUD ─────────────────────────────────────────────────────
   function addTextOverlay() {
     if (!newText.trim()) return;
     const relCurrentTime = currentTime - clipStart;
@@ -577,7 +579,7 @@ export default function VideoEditor({
     if (expandedId === id) setExpandedId(null);
   }
 
-  // ΓöÇΓöÇ Drag text on video ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Drag text on video ────────────────────────────────────────────────────
   const handleTextMouseDown = useCallback((e: React.MouseEvent, id: string) => {
     e.preventDefault(); e.stopPropagation();
     setDraggingTextId(id); setSelectedOverlayId(id);
@@ -608,7 +610,7 @@ export default function VideoEditor({
     return () => { window.removeEventListener("mousemove", onMouseMove); window.removeEventListener("mouseup", onMouseUp); };
   }, [draggingTextId]);
 
-  // ΓöÇΓöÇ Timeline drag ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Timeline drag ─────────────────────────────────────────────────────────
   const handleTimelineMouseDown = useCallback((e: React.MouseEvent, id: string, edge: "left" | "right" | "move") => {
     e.preventDefault(); e.stopPropagation();
     const overlay = edits.textOverlays.find((t) => t.id === id);
@@ -664,11 +666,11 @@ export default function VideoEditor({
   const autoCount = edits.textOverlays.filter((t) => t.isAutoSubtitle).length;
   const manualCount = edits.textOverlays.filter((t) => !t.isAutoSubtitle).length;
 
-  // ΓöÇΓöÇ Determine motion tracking display state ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Determine motion tracking display state ───────────────────────────────
   const hasMotionTracking = edits.motionAnalyzed && edits.motionKeyframes && edits.motionKeyframes.length > 0 && !edits.isStaticMotion;
   const motionMessage = edits.motionMessage ?? "";
 
-  // ΓöÇΓöÇ Overlay controls ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Overlay controls ──────────────────────────────────────────────────────
   function renderOverlayControls(t: TextOverlay) {
     const s = t.startSec ?? 0;
     const en = t.endSec ?? clipDuration;
@@ -811,7 +813,7 @@ export default function VideoEditor({
             <div><div className="text-[9px] text-white/25 mb-1">Y: {Math.round(t.y * 100)}%</div>
               <input type="range" min={0} max={1} step={0.01} value={t.y} onChange={(e) => updateOverlay(t.id, { y: +e.target.value })} className="w-full accent-[#000000]" /></div>
           </div>
-          <p className="text-[9px] text-white/20">≡ƒÆí Drag text directly on video ┬╖ snaps to center</p>
+          <p className="text-[9px] text-white/20">≡ƒÆí Drag text directly on video · snaps to center</p>
         </div>
 
         <div className="space-y-2">
@@ -829,7 +831,7 @@ export default function VideoEditor({
     );
   }
 
-  // ΓöÇΓöÇ Tab icon labels for mobile bottom bar ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Tab icon labels for mobile bottom bar ─────────────────────────────────
   const TABS: { id: Tab; label: string; icon: typeof Type }[] = [
     { id: "subtitle", label: "Sub",   icon: Type },
     { id: "trim",     label: "Trim",  icon: Clock },
@@ -840,11 +842,11 @@ export default function VideoEditor({
     { id: "intro",    label: "Intro", icon: Sparkles },
   ];
 
-  // ΓöÇΓöÇ Right panel content ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ── Right panel content ────────────────────────────────────────────────────
   function renderPanelContent() {
     return (
       <>
-        {/* ΓöÇΓöÇ SUBTITLE TAB ΓöÇΓöÇ */}
+        {/* ── SUBTITLE TAB ── */}
         {activeTab === "subtitle" && (
           <div className="flex flex-col h-full">
             <div className="flex border-b border-white/10 shrink-0">
@@ -999,7 +1001,7 @@ export default function VideoEditor({
           </div>
         )}
 
-        {/* ΓöÇΓöÇ TRIM TAB ΓöÇΓöÇ */}
+        {/* ── TRIM TAB ── */}
         {activeTab === "trim" && (
           <div className="p-4 space-y-5">
             <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Trim Clip</div>
@@ -1017,7 +1019,7 @@ export default function VideoEditor({
           </div>
         )}
 
-        {/* ΓöÇΓöÇ CROP TAB ΓÇö WITH MOTION TRACKING ΓöÇΓöÇ */}
+        {/* ── CROP TAB ΓÇö WITH MOTION TRACKING ── */}
         {activeTab === "crop" && (
           <div className="p-4 space-y-4">
             <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Aspect Ratio</div>
@@ -1034,7 +1036,7 @@ export default function VideoEditor({
               ))}
             </div>
 
-            {/* ΓöÇΓöÇ AI Motion Tracking section (only shown when crop is active) ΓöÇΓöÇ */}
+            {/* ── AI Motion Tracking section (only shown when crop is active) ── */}
             {edits.aspectRatio !== "original" && (
               <div className="mt-2 rounded-xl border border-white/10 bg-white/3 overflow-hidden">
                 {/* Section header */}
@@ -1167,7 +1169,7 @@ export default function VideoEditor({
           </div>
         )}
 
-        {/* ΓöÇΓöÇ COLOR TAB ΓöÇΓöÇ */}
+        {/* ── COLOR TAB ── */}
         {activeTab === "color" && (
           <div className="p-4 space-y-5">
             <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Color Adjustments</div>
@@ -1187,7 +1189,7 @@ export default function VideoEditor({
           </div>
         )}
 
-        {/* ΓöÇΓöÇ SPEED TAB ΓöÇΓöÇ */}
+        {/* ── SPEED TAB ── */}
         {activeTab === "speed" && (
           <div className="p-4 space-y-4">
             <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Playback Speed</div>
@@ -1208,7 +1210,7 @@ export default function VideoEditor({
           </div>
         )}
 
-        {/* ΓöÇΓöÇ MEDIA TAB ΓöÇΓöÇ */}
+        {/* ── MEDIA TAB ── */}
         {activeTab === "media" && (
           <div className="p-4 space-y-4">
             <div className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Insert Media Overlay</div>
@@ -1220,7 +1222,7 @@ export default function VideoEditor({
                   <ImageIcon size={20} className="text-white/30" />
                 </div>
                 <p className="text-xs text-white/50 font-medium">Upload Image / Watermark</p>
-                <p className="text-[10px] text-white/25">PNG ┬╖ JPG ┬╖ SVG ┬╖ WebP ┬╖ GIF</p>
+                <p className="text-[10px] text-white/25">PNG · JPG · SVG · WebP · GIF</p>
               </div>
             </label>
 
@@ -1399,12 +1401,12 @@ export default function VideoEditor({
 
   // ─── RENDER
 
-  // ΓöÇΓöÇΓöÇ RENDER ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // ─── RENDER ────────────────────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center md:p-2">
       <div className="bg-[#111] border-0 md:border md:border-white/10 rounded-none md:rounded-2xl w-full h-full md:max-w-[1300px] md:h-[95vh] overflow-hidden flex flex-col shadow-2xl">
 
-        {/* ΓöÇΓöÇ Header ΓöÇΓöÇ */}
+        {/* ── Header ── */}
         <div className="flex items-center justify-between px-3 md:px-5 py-2.5 md:py-3 border-b border-white/10 shrink-0">
           <div className="flex items-center gap-2 md:gap-3">
             <button onClick={onClose} className="p-1.5 md:hidden rounded-xl hover:bg-white/10 text-white/60 hover:text-white transition-colors">
@@ -1417,7 +1419,7 @@ export default function VideoEditor({
             <div>
               <h2 className="text-xs md:text-sm font-bold text-white leading-tight truncate max-w-[150px] md:max-w-none">{moment.label}</h2>
               <p className="text-[9px] md:text-[10px] text-white/40 font-mono">
-                {formatTime(clipStart)} ΓåÆ {formatTime(clipEnd)} ┬╖ {Math.round(clipDuration)}s
+                {formatTime(clipStart)} ΓåÆ {formatTime(clipEnd)} · {Math.round(clipDuration)}s
                 {hasMotionTracking && (
                   <span className="ml-2 text-[#000000]/70 inline-flex items-center gap-0.5">
                     <Activity size={8} /> tracking
@@ -1460,10 +1462,10 @@ export default function VideoEditor({
           </div>
         </div>
 
-        {/* ΓöÇΓöÇ Body ΓöÇΓöÇ */}
+        {/* ── Body ── */}
         <div className="flex flex-1 overflow-hidden min-h-0 flex-col md:flex-row">
 
-          {/* ΓöÇΓöÇ Video area ΓöÇΓöÇ */}
+          {/* ── Video area ── */}
           <div className={`flex flex-col min-w-0 bg-black ${mobileShowPanel ? "hidden md:flex md:flex-1" : "flex flex-1"}`}>
             <div className="flex-1 relative flex items-center justify-center overflow-hidden">
               {videoSrc ? (
@@ -1518,7 +1520,7 @@ export default function VideoEditor({
                         {isSelected && (
                           <div className="absolute -inset-1 border border-[#000000]/70 rounded pointer-events-none" style={{ borderStyle: "dashed" }}>
                             <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-[#000000] text-white text-[9px] px-2 py-0.5 rounded font-mono whitespace-nowrap">
-                              {img.name} ┬╖ {Math.round(img.width * 100)}%
+                              {img.name} · {Math.round(img.width * 100)}%
                             </div>
                           </div>
                         )}
@@ -1561,6 +1563,10 @@ export default function VideoEditor({
                           letterSpacing: `${scaledLetterSpace}px`,
                           lineHeight: t.lineHeight || 1.2,
                           WebkitTextStroke: scaledOutline > 0 ? `${scaledOutline}px ${t.outlineColor || "#000000"}` : undefined,
+                          // paint-order: stroke fill ensures the stroke renders outside the fill
+                          // (matching FFmpeg borderw which is an outer stroke), preventing the
+                          // outline from eating into the text fill like the default CSS behaviour.
+                          paintOrder: scaledOutline > 0 ? "stroke fill" : undefined,
                           textShadow: buildTextShadow(t, fontPreviewScale),
                           whiteSpace: "nowrap",
                         }}>
@@ -1570,7 +1576,7 @@ export default function VideoEditor({
                           <div className="absolute -inset-2 border border-[#000000]/70 rounded pointer-events-none" style={{ borderStyle: "dashed" }}>
                             <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-[#000000] text-white text-[9px] px-2 py-0.5 rounded font-mono whitespace-nowrap flex items-center gap-1">
                               {t.isAutoSubtitle && <Sparkles size={8} />}
-                              {t.fontFamily} ┬╖ {t.fontSize} ┬╖ ~{Math.round(scaledFontSize)}px
+                              {t.fontFamily} · {t.fontSize} · ~{Math.round(scaledFontSize)}px
                             </div>
                           </div>
                         )}
@@ -1587,12 +1593,18 @@ export default function VideoEditor({
                         top:  `${(edits.watermarkY ?? 0.06) * 100}%`,
                         transform: "translate(-50%, -50%)",
                         opacity: edits.watermarkOpacity ?? 0.85,
-                        fontSize: `${(edits.watermarkFontSize ?? 0.04) * 100}cqw`,
+                        // Use px based on previewWidth to exactly mirror FFmpeg's w*ratio calculation.
+                        // cqw fallback is broken without container-type:inline-size on the parent.
+                        fontSize: `${(edits.watermarkFontSize ?? 0.04) * previewWidth}px`,
                         fontFamily: `'${edits.watermarkFontFamily ?? "Montserrat"}', sans-serif`,
                         fontWeight: edits.watermarkBold ? 700 : 400,
                         fontStyle: edits.watermarkItalic ? "italic" : "normal",
                         color: edits.watermarkTextColor ?? "#FFFFFF",
-                        textShadow: "1px 1px 3px rgba(0,0,0,0.85)",
+                        // Match FFmpeg build_watermark_text_filter: shadow at +2,+2 scaled to preview,
+                        // outline ~2px at 1080p (FONT_REFERENCE_WIDTH * 0.002), both with no blur.
+                        WebkitTextStroke: `${Math.max(1, Math.round(fontPreviewScale * 2))}px rgba(0,0,0,${Math.min(edits.watermarkOpacity ?? 0.85, 0.7)})`,
+                        paintOrder: "stroke fill",
+                        textShadow: `${2 * fontPreviewScale}px ${2 * fontPreviewScale}px 0px rgba(0,0,0,0.47)`,
                         whiteSpace: "nowrap",
                         zIndex: 35,
                       }}
@@ -1703,7 +1715,7 @@ export default function VideoEditor({
                   <span className="text-[10px] text-white/40 font-medium uppercase tracking-wider">Subtitle Timeline</span>
                   {autoCount > 0 && (
                     <span className="flex items-center gap-1 text-[9px] text-[#000000]/60 ml-1">
-                      <Sparkles size={9} />{autoCount} auto ┬╖ {manualCount} manual
+                      <Sparkles size={9} />{autoCount} auto · {manualCount} manual
                     </span>
                   )}
                 </div>
@@ -1793,14 +1805,14 @@ export default function VideoEditor({
             </div>
           </div>
 
-          {/* ΓöÇΓöÇ Right panel: Desktop sidebar ΓöÇΓöÇ */}
+          {/* ── Right panel: Desktop sidebar ── */}
           <div className="w-80 border-l border-white/10 flex-col overflow-hidden shrink-0 bg-[#0e0e0e] hidden md:flex">
             <div className="flex-1 overflow-y-auto">
               {renderPanelContent()}
             </div>
           </div>
 
-          {/* ΓöÇΓöÇ Mobile: Full-screen panel overlay ΓöÇΓöÇ */}
+          {/* ── Mobile: Full-screen panel overlay ── */}
           {mobileShowPanel && (
             <div className="md:hidden absolute inset-0 z-10 bg-[#0e0e0e] flex flex-col">
               <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">

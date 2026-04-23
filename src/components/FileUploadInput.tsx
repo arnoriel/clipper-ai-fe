@@ -260,7 +260,7 @@ export default function FileUploadInput({
                 >
                   {noCredits
                     ? "Top up untuk mulai analisis video"
-                    : "1 analisis = 1 cr ┬╖ 1 auto-subtitle = 1 cr"}
+                    : "1 analisis = 1 credit, 1 auto-subtitle = 1 credit"}
                 </p>
               </div>
             </div>
@@ -357,13 +357,9 @@ export default function FileUploadInput({
               </div>
               <div className="flex items-center gap-2 text-[10px] text-gray-400 font-mono mt-1 flex-wrap justify-center">
                 <span>MP4</span>
-                <span>┬╖</span>
                 <span>WebM</span>
-                <span>┬╖</span>
                 <span>MOV</span>
-                <span>┬╖</span>
                 <span>AVI</span>
-                <span>┬╖</span>
                 <span>MKV</span>
               </div>
               <p className="text-[10px] text-gray-400">
@@ -398,13 +394,11 @@ export default function FileUploadInput({
                 </p>
                 <div className="flex items-center gap-2 mt-1 text-xs text-gray-500 font-mono flex-wrap">
                   <span>{formatBytes(file!.size)}</span>
-                  <span>┬╖</span>
                   {duration !== null && (
                     <span className="text-[#000000]">
                       {formatDuration(duration)}
                     </span>
                   )}
-                  <span>┬╖</span>
                   <span>{file!.type || "video"}</span>
                 </div>
               </div>
