@@ -962,7 +962,7 @@ export default function VideoEditor({
                     <p className="text-xs text-white/20">No subtitles yet</p>
                     <button onClick={() => setSubtitleSubTab("presets")}
                       className="mt-2 text-[10px] text-[#000000]/60 hover:text-[#000000] transition-colors">
-                      Generate auto subtitles ΓåÆ
+                      Generate auto subtitles
                     </button>
                   </div>
                 )}
@@ -985,7 +985,7 @@ export default function VideoEditor({
                             {t.uppercase ? t.text.toUpperCase() : t.text}
                           </span>
                         </div>
-                        <span className="text-[9px] text-white/25 font-mono shrink-0">{s.toFixed(1)}ΓÇô{en.toFixed(1)}s</span>
+                        <span className="text-[9px] text-white/25 font-mono shrink-0">{s.toFixed(1)}{en.toFixed(1)}s</span>
                         <button onClick={(ev) => { ev.stopPropagation(); removeOverlay(t.id); }}
                           className="p-1 rounded hover:bg-red-500/20 text-white/20 hover:text-red-400 transition-colors shrink-0">
                           <Trash2 size={11} />
@@ -1419,7 +1419,7 @@ export default function VideoEditor({
             <div>
               <h2 className="text-xs md:text-sm font-bold text-white leading-tight truncate max-w-[150px] md:max-w-none">{moment.label}</h2>
               <p className="text-[9px] md:text-[10px] text-white/40 font-mono">
-                {formatTime(clipStart)} ΓåÆ {formatTime(clipEnd)} · {Math.round(clipDuration)}s
+                {formatTime(clipStart)} {formatTime(clipEnd)} · {Math.round(clipDuration)}s
                 {hasMotionTracking && (
                   <span className="ml-2 text-[#000000]/70 inline-flex items-center gap-0.5">
                     <Activity size={8} /> tracking
@@ -1738,7 +1738,7 @@ export default function VideoEditor({
                     style={{ height: `${Math.max(1, edits.textOverlays.length) * 36 + 8}px` }}>
                     {edits.textOverlays.length === 0 && (
                       <div className="absolute inset-0 flex items-center justify-center text-[10px] text-white/20">
-                        Generate auto subtitles or add text ΓåÆ clips appear here
+                        Generate auto subtitles or add text clips appear here
                       </div>
                     )}
                     {edits.textOverlays.map((t, index) => {
