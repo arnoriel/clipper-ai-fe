@@ -577,51 +577,71 @@ export default function App() {
     <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white flex flex-col">
       <div className="h-px bg-black dark:bg-white" />
 
-      {/* Header */}
-      <header className="flex items-center justify-between px-6 py-3 border-b border-black/10 dark:border-white/10 shrink-0 bg-white dark:bg-black">
-        <div className="flex items-center gap-4">
+      {/* Header — mobile-first */}
+      <header className="flex items-center justify-between px-3 md:px-6 py-2.5 md:py-3 border-b border-black/10 dark:border-white/10 shrink-0 bg-white dark:bg-black gap-2">
+        {/* Left */}
+        <div className="flex items-center gap-2 md:gap-3 shrink-0">
           <button
             onClick={() => { setStep("input"); setProject(null); setSelectedClipIds([]); setClipEdits({}); setExportedUrls({}); setError(""); }}
-            className="p-1.5 border border-black/10 dark:border-white/10 hover:border-black/30 dark:hover:border-white/30 text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors"
+            className="p-2 rounded-xl border border-black/10 dark:border-white/10 hover:border-black/30 dark:hover:border-white/30 text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white transition-colors"
             title="Kembali ke home">
             <ArrowLeft size={16} />
           </button>
           <div className="flex items-center gap-2">
-            <div className="h-6 w-6 bg-black dark:bg-white flex items-center justify-center text-white dark:text-black">
-              <BrandLogo size={14} className="fill-current stroke-current" style={{ color: 'inherit' }} />
+            <div className="h-6 w-6 bg-black dark:bg-white flex items-center justify-center text-white dark:text-black rounded-md">
+              <BrandLogo size={12} className="fill-current stroke-current" style={{ color: 'inherit' }} />
             </div>
-            <span className="font-black text-xs uppercase tracking-widest text-black dark:text-white">TryKlip</span>
+            <span className="font-black text-xs uppercase tracking-widest text-black dark:text-white hidden sm:inline">TryKlip</span>
           </div>
         </div>
 
-        <div className="flex-1 max-w-md mx-8 hidden md:block min-w-0">
+        {/* Center — filename (desktop) */}
+        <div className="flex-1 max-w-md mx-4 hidden md:block min-w-0">
           <div className="flex items-center gap-2 font-mono text-xs text-black/40 dark:text-white/30 truncate">
             <Film size={11} className="text-black dark:text-white shrink-0" />
             <span className="truncate">{project.videoFileName}</span>
-            <span className="shrink-0 font-mono">· {formatTime(project.videoDuration)}</span>
+            <span className="shrink-0">· {formatTime(project.videoDuration)}</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 font-mono text-xs text-black dark:text-white">
+        {/* Right */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Credits badge — always visible on mobile */}
+          <button
+            onClick={() => setShowCreditModal(true)}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-colors ${
+              credits === 0 ? "bg-red-500/10 border-red-400/30 text-red-500 dark:text-red-400" :
+              credits <= 3 ? "bg-orange-500/10 border-orange-400/30 text-orange-500 dark:text-orange-400" :
+              "bg-black/5 dark:bg-white/10 border-black/15 dark:border-white/15 text-black dark:text-white"
+            }`}
+            title="Lihat & top up kredit">
+            <CreditCard size={11} />
+            <span>{credits}</span>
+          </button>
+
+          {/* Video ready badge — desktop */}
+          <div className="hidden sm:flex items-center gap-1.5 font-mono text-xs text-black/50 dark:text-white/50">
             <CheckCircle2 size={11} />
-            <span className="hidden sm:inline">Video siap</span>
+            <span className="hidden md:inline">Video siap</span>
           </div>
 
+          {/* Export button */}
           {selectedClipIds.length > 0 && (
             <button onClick={() => setActivePanel("export")}
-              className="flex items-center gap-2 px-4 py-2 bg-black dark:bg-white text-white dark:text-black font-black text-xs uppercase tracking-widest hover:opacity-90 transition-opacity">
+              className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 bg-black dark:bg-white text-white dark:text-black font-black text-xs uppercase tracking-widest hover:opacity-90 transition-opacity rounded-xl">
               <Film size={11} />
-              Export {selectedClipIds.length} Clip{selectedClipIds.length > 1 ? "s" : ""}
+              <span className="hidden sm:inline">Export </span>{selectedClipIds.length}
               <ChevronRight size={11} />
             </button>
           )}
 
+          {/* Info (mobile) */}
           <button onClick={() => setShowMobileSidebar(true)}
             className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 lg:hidden" title="Info">
             <Menu size={18} />
           </button>
 
+          {/* Logout (desktop) */}
           <div className="relative hidden lg:block">
             <button onClick={() => setShowLogoutConfirm(true)}
               className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-red-500 hover:border-red-200 dark:hover:border-red-800 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
@@ -791,16 +811,18 @@ export default function App() {
 
         {/* Main panel */}
         <main className="flex-1 overflow-y-auto min-w-0 bg-white dark:bg-black">
-          <div className="sticky top-0 z-10 flex items-center gap-0 px-6 py-3 bg-white/95 dark:bg-black/95 backdrop-blur border-b border-black/10 dark:border-white/10">
+          <div className="sticky top-0 z-10 flex items-center gap-0 px-3 md:px-6 bg-white/95 dark:bg-black/95 backdrop-blur border-b border-black/10 dark:border-white/10">
             <button onClick={() => setActivePanel("moments")}
-              className={`px-4 py-2 font-mono text-xs uppercase tracking-widest transition-colors flex items-center gap-2 border-b-2 ${activePanel === "moments" ? "border-black dark:border-white text-black dark:text-white" : "border-transparent text-black/40 dark:text-white/30 hover:text-black dark:hover:text-white"}`}>
+              className={`flex-1 md:flex-none px-4 py-3.5 font-mono text-xs uppercase tracking-widest transition-colors flex items-center justify-center md:justify-start gap-2 border-b-2 ${activePanel === "moments" ? "border-black dark:border-white text-black dark:text-white" : "border-transparent text-black/40 dark:text-white/30 hover:text-black dark:hover:text-white"}`}>
               <Sparkles size={11} />
-              Momen Viral ({project.analysisResult.moments.length})
+              <span>Momen Viral</span>
+              <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded-full ${activePanel === "moments" ? "bg-black/10 dark:bg-white/10" : "bg-black/5 dark:bg-white/5"}`}>{project.analysisResult.moments.length}</span>
             </button>
             <button onClick={() => setActivePanel("export")}
-              className={`px-4 py-2 font-mono text-xs uppercase tracking-widest transition-colors flex items-center gap-2 border-b-2 ${activePanel === "export" ? "border-black dark:border-white text-black dark:text-white" : "border-transparent text-black/40 dark:text-white/30 hover:text-black dark:hover:text-white"}`}>
+              className={`flex-1 md:flex-none px-4 py-3.5 font-mono text-xs uppercase tracking-widest transition-colors flex items-center justify-center md:justify-start gap-2 border-b-2 ${activePanel === "export" ? "border-black dark:border-white text-black dark:text-white" : "border-transparent text-black/40 dark:text-white/30 hover:text-black dark:hover:text-white"}`}>
               <Film size={11} />
-              Clips Dipilih ({selectedClipIds.length})
+              <span>Clips Dipilih</span>
+              <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded-full ${activePanel === "export" ? "bg-black/10 dark:bg-white/10" : "bg-black/5 dark:bg-white/5"} ${selectedClipIds.length > 0 ? "text-black dark:text-white font-bold" : ""}`}>{selectedClipIds.length}</span>
             </button>
           </div>
 
