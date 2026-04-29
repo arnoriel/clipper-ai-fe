@@ -12,7 +12,7 @@
 import { useState, useEffect, useRef } from "react";
 import { BrandLogo } from "../components/BrandLogo";
 import {
-  Film, ChevronRight, Loader2,
+  Film, ChevronRight,
   CheckCircle2, AlertCircle, Sparkles, ArrowLeft,
   CreditCard, Menu, LogOut, X as XIcon,
 } from "lucide-react";
@@ -25,6 +25,7 @@ import CreditModal from "../components/CreditModal";
 import type { ClipTemplate } from "../lib/templates";
 import { applyTemplateToEdits } from "../lib/templates";
 import { detectViralMomentsFromFile, formatTime, type ViralMoment } from "../lib/AI";
+import ProgressBar, { type ProgressState, type ProgressStage } from "../components/ProgressBar";
 import {
   saveProject, defaultEdits, generateId, getApiKey, getProject,
   type Project, type ProjectClip, type ClipEdits,
@@ -51,14 +52,7 @@ function clearSession() { localStorage.removeItem(SESSION_KEY); }
 
 type Step = "input" | "analyzing" | "moments";
 
-function ProgressToast({ message }: { message: string }) {
-  return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 bg-white dark:bg-black border border-black/40 dark:border-white/40 shadow-lg font-mono text-xs text-black dark:text-white whitespace-nowrap">
-      <Loader2 size={13} className="animate-spin text-black dark:text-white shrink-0" />
-      {message}
-    </div>
-  );
-}
+const IDLE_PROGRESS: ProgressState = { pct: 0, stage: "idle" as ProgressStage, msg: "" };
 
 export default function App() {
   const navigate = useNavigate();
@@ -73,7 +67,10 @@ export default function App() {
   const [isLoading, setIsLoading]     = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportingId, setExportingId] = useState<string | null>(null);
-  const [progressMsg, setProgressMsg] = useState("");
+  const [, setProgressMsg] = useState("");
+  const [progressState, setProgressState] = useState<ProgressState>(IDLE_PROGRESS);
+  // Track whether auto-generate mode is active (shows 3rd subtitle stage)
+  const [autoMode, setAutoMode] = useState(false);
   const [error, setError]             = useState("");
   const [activePanel, setActivePanel] = useState<"moments" | "export">("moments");
 
@@ -171,7 +168,9 @@ export default function App() {
     if (!apiKey) { setError("API key tidak ditemukan."); return; }
 
     setIsLoading(true); setError("");
+    setAutoMode(false);
     setProgressMsg("Menyimpan video ke browser…");
+    setProgressState({ pct: 1, stage: "loading", msg: "Menyimpan video ke browser…" });
     setStep("analyzing");
 
     try {
@@ -183,7 +182,15 @@ export default function App() {
 
       const videoInfo = { fileName: file.name, fileSize: file.size, duration, mimeType: file.type || "video/mp4" };
 
-      const result = await detectViralMomentsFromFile(videoInfo, apiKey, (msg) => setProgressMsg(msg), numClips);
+      const result = await detectViralMomentsFromFile(
+        videoInfo, apiKey,
+        (pct, stage, msg) => {
+          setProgressMsg(msg);
+          const mappedPct = Math.round(pct * 0.65);
+          setProgressState({ pct: mappedPct, stage: stage as any, msg });
+        },
+        numClips,
+      );
 
       // ── Sync credits after deduction ────────────────────────────────────
       if (typeof result.credits_remaining === "number") {
@@ -218,7 +225,7 @@ export default function App() {
       }
       setStep("input");
     } finally {
-      setIsLoading(false); setProgressMsg("");
+      setIsLoading(false); setProgressMsg(""); setProgressState(IDLE_PROGRESS);
     }
   }
 
@@ -241,7 +248,9 @@ export default function App() {
  
     setIsLoading(true);
     setError("");
+    setAutoMode(true);
     setProgressMsg("Menyimpan video ke browser…");
+    setProgressState({ pct: 1, stage: "loading", msg: "Menyimpan video ke browser…" });
     setStep("analyzing");
  
     try {
@@ -261,7 +270,7 @@ export default function App() {
       const result = await detectViralMomentsFromFile(
         videoInfo,
         getApiKey(),
-        (msg) => setProgressMsg(msg),
+        (pct, stage, msg) => { setProgressMsg(msg); setProgressState({ pct, stage: stage as any, msg }); },
         numClips,
       );
  
@@ -293,11 +302,10 @@ export default function App() {
  
       for (let i = 0; i < result.moments.length; i++) {
         const moment = result.moments[i];
-        setProgressMsg(
-          `Clip ${i + 1}/${result.moments.length}: ${
-            template.subtitle_enabled ? "generating subtitle…" : "applying template…"
-          }`,
-        );
+        const subtitlePct = Math.round(65 + ((i) / result.moments.length) * 32);
+        const subtitleMsg = `AI Creating Subtitles (clip ${i + 1}/${result.moments.length})...`;
+        setProgressMsg(subtitleMsg);
+        setProgressState({ pct: subtitlePct, stage: "subtitles", msg: subtitleMsg });
  
         let subtitleChunks: { text: string; start: number; end: number }[] = [];
  
@@ -337,6 +345,8 @@ export default function App() {
         };
       }
  
+      setProgressState({ pct: 100, stage: "done", msg: "Semua clip siap!" });
+      await new Promise((r) => setTimeout(r, 500)); // brief flash of 100%
       setSelectedClipIds(allMomentIds);
       setClipEdits(newClipEdits);
       setExportedUrls({});
@@ -354,6 +364,7 @@ export default function App() {
     } finally {
       setIsLoading(false);
       setProgressMsg("");
+      setProgressState(IDLE_PROGRESS);
     }
   }
 
@@ -549,7 +560,9 @@ export default function App() {
           credits={credits}
           onTopUpClick={() => setShowCreditModal(true)}
         />
-        {progressMsg && <ProgressToast message={progressMsg} />}
+        {isLoading && progressState.pct > 0 && (
+          <ProgressBar progress={progressState} hasSubtitles={autoMode} />
+        )}
         {showCreditModal && (
           <CreditModal currentCredits={credits} onClose={() => setShowCreditModal(false)} />
         )}
@@ -816,7 +829,9 @@ export default function App() {
         </main>
       </div>
 
-      {progressMsg && <ProgressToast message={progressMsg} />}
+      {isLoading && progressState.pct > 0 && (
+          <ProgressBar progress={progressState} hasSubtitles={autoMode} />
+        )}
 
       {editingMoment && (
         <VideoEditor
