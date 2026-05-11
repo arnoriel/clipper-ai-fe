@@ -178,7 +178,8 @@ export default function VideoEditor({ moment, edits, videoSrc, onUpdateEdits, on
   const [draggingImageId, setDraggingImageId] = useState<string | null>(null);
   const [newText, setNewText] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [mobileShowPanel, setMobileShowPanel] = useState(false);
+  // "subtitle" = show inline subtitle timeline in the 40% zone; other tab id = show that tab's panel
+  const [mobileBottomContent, setMobileBottomContent] = useState<"subtitle" | Tab>("subtitle");
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcribeError, setTranscribeError] = useState("");
   const [subtitleSubTab, setSubtitleSubTab] = useState<"presets" | "layers" | "add">("presets");
@@ -195,6 +196,14 @@ export default function VideoEditor({ moment, edits, videoSrc, onUpdateEdits, on
   const [draggingTimelineEdge, setDraggingTimelineEdge] = useState<"left" | "right" | "move" | null>(null);
   const timelineDragRef = useRef<{ startX: number; origStart: number; origEnd: number } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // ── Timeline zoom (pinch / scroll-wheel) ──────────────────────────────────
+  const [timelineZoom, setTimelineZoom] = useState(1); // 1 = fit, >1 = zoomed in
+  const timelineScrollRef = useRef<HTMLDivElement>(null);
+  const pinchStartDistRef = useRef<number | null>(null);
+  const pinchStartZoomRef = useRef<number>(1);
+  // pan state: how far (in seconds) the left edge of the visible window is scrolled
+  const [timelinePanSec, setTimelinePanSec] = useState(0);
 
   useEffect(() => {
     const el = videoWrapRef.current; if (!el) return;
@@ -391,6 +400,72 @@ export default function VideoEditor({ moment, edits, videoSrc, onUpdateEdits, on
     navigator.clipboard.writeText(text).then(() => { setCopiedId(id); setTimeout(() => setCopiedId(null), 1500); });
   }
   function copyAllTranscript() { copyText(edits.textOverlays.map((t) => t.text).join("\n"), "all"); }
+
+  // ── Timeline zoom/pan helpers ─────────────────────────────────────────────
+  const MAX_ZOOM = 40; // 40× = sub-100ms resolution
+  const MIN_ZOOM = 1;
+
+  function clampZoom(z: number) { return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z)); }
+
+  // Adjust zoom while keeping a focal point (in seconds) anchored on screen.
+  function applyZoom(newZoom: number, focalSec: number) {
+    const clamped = clampZoom(newZoom);
+    const el = timelineScrollRef.current;
+    if (!el) { setTimelineZoom(clamped); return; }
+    // After zoom, compute scroll position so focalSec stays under pointer
+    const totalPx = el.scrollWidth; // not updated yet, use calculated
+    const viewPx = el.clientWidth;
+    // focalSec as fraction of clip
+    const frac = focalSec / clipDuration;
+    const newTotalPx = viewPx * clamped;
+    const newScrollLeft = frac * newTotalPx - (frac * viewPx);
+    setTimelineZoom(clamped);
+    requestAnimationFrame(() => {
+      if (timelineScrollRef.current) timelineScrollRef.current.scrollLeft = Math.max(0, newScrollLeft);
+    });
+  }
+
+  // Desktop: scroll-wheel zoom on timeline
+  function handleTimelineWheel(e: React.WheelEvent) {
+    if (!e.ctrlKey && !e.metaKey && Math.abs(e.deltaX) < Math.abs(e.deltaY) * 0.5) return; // only zoom if ctrl/cmd or horizontal
+    e.preventDefault();
+    if (e.ctrlKey || e.metaKey) {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const frac = (e.clientX - rect.left + (timelineScrollRef.current?.scrollLeft ?? 0)) / ((timelineScrollRef.current?.scrollWidth ?? rect.width));
+      const focalSec = frac * clipDuration;
+      applyZoom(timelineZoom * (1 - e.deltaY * 0.01), focalSec);
+    }
+  }
+
+  // Touch pinch-to-zoom for timeline
+  function handleTimelineTouchStart(e: React.TouchEvent) {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      pinchStartDistRef.current = Math.hypot(dx, dy);
+      pinchStartZoomRef.current = timelineZoom;
+      e.preventDefault();
+    }
+  }
+
+  function handleTimelineTouchMove(e: React.TouchEvent) {
+    if (e.touches.length === 2 && pinchStartDistRef.current !== null) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const newZoom = clampZoom(pinchStartZoomRef.current * (dist / pinchStartDistRef.current));
+      const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const scrollLeft = timelineScrollRef.current?.scrollLeft ?? 0;
+      const totalWidth = (timelineScrollRef.current?.scrollWidth ?? rect.width);
+      const frac = (midX - rect.left + scrollLeft) / totalWidth;
+      const focalSec = frac * clipDuration;
+      applyZoom(newZoom, focalSec);
+    }
+  }
+
+  function handleTimelineTouchEnd() { pinchStartDistRef.current = null; }
 
   // ── Overlay controls ──────────────────────────────────────────────────────
   function renderOverlayControls(t: TextOverlay) {
@@ -751,6 +826,101 @@ export default function VideoEditor({ moment, edits, videoSrc, onUpdateEdits, on
     );
   }
 
+  // ─── Shared zoomable timeline renderer ───────────────────────────────────
+  function renderZoomableTimeline(compact: boolean) {
+    // Timeline ruler tick density based on zoom
+    // at zoom=1, show every 1s; at zoom>=5 show every 0.5s; at zoom>=15 show every 0.1s
+    const tickInterval = timelineZoom >= 15 ? 0.1 : timelineZoom >= 5 ? 0.5 : 1;
+    const tickCount = Math.ceil(clipDuration / tickInterval) + 1;
+
+    return (
+      <div
+        className="flex flex-col flex-1 min-h-0"
+        onWheel={handleTimelineWheel}
+        onTouchStart={handleTimelineTouchStart}
+        onTouchMove={handleTimelineTouchMove}
+        onTouchEnd={handleTimelineTouchEnd}
+      >
+        {/* Header row: label + zoom controls */}
+        <div className={`flex items-center gap-2 ${compact ? "px-3 py-1.5" : "px-4 py-2"} border-b border-white/5 shrink-0`}>
+          <Type size={compact ? 10 : 11} className="text-white/40" />
+          <span className={`${compact ? "text-[9px]" : "text-[10px]"} text-white/40 font-medium uppercase tracking-wider flex-1`}>Subtitle Timeline</span>
+          {autoCount > 0 && <span className="flex items-center gap-1 text-[9px] text-white/30"><Sparkles size={compact ? 8 : 9} />{autoCount} auto{!compact && ` · ${manualCount} manual`}</span>}
+          {/* Zoom controls */}
+          <div className="flex items-center gap-1 ml-2">
+            <button onClick={() => applyZoom(timelineZoom / 1.5, clipDuration / 2)} className="w-5 h-5 rounded flex items-center justify-center text-white/30 hover:text-white hover:bg-white/10 text-sm font-bold transition-colors leading-none">−</button>
+            <span className="text-[8px] font-mono text-white/25 w-7 text-center">{timelineZoom.toFixed(timelineZoom < 2 ? 1 : 0)}×</span>
+            <button onClick={() => applyZoom(timelineZoom * 1.5, clipDuration / 2)} className="w-5 h-5 rounded flex items-center justify-center text-white/30 hover:text-white hover:bg-white/10 text-sm font-bold transition-colors leading-none">+</button>
+          </div>
+        </div>
+
+        {/* Scrollable inner — horizontal scroll when zoomed */}
+        <div ref={timelineScrollRef} className="flex-1 overflow-x-auto overflow-y-auto min-h-0" style={{ scrollbarWidth: "thin" }}>
+          <div style={{ width: timelineZoom <= 1 ? "100%" : `${timelineZoom * 100}%`, minWidth: "100%", paddingBottom: "4px" }}>
+            {/* Ruler */}
+            <div className={`${compact ? "px-3 pt-1" : "px-4 pt-1"} shrink-0`}>
+              <div className="relative" style={{ height: compact ? "16px" : "20px" }}>
+                {Array.from({ length: tickCount }).map((_, i) => {
+                  const sec = i * tickInterval;
+                  if (sec > clipDuration + 0.01) return null;
+                  const showLabel = tickInterval >= 1 || i % (timelineZoom >= 15 ? 5 : 2) === 0;
+                  return (
+                    <div key={i} className="absolute top-0 flex flex-col items-center" style={{ left: `${(sec / clipDuration) * 100}%` }}>
+                      <div className={`w-px bg-white/20`} style={{ height: showLabel ? (compact ? "6px" : "8px") : "4px" }} />
+                      {showLabel && <span className={`font-mono text-white/25 mt-0.5`} style={{ fontSize: compact ? "6px" : "8px" }}>
+                        {tickInterval < 1 ? `${sec.toFixed(1)}s` : `${sec}s`}
+                      </span>}
+                    </div>
+                  );
+                })}
+                {/* Playhead on ruler */}
+                <div className="absolute top-0 bottom-0 w-px bg-white/80 z-10 pointer-events-none" style={{ left: `${progressPct}%` }} />
+              </div>
+            </div>
+
+            {/* Clip track area */}
+            <div className={compact ? "px-3 pb-1" : "px-4 pb-2"}>
+              <div
+                ref={timelineRef}
+                className="relative cursor-crosshair"
+                onClick={handleTimelineClick}
+                onPointerMove={handleTimelinePointerMove}
+                onPointerUp={handleTimelinePointerUp}
+                style={{ height: `${Math.max(1, edits.textOverlays.length) * 36 + 8}px`, touchAction: "pan-y" }}
+              >
+                {edits.textOverlays.length === 0 && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center px-4">
+                    <Sparkles size={16} className="text-white/15" />
+                    <p className="text-[10px] text-white/25 leading-relaxed">Generate subtitle atau tambah teks — clips tampil di sini</p>
+                  </div>
+                )}
+                {edits.textOverlays.map((t, index) => {
+                  const s = t.startSec ?? 0; const en = t.endSec ?? clipDuration; const isSel = selectedOverlayId === t.id;
+                  return (
+                    <div key={t.id} className="absolute" style={{ top: `${index * 36 + 4}px`, left: `${(s / clipDuration) * 100}%`, width: `${((en - s) / clipDuration) * 100}%`, height: "28px" }}>
+                      <div className={`relative w-full h-full rounded-md flex items-center overflow-hidden border transition-all cursor-grab active:cursor-grabbing ${isSel ? "bg-white/30 border-white" : t.isAutoSubtitle ? "bg-purple-500/15 border-purple-500/40 hover:bg-purple-500/25" : "bg-white/15 border-white/40"}`}
+                        onPointerDown={(e) => { e.stopPropagation(); handleTimelinePointerDown(e, t.id, "move"); }}
+                        onClick={(e) => { e.stopPropagation(); setSelectedOverlayId(t.id); setExpandedId(t.id); setSubtitleSubTab("layers"); }}>
+                        <div className="flex-1 px-1.5 truncate flex items-center gap-1">
+                          {t.isAutoSubtitle && <Sparkles size={7} className="text-purple-400 shrink-0" />}
+                          <span className="text-[9px] text-white/80 font-medium truncate" style={{ fontFamily: `'${t.fontFamily || "Montserrat"}', sans-serif` }}>{t.uppercase ? t.text.toUpperCase() : t.text}</span>
+                        </div>
+                      </div>
+                      <div className="absolute left-0 top-0 bottom-0 w-3 cursor-col-resize flex items-center justify-center z-10" onPointerDown={(e) => { e.stopPropagation(); handleTimelinePointerDown(e, t.id, "left"); }}><div className="w-0.5 h-3/4 rounded-full bg-white/60 hover:bg-white" /></div>
+                      <div className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize flex items-center justify-center z-10" onPointerDown={(e) => { e.stopPropagation(); handleTimelinePointerDown(e, t.id, "right"); }}><div className="w-0.5 h-3/4 rounded-full bg-white/60 hover:bg-white" /></div>
+                    </div>
+                  );
+                })}
+                {/* Playhead on clips track */}
+                <div className="absolute top-0 bottom-0 w-px bg-white/60 pointer-events-none z-20" style={{ left: `${progressPct}%` }} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ─── RENDER ────────────────────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col md:items-center md:justify-center md:bg-black/70 md:backdrop-blur-sm md:p-2">
@@ -795,9 +965,8 @@ export default function VideoEditor({ moment, edits, videoSrc, onUpdateEdits, on
         {/* Body */}
         <div className="flex flex-1 overflow-hidden min-h-0 flex-col md:flex-row">
 
-          {/* Video area — always visible on mobile */}
-          <div className={`flex flex-col bg-black ${mobileShowPanel ? "shrink-0" : "flex-1"} md:flex-1`}
-            style={mobileShowPanel ? { height: "clamp(140px, 38vw, 260px)" } : undefined}>
+          {/* Video area — mobile: fixed 50svh, desktop: flex-1 fills remaining space */}
+          <div className="flex flex-col bg-black h-[50svh] md:h-auto md:flex-1 shrink-0">
 
             {/* Video viewport */}
             <div className="flex-1 relative flex items-center justify-center overflow-hidden min-h-0">
@@ -904,63 +1073,12 @@ export default function VideoEditor({ moment, edits, videoSrc, onUpdateEdits, on
               </div>
             </div>
 
-            {/* Subtitle timeline — desktop only */}
+            {/* Subtitle timeline — desktop only (shown via md:flex) */}
             {activeTab === "subtitle" && (
               <div className="shrink-0 bg-[#0d0d0d] border-t border-white/10 flex-col hidden md:flex" style={{ minHeight: "120px", maxHeight: "220px" }}>
-                <div className="flex items-center gap-2 px-4 py-2 border-b border-white/5 shrink-0">
-                  <Type size={11} className="text-white/40" /><span className="text-[10px] text-white/40 font-medium uppercase tracking-wider">Subtitle Timeline</span>
-                  {autoCount > 0 && <span className="flex items-center gap-1 text-[9px] text-white/30 ml-1"><Sparkles size={9} />{autoCount} auto · {manualCount} manual</span>}
-                </div>
-                <div className="px-4 pt-1 shrink-0">
-                  <div className="relative h-5">
-                    {Array.from({ length: Math.ceil(clipDuration) + 1 }).map((_, i) => (
-                      <div key={i} className="absolute top-0 flex flex-col items-center" style={{ left: `${(i / clipDuration) * 100}%` }}>
-                        <div className="w-px h-2 bg-white/20" /><span className="text-[8px] text-white/25 font-mono mt-0.5">{i}s</span>
-                      </div>
-                    ))}
-                    <div className="absolute top-0 bottom-0 w-px bg-white z-10 pointer-events-none" style={{ left: `${progressPct}%` }}><div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-white" /></div>
-                  </div>
-                </div>
-                <div className="flex-1 overflow-y-auto px-4 pb-2 min-h-0">
-                  <div ref={timelineRef} className="relative cursor-crosshair"
-                    onClick={handleTimelineClick} onPointerMove={handleTimelinePointerMove} onPointerUp={handleTimelinePointerUp}
-                    style={{ height: `${Math.max(1, edits.textOverlays.length) * 36 + 8}px`, touchAction: "none" }}>
-                    {edits.textOverlays.length === 0 && <div className="absolute inset-0 flex items-center justify-center text-[10px] text-white/20">Generate auto subtitles or add text — clips appear here</div>}
-                    {edits.textOverlays.map((t, index) => {
-                      const s = t.startSec ?? 0; const en = t.endSec ?? clipDuration; const isSel = selectedOverlayId === t.id;
-                      return (
-                        <div key={t.id} className="absolute" style={{ top: `${index * 36 + 4}px`, left: `${(s / clipDuration) * 100}%`, width: `${((en - s) / clipDuration) * 100}%`, height: "28px" }}>
-                          <div className={`relative w-full h-full rounded-md flex items-center overflow-hidden border transition-all cursor-grab ${isSel ? "bg-white/30 border-white" : t.isAutoSubtitle ? "bg-purple-500/15 border-purple-500/40 hover:bg-purple-500/25" : "bg-white/15 border-white/40"}`}
-                            onPointerDown={(e) => { e.stopPropagation(); handleTimelinePointerDown(e, t.id, "move"); }}
-                            onClick={(e) => { e.stopPropagation(); setSelectedOverlayId(t.id); setExpandedId(t.id); setSubtitleSubTab("layers"); }}>
-                            <div className="flex-1 px-2 truncate flex items-center gap-1">
-                              {t.isAutoSubtitle && <Sparkles size={8} className="text-purple-400 shrink-0" />}
-                              <span className="text-[10px] text-white/80 font-medium truncate" style={{ fontFamily: `'${t.fontFamily || "Montserrat"}', sans-serif` }}>{t.uppercase ? t.text.toUpperCase() : t.text}</span>
-                            </div>
-                          </div>
-                          <div className="absolute left-0 top-0 bottom-0 w-3 cursor-col-resize flex items-center justify-center z-10" onPointerDown={(e) => { e.stopPropagation(); handleTimelinePointerDown(e, t.id, "left"); }}><div className="w-0.5 h-3/4 rounded-full bg-white/60 hover:bg-white" /></div>
-                          <div className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize flex items-center justify-center z-10" onPointerDown={(e) => { e.stopPropagation(); handleTimelinePointerDown(e, t.id, "right"); }}><div className="w-0.5 h-3/4 rounded-full bg-white/60 hover:bg-white" /></div>
-                        </div>
-                      );
-                    })}
-                    <div className="absolute top-0 bottom-0 w-px bg-white/60 pointer-events-none z-20" style={{ left: `${progressPct}%` }} />
-                  </div>
-                </div>
+                {renderZoomableTimeline(false)}
               </div>
             )}
-
-            {/* Mobile bottom tab bar */}
-            <div className="md:hidden shrink-0 flex bg-[#0a0a0a] border-t border-white/10 overflow-x-auto">
-              {TABS.map(({ id, label, icon: Icon }) => (
-                <button key={id} onClick={() => { setActiveTab(id); setMobileShowPanel(true); }}
-                  className={`flex flex-col items-center gap-1 flex-1 min-w-[50px] py-3 text-[10px] font-medium transition-colors relative ${activeTab === id && mobileShowPanel ? "text-white" : "text-white/35"}`}>
-                  <Icon size={20} />
-                  <span>{label}</span>
-                  {activeTab === id && mobileShowPanel && <div className="absolute top-0 inset-x-0 h-0.5 bg-white rounded-full" />}
-                  {id === "crop" && edits.aspectRatio !== "original" && <span className={`absolute top-2 right-2 w-1.5 h-1.5 rounded-full ${isAnalyzingMotion ? "bg-yellow-400 animate-pulse" : hasMotionTracking ? "bg-white" : edits.motionAnalyzed ? "bg-blue-400" : "bg-white/20"}`} />}
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* Desktop sidebar */}
@@ -968,18 +1086,48 @@ export default function VideoEditor({ moment, edits, videoSrc, onUpdateEdits, on
             <div className="flex-1 overflow-y-auto">{renderPanelContent()}</div>
           </div>
 
-          {/* Mobile: panel below video */}
-          {mobileShowPanel && (
-            <div className="md:hidden flex-1 flex flex-col bg-[#0e0e0e] border-t border-white/10 overflow-hidden min-h-0">
-              <div className="flex items-center justify-between px-4 py-2 shrink-0 border-b border-white/8">
-                <div className="flex items-center gap-2">
-                  {(() => { const tab = TABS.find(t => t.id === activeTab); const Icon = tab?.icon ?? Type; return <><Icon size={13} className="text-white/50" /><span className="text-xs font-semibold text-white/80 capitalize">{tab?.label}</span></>; })()}
+          {/* ── MOBILE ONLY: middle zone fills space between video (50svh) and tab bar (64px) ── */}
+          <div className="md:hidden flex flex-col bg-[#0d0d0d] border-t border-white/10 overflow-hidden flex-1 min-h-0">
+            {mobileBottomContent === "subtitle" ? (
+              renderZoomableTimeline(true)
+            ) : (
+              /* Tab panel content */
+              <>
+                <div className="flex items-center justify-between px-3 py-1.5 shrink-0 border-b border-white/8">
+                  <div className="flex items-center gap-1.5">
+                    {(() => { const tab = TABS.find(t => t.id === activeTab); const Icon = tab?.icon ?? Type; return <><Icon size={12} className="text-white/50" /><span className="text-[11px] font-semibold text-white/80 capitalize">{tab?.label}</span></>; })()}
+                  </div>
+                  <button onClick={() => setMobileBottomContent("subtitle")} className="p-1.5 rounded-xl hover:bg-white/10 text-white/40 hover:text-white transition-colors">
+                    <X size={12} />
+                  </button>
                 </div>
-                <button onClick={() => setMobileShowPanel(false)} className="p-1.5 rounded-xl hover:bg-white/10 text-white/40 hover:text-white transition-colors"><X size={15} /></button>
-              </div>
-              <div className="flex-1 overflow-y-auto">{renderPanelContent()}</div>
-            </div>
-          )}
+                <div className="flex-1 overflow-y-auto">{renderPanelContent()}</div>
+              </>
+            )}
+          </div>
+
+          {/* Mobile bottom tab bar — fixed height, won't get cut off */}
+          <div className="md:hidden shrink-0 flex bg-[#0a0a0a] border-t border-white/10" style={{ height: "64px" }}>
+            {TABS.map(({ id, label, icon: Icon }) => {
+              const isSubtitleTab = id === "subtitle";
+              const isActive = isSubtitleTab
+                ? mobileBottomContent === "subtitle"
+                : mobileBottomContent === id;
+              return (
+                <button key={id}
+                  onClick={() => {
+                    setActiveTab(id);
+                    setMobileBottomContent(isSubtitleTab ? "subtitle" : id as Tab);
+                  }}
+                  className={`flex flex-col items-center justify-center gap-1 flex-1 min-w-[48px] text-[9px] font-medium transition-colors relative ${isActive ? "text-white" : "text-white/35"}`}>
+                  <Icon size={20} />
+                  <span className="leading-none">{label}</span>
+                  {isActive && <div className="absolute top-0 inset-x-0 h-0.5 bg-white rounded-full" />}
+                  {id === "crop" && edits.aspectRatio !== "original" && <span className={`absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full ${isAnalyzingMotion ? "bg-yellow-400 animate-pulse" : hasMotionTracking ? "bg-white" : edits.motionAnalyzed ? "bg-blue-400" : "bg-white/20"}`} />}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
